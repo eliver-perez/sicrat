@@ -1,0 +1,10 @@
+/vendor/
+/.env
+/storage/logs/*.log
+/storage/cache/*
+!.gitkeep
+/whatsapptoken
+/public/whatsapp-factory-s-test.php
+/public/whatsapp-factory-test.php
+/public/whatsapp-meta-test.php
+/public/whatsapp-test.php
