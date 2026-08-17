@@ -1,3 +1,4 @@
+/app/Core/config.php
 /vendor/
 /.env
 /storage/logs/*.log
