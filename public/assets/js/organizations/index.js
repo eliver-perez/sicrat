@@ -255,7 +255,7 @@ function GetOrganizationData(id) {
 
 				var rows = '';
 				$.each(response.data.processes, function(k, v) {
-					rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${v.id}">
+					rows += `<tr class="text-default-800 hover:bg-default-100 process-tr" data-id="${v.id}">
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.process}</td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.type}</td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.character}</td>
