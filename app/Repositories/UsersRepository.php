@@ -18,26 +18,24 @@ class UsersRepository
 
     public function getAll(array $data): array
     {
-        $sql = "
-            SELECT
-                u.id,
-                u.uuid,
-                u.email,
-                u.usuario,
-                TRIM(
-                    CONCAT(
-                        u.nombre, ' ',
-                        COALESCE(u.paterno, ''), ' ',
-                        COALESCE(u.materno, '')
-                    )
-                ) nombre,
-                ut.tipo,
-                u.activo,
-                COALESCE(DATE_FORMAT(u.f_registro, '%d/%m/%Y %r'), '') f_registro,
-                COALESCE(DATE_FORMAT(u.f_ultima_conexion, '%d/%m/%Y %r'), '') f_ultima_conexion
-            FROM usuarios u
-                LEFT JOIN usuarios_tipos ut
-                    ON ut.id = u.tipo_usuario
+        $sql = "SELECT u.id,
+                        u.uuid,
+                        u.email,
+                        u.usuario,
+                        TRIM(
+                            CONCAT(
+                                u.nombre, ' ',
+                                COALESCE(u.paterno, ''), ' ',
+                                COALESCE(u.materno, '')
+                            )
+                        ) nombre,
+                        ut.tipo,
+                        u.activo,
+                        COALESCE(DATE_FORMAT(u.f_registro, '%d/%m/%Y %r'), '') f_registro,
+                        COALESCE(DATE_FORMAT(u.f_ultima_conexion, '%d/%m/%Y %r'), '') f_ultima_conexion
+                    FROM usuarios u
+                        LEFT JOIN usuarios_tipos ut
+                            ON ut.id = u.tipo_usuario
         ";
 
         $params = [];
@@ -55,6 +53,46 @@ class UsersRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getUserData(array $data): array
+    {
+        $sql = "SELECT u.id,
+                        u.uuid,
+                        u.email,
+                        u.usuario,
+                        u.password_hash,
+                        TRIM(
+                            CONCAT(
+                                u.nombre, ' ',
+                                COALESCE(u.paterno, ''), ' ',
+                                COALESCE(u.materno, '')
+                            )
+                        ) nombre,
+                        ut.tipo,
+                        TRIM(
+                            CONCAT(
+                                r.nombre, ' ',
+                                COALESCE(r.paterno, ''), ' ',
+                                COALESCE(r.materno, '')
+                            )
+                        ) registro,
+                        u.activo,
+                        COALESCE(DATE_FORMAT(u.f_registro, '%d/%m/%Y %r'), '') f_registro,
+                        COALESCE(DATE_FORMAT(u.f_ultima_conexion, '%d/%m/%Y %r'), '') f_ultima_conexion
+                    FROM usuarios u
+                        INNER JOIN usuarios_tipos ut
+                            ON ut.id = u.tipo_usuario
+                        LEFT JOIN usuarios r
+                            ON r.id = u.registro
+                    WHERE u.uuid = :uuid";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':uuid', $data['uuid'], PDO::PARAM_LOB);
+        $stmt->execute();
+
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+
     public function getUserIdByUuid($uuid): ?int {
         $stmt = $this->db->prepare("
             SELECT id
@@ -66,6 +104,19 @@ class UsersRepository
         $id = $stmt->fetchColumn();
 
         return $id !== false ? (int) $id : null;
+    }
+
+    public function getUserUuid($id) {
+        $stmt = $this->db->prepare("
+            SELECT uuid
+            FROM usuarios
+            WHERE id = :id
+            LIMIT 1");
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $id = $stmt->fetchColumn();
+
+        return $id !== false ? $id : null;
     }
 
     public function getUserTypeCodeById(int $id): ?string {
@@ -202,5 +253,14 @@ class UsersRepository
         $stmt->bindParam('tipo_usuario', $data['user_type'], PDO::PARAM_INT);
         $stmt->execute();
         return (int) $this->db->lastInsertId();
+    }
+    
+    public function updatePassword(array $data) {
+        $stmt = $this->db->prepare("
+            UPDATE usuarios SET password_hash = :password WHERE uuid = :uuid
+        ");
+        $stmt->bindParam('password', $data['password'], PDO::PARAM_STR);
+        $stmt->bindParam('uuid', $data['uuid'], PDO::PARAM_LOB);
+        $stmt->execute();
     }
 }

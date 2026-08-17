@@ -11,6 +11,9 @@ function InitializeValues(home) {
 
 function processCallBack(callBack) {
   switch(callBack) {
+    case 'missingInfo':
+      ShowToastMessage('Falta Información', 'error');
+      break;
     case 'deniedAccess':
       ShowToastMessage('Acceso denegado', 'error');
       break;

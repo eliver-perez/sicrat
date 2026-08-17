@@ -115,7 +115,7 @@ ALTER TABLE organizaciones ADD CONSTRAINT FK_organizaciones_registro FOREIGN KEY
 ALTER TABLE procesos_electorales ADD CONSTRAINT FK_procesoselectorales_registro FOREIGN KEY (registro) REFERENCES usuarios(id);
 
 INSERT INTO usuarios(uuid, usuario, email, nombre, paterno, materno, password_hash, tipo_usuario, activo, f_registro) 
-                VALUES(X'C475E751FD1547DDA8500D566F200F24', 'administrador', 'eliverperez90@gmail.com', 'Eliver', 'Perez', 'Villegas', '$2y$10$MqUTuFBUs.OIhkWSAxL3A.RfbglmDA9Uy/vgfYNOUvs2kI0EkBaYK', 1, 1, NOW());
+                VALUES(X'C475E751FD1547DDA8500D566F200F24', 'administrador', 'eliverperez90@gmail.com', 'Eliver', 'Perez', 'Villegas', '$2y$11$0zrw9InCEmkiJAKYKcrBo.Y.MQ6eoy60E8sdO/bcdltHcsaa54W4u', 1, 1, NOW());
 
 CREATE TABLE usuarios_procesos (
     id                              INT AUTO_INCREMENT PRIMARY KEY,
@@ -161,7 +161,7 @@ CREATE TABLE permisos (
 INSERT INTO permisos(id, permiso, f_registro) VALUES('superadmin', 'Administrador con permisos elevados.', NOW()),
                                                     ('admin', 'Usuario administrador', NOW()),
                                                     ('coordinador-general', 'Coordinador general', NOW()),
-                                                    ('capturador', 'Capturador', NOW());
+                                                    ('captura-personas', 'Capturador', NOW());
 
 CREATE TABLE permisos_usuarios (
     uuid                            BINARY(16) NOT NULL UNIQUE,

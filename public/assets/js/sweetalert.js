@@ -32,6 +32,7 @@
 				showCancelButton: true,
 				confirmButtonText: confirmButton,
 				cancelButtonText: cancelButton,
+				confirmButtonColor: "#2b7fff",
 				cancelButtonColor: "#d33",
 			}).then(callback);
 		}

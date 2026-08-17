@@ -59,6 +59,7 @@ class AuthController extends Controller
 
             $stmt = $conn->prepare("
                 SELECT u.id,
+                       u.uuid,
                        o.id organizacion_id,
                        o.uuid organizacion_uuid,
                        o.organizacion,
@@ -182,6 +183,7 @@ class AuthController extends Controller
             $_SESSION['SICRAT_LAST_ACTIVITY'] = time();
             $_SESSION['SICRAT_AUTH_TOKEN'] = $token;
             $_SESSION['SICRAT_ID'] = (int)$user['id'];
+            $_SESSION['SICRAT_UUID'] = $service->uuidBinaryToString($user['uuid']);
             $_SESSION['SICRAT_USERNAME'] = $user['usuario'];
             $_SESSION['SICRAT_EMAIL'] = $user['email'];
             $_SESSION['SICRAT_NAME'] = $user['nombre'];

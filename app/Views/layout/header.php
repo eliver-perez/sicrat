@@ -145,7 +145,6 @@
                         <button id="button-toggle-menu" class="btn btn-icon size-9 bg-default-400/10 hover:bg-default-150 rounded">
                             <i class="iconify lucide--align-left text-xl"></i>
                         </button>
-            
                     </div>
             
                     <div class="flex items-center gap-3">
@@ -166,7 +165,7 @@
                                 <div class="p-2">
                                     <h6 class="mb-2 text-default-500">Bienvenido a SICRAT</h6>
             
-                                    <a href="#!" class="flex gap-3">
+                                    <a href="<?= base_url('/profile/'.$_SESSION['SICRAT_UUID']); ?>" class="flex gap-3">
                                         <div class="relative inline-block">
                                             <div class="rounded bg-white-200">
                                                 <img src="<?= asset('/images/logos/logo_fold.png'); ?>" alt="" class="size-12 rounded">

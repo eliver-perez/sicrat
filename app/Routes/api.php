@@ -15,6 +15,7 @@ use App\Controllers\GenderController;
 use App\Controllers\PersonsController;
 use App\Controllers\UsersController;
 use App\Controllers\UsersTypesController;
+use App\Controllers\ProfilesController;
 use App\Core\Response;
 
 $router->post('/api/auth/login', [AuthController::class, 'login']);                                                                                         // ✅
@@ -82,3 +83,10 @@ $router->post('/api/persons', [PersonsController::class, 'store']);             
 $router->get('/api/users', [UsersController::class, 'index']);                                                                                              // ✅
 $router->post('/api/users', [UsersController::class, 'store']);                                                                                             // ✅
 $router->get('/api/users-types', [UsersTypesController::class, 'index']);                                                                                   // ✅
+
+/**
+ * PROFILE ROUTES ROUTES
+ */
+
+$router->get('/api/profiles/{id}', [ProfilesController::class, 'show']);                                                                                      // ✅
+$router->put('/api/profiles/{id}/change-password', [ProfilesController::class, 'updatePassword']);                                                            // ✅
