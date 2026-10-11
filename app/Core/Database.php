@@ -15,12 +15,17 @@ class Database
     {
         $host = env('DB_HOST', 'localhost');
         $dbname = env('DB_DATABASE', '');
+        $port = (int) env('DB_PORT', 3306);
+        $charset = env('DB_CHARSET', 'utf8mb4');
+        if ($port < 1 || $port > 65535 || !is_string($charset) || !preg_match('/^[a-zA-Z0-9_]+$/', $charset)) {
+            throw new \RuntimeException('La configuración de conexión no es válida.');
+        }
         $user = env('DB_USERNAME', '');
         $pass = env('DB_PASSWORD', '');
 
         try {
             $this->conn = new PDO(
-                "mysql:host={$host};dbname={$dbname};charset=utf8",
+                "mysql:host={$host};dbname={$dbname};port={$port};charset={$charset}",
                 $user,
                 $pass,
                 [
@@ -29,7 +34,7 @@ class Database
                 ]
             );
         } catch (PDOException $e) {
-            throw new \RuntimeException('Error de conexión a la base de datos: ' . $e->getMessage());
+            throw new \RuntimeException('No fue posible conectar con la base de datos.', previous: $e);
         }
     }
 

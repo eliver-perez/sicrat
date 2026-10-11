@@ -10,6 +10,9 @@ abstract class Service
 {
     protected function normalizeRequiredText(mixed $value, string $message): string
     {
+        if ($value !== null && !is_scalar($value)) {
+            throw new InvalidArgumentException('El texto recibido no es válido.');
+        }
         $text = trim((string) ($value ?? ''));
 
         if ($text === '') {
@@ -36,7 +39,7 @@ abstract class Service
             throw new InvalidArgumentException($message);
         }
 
-        if (!is_numeric($value)) {
+        if (filter_var($value, FILTER_VALIDATE_INT) === false) {
             throw new InvalidArgumentException($message);
         }
 
@@ -55,14 +58,14 @@ abstract class Service
         return $intValue;
     }
 
-    protected function normalizeOptionalInt(mixed $value, bool $allowZero = false): ?int
+    protected function normalizeOptionalInt(mixed $value, bool $allowZero = true): ?int
     {
         if ($value === null || $value === '') {
             return null;
         }
 
-        if (!is_numeric($value)) {
-            return null;
+        if (filter_var($value, FILTER_VALIDATE_INT) === false) {
+            throw new InvalidArgumentException('Debe indicarse un número entero.');
         }
 
         $intValue = (int) $value;
@@ -111,8 +114,8 @@ abstract class Service
             return null;
         }
 
-        if (!is_numeric($value)) {
-            return null;
+        if (filter_var($value, FILTER_VALIDATE_INT) === false) {
+            throw new InvalidArgumentException('Debe indicarse un número entero.');
         }
 
         $floatVal = (float) $value;
@@ -128,6 +131,15 @@ abstract class Service
         }
 
         return $floatVal;
+    }
+
+    protected function normalizeStatus(mixed $value): int
+    {
+        $status = $this->normalizeRequiredInt($value, 'El estado no es válido.', true);
+        if (!in_array($status, [0, 1], true)) {
+            throw new InvalidArgumentException('El estado no es válido.');
+        }
+        return $status;
     }
 
     protected function normalizeBoolToInt(mixed $value): int
@@ -190,7 +202,9 @@ abstract class Service
     }
 
     function uuidStringToBinary(string $uuid): string {
-        // die($uuid);
+        if (!$this->is_uuid($uuid)) {
+            throw new InvalidArgumentException('El identificador no es válido.');
+        }
         return hex2bin(str_replace('-', '', $uuid));
     }
 

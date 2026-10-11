@@ -7,7 +7,7 @@
                         </li>
         
                         <li class="menu-item">
-                            <a class="menu-link" href="<?= base_url('/'); ?>">
+                            <a class="menu-link" href="<?= escape_html(base_url('/')); ?>">
                                 <span class="menu-icon"><i data-lucide="monitor-dot"></i></span>
                                 <div class="menu-text">Dashboard</div>
                             </a>
@@ -17,7 +17,7 @@
 	                        if($session->verifyUserRights(['superadmin'])) { ?>
                             
                         <li class="menu-item">
-                            <a class="menu-link" href="<?= base_url('/organizations'); ?>">
+                            <a class="menu-link" href="<?= escape_html(base_url('/organizations')); ?>">
                                 <span class="menu-icon"><i data-lucide="building"></i></span>
                                 <div class="menu-text">Organizaciones</div>
                             </a>
@@ -30,7 +30,7 @@
 	                        if($session->verifyUserRights(['superadmin'])) { ?>
         
                         <li class="menu-item">
-                            <a class="menu-link" href="<?= base_url('/electoral-process'); ?>">
+                            <a class="menu-link" href="<?= escape_html(base_url('/electoral-process')); ?>">
                                 <span class="menu-icon"><i data-lucide="circuit-board"></i></span>
                                 <div class="menu-text">Procesos Electorales</div>
                             </a>
@@ -53,7 +53,7 @@
 	                        if($session->verifyUserRights(['superadmin'])) { ?>
         
                         <li class="menu-item">
-                            <a class="menu-link" href="<?= base_url('/sections'); ?>">
+                            <a class="menu-link" href="<?= escape_html(base_url('/sections')); ?>">
                                 <span class="menu-icon"><i data-lucide="columns-3"></i></span>
                                 <div class="menu-text">Secciones</div>
                             </a>
@@ -66,7 +66,7 @@
 	                        if($session->verifyUserRights(['superadmin'])) { ?>
         
                         <li class="menu-item">
-                            <a class="menu-link" href="<?= base_url('/polling-booth'); ?>">
+                            <a class="menu-link" href="<?= escape_html(base_url('/polling-booth')); ?>">
                                 <span class="menu-icon"><i data-lucide="home"></i></span>
                                 <div class="menu-text">Casillas</div>
                             </a>
@@ -89,7 +89,7 @@
 	                        if($session->verifyUserRights(['superadmin']) || $session->verifyUserRights(['captura-personas'])) { ?>
         
                         <li class="menu-item">
-                            <a class="menu-link" href="<?= base_url('/persons'); ?>">
+                            <a class="menu-link" href="<?= escape_html(base_url('/persons')); ?>">
                                 <span class="menu-icon"><i data-lucide="users"></i></span>
                                 <div class="menu-text">Personas</div>
                             </a>
@@ -112,7 +112,7 @@
 	                        if($session->verifyUserRights(['superadmin'])) { ?>
         
                         <li class="menu-item">
-                            <a class="menu-link" href="<?= base_url('/users'); ?>">
+                            <a class="menu-link" href="<?= escape_html(base_url('/users')); ?>">
                                 <span class="menu-icon"><i data-lucide="users"></i></span>
                                 <div class="menu-text">Usuarios</div>
                             </a>

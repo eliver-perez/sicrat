@@ -1,6 +1,7 @@
 // JavaScript Document
 
 var homeURL;
+var sectionsPagination;
 var selected_organization = '';
 var new_section = false, modify_section = false, registering_section = false, modifying_section = false;
 var defaultSelectedState = 28;
@@ -8,6 +9,7 @@ var defaultSelectedMunicipality = 1960;
 
 function InitializeValues(home) {
 	homeURL = home;
+	sectionsPagination = createPagination('#table-sections', () => GetSections());
 	$('#btn-sections-new').on('click', NewSection);
 	$('#btn-sections-cancel').on('click', CancelSection);
 	$('#select-sections-state').on('change', GetMunicipalities);
@@ -117,17 +119,19 @@ function GetSections() {
         url: `${homeURL}/api/sections`,
 		type: 'get',
 		data: {
+			...sectionsPagination.params(),
 			search: ''
 		},
 		dataType: "json",
 		success: function(response) {
+			sectionsPagination.update(response.pagination);
 			var rows = '';
 			console.log(response);
 			$.each(response.data.sections, function(k, v) {
-				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${v.id}">
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.section}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.state}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.municipality}</td>
+				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.section)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.state)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.municipality)}</td>
 							</tr>`;
 			});
 			$('#table-sections tbody').append(rows);

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Service;
+use App\Auth\Authorization;
+use App\Core\Security\PasswordPolicy;
 use App\Repositories\UsersRepository;
 use App\Repositories\OrganizationsRepository;
 use App\Repositories\ElectoralProcessRepository;
@@ -51,28 +53,22 @@ class UsersService extends Service
         }
     }
 
-                // 'username'                  => $request->input('username'),
-                // 'password'                  => $request->input('password'),
-                // 'user_type'                 => $request->input('type'),
-                // 'organization'              => $request->input('organization'),
-                // 'process'                   => $request->input('process'),
-                // 'email'                     => $request->input('email'),
-                // 'status'                    => $request->input('status'),
-                // 'name'                      => $request->input('name'),
-                // 'last_name'                 => $request->input('last_name'),
-                // 'second_last_name'          => $request->input('second_last_name'),
     public function create(array $data): ?array {
+        Authorization::requireOperation('users.create');
         $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
 
         $username = $this->normalizeRequiredText($data['username'] ?? null, 'Es necesario capturar un usuario.');
-        $password = $this->normalizeRequiredText($data['password'] ?? null, 'Es necesario capturar la contraseña.');
-        $user_type = $this->normalizeRequiredText($data['user_type'] ?? null, 'Es neceserio seleccionar el tipo de usuario.');
-        $organization = $this->normalizeRequiredText($data['organization'] ?? null, 'Es necesario seleccionar la organizacion');
+        $password = PasswordPolicy::newPassword($data['password'] ?? null);
+        $user_type = $this->normalizeRequiredInt($data['user_type'] ?? null, 'Es necesario seleccionar el tipo de usuario.');
+        $organization = $this->normalizeOptionalText($data['organization'] ?? null);
 
-        $process = $this->normalizeOptionalText($data['process'] ?? null, 'Es necesario seleccionar el proceso');
+        $process = $this->normalizeOptionalText($data['process'] ?? null);
 
         $email = $this->normalizeOptionalText($data['email'] ?? null);
-        $status = $this->normalizeOptionalInt($data['status'] ?? null);
+        $status = $this->normalizeStatus($data['status'] ?? 1);
+        if (!$this->usersRepository->userTypeExists($user_type)) {
+            throw new InvalidArgumentException('El tipo de usuario no es válido.');
+        }
 
         $name = $this->normalizeRequiredText($data['name'] ?? null, 'Es necesario capturar el nombre.');
         $last_name = $this->normalizeRequiredText($data['last_name'] ?? null, 'Es necesario capturar el apellido.');
@@ -80,13 +76,8 @@ class UsersService extends Service
 
         $user_exists = $this->usersRepository->userExists($username);
         if($user_exists)
-            throw new RuntimeException("El nombre de usuario ya existe.");
+            throw new InvalidArgumentException("El nombre de usuario ya existe.");
 
-        if($organization != null && $process != null)
-            $registerProcess = true;
-        else
-            $registerProcess = false;
-        
         if ($email !== null) {
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 throw new InvalidArgumentException('El correo electrónico no es válido.');
@@ -95,32 +86,41 @@ class UsersService extends Service
 
         $password_hash = $this->encrypt_hash($password);
 
-        if($registerProcess) {
+        $organizationId = null;
+        $processId = null;
+        if ($organization !== null && $organization !== 'N/A') {
             $organizationId = $this->organizationsRepository->getOrganizationId([
-                'uuid'                          => $this->uuidStringToBinary($organization)
+                'uuid' => $this->uuidStringToBinary($organization)
             ]);
-
-            $processId = $this->electoralProcessRepository->getElectoralProcessId([
-                'uuid'                          => $this->uuidStringToBinary($process)
-            ]);
-
-            if($organizationId == null || $processId == null)
-                $registerProcess = false;
+            if ($organizationId === null) {
+                throw new InvalidArgumentException('La organización no existe.');
+            }
         }
-        
+        if ($process !== null && $process !== 'N/A') {
+            $processId = $this->electoralProcessRepository->getElectoralProcessId([
+                'uuid' => $this->uuidStringToBinary($process)
+            ]);
+            if ($organizationId === null || $processId === null
+                || !$this->electoralProcessRepository->belongsToOrganization($processId, $organizationId)) {
+                throw new InvalidArgumentException('El proceso no pertenece a la organización seleccionada.');
+            }
+        }
+        $registerProcess = $processId !== null;
+
         $conn = $this->usersRepository->getConnection();
         $conn->beginTransaction();
         try {
             $userUuid = $this->generateUuidBinary();
             $userId = $this->usersRepository->insertUser([
                     'uuid'                          => $userUuid,
-                    'organization'                  => $registerProcess ? $organizationId : null,
+                    'organization'                  => $organizationId,
                     'username'                      => $username,
                     'email'                         => $email,
                     'name'                          => $name,
                     'last_name'                     => $last_name,
                     'second_last_name'              => $second_last_name,
                     'password'                      => $password_hash,
+                    'status'                        => $status,
                     'user_type'                     => $user_type,
                     'uid'                           => $uid,
                 ]);

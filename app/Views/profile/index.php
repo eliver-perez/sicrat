@@ -13,7 +13,7 @@
                                     <div class="col-span-1">
 
                                         <div class="relative inline-block rounded-full shadow-md size-20 profile-user xl:size-28">
-                                            <img src="<?= asset('/images/logos/logo_fold.png'); ?>" alt="" class="object-cover border-0 rounded-full img-thumbnail user-profile-image">
+                                            <img src="<?= escape_html(asset('/images/logos/logo_fold.png')); ?>" alt="" class="object-cover border-0 rounded-full img-thumbnail user-profile-image">
                                         </div>
                                     </div>
 
@@ -128,9 +128,9 @@
                     </div>
                 </div>
 
-<script src="<?= asset('js/profile/index.js'); ?>"></script>
+<script src="<?= escape_html(asset('js/profile/index.js')); ?>"></script>
 
 <script>
-    var currentLink = '<?= base_url('profile'); ?>';
-    var user_id = '<?= $id; ?>';
+    var currentLink = <?= json_script(base_url('profile')); ?>;
+    var user_id = <?= json_script($id); ?>;
 </script>

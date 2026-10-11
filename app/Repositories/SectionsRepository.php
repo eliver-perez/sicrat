@@ -53,7 +53,7 @@ class SectionsRepository
         $sql .= " AND (" . implode(' OR ', $conditions) . ")";
 
         $sql .= "
-            ORDER BY se.seccion ASC
+            ORDER BY se.seccion, se.id ASC
             LIMIT :limit OFFSET :offset
         ";
 
@@ -90,12 +90,10 @@ class SectionsRepository
             FROM secciones_electorales
             WHERE seccion = :section
                 AND estado = :state
-                AND municipio = :municipality
             LIMIT 1
         ");
         $stmt->bindParam(':section', $data['section']);
         $stmt->bindParam(':state', $data['state']);
-        $stmt->bindParam(':municipality', $data['municipality']);
         $stmt->execute();
 
         return (bool) $stmt->fetchColumn();
@@ -134,5 +132,10 @@ class SectionsRepository
         $stmt->execute();
 
         return (int) $this->db->lastInsertId();
+    }
+    public function municipalityBelongsToState(int $municipalityId, int $stateId): bool {
+        $stmt = $this->db->prepare('SELECT 1 FROM municipios WHERE id = :municipio AND estado = :estado');
+        $stmt->execute(['municipio' => $municipalityId, 'estado' => $stateId]);
+        return (bool) $stmt->fetchColumn();
     }
 }

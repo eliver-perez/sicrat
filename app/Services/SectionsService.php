@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Service;
+use App\Auth\Authorization;
 use App\Repositories\SectionsRepository;
 use App\Repositories\OrganizationsRepository;
 use App\Repositories\SettingsRepository;
@@ -52,12 +53,16 @@ class SectionsService extends Service
     }
 
     public function create(array $data): ?array {
+        Authorization::requireOperation('sections.create');
         $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
 
         $state = $this->normalizeRequiredInt($data['state'] ?? null, 'Es necesario seleccionar un estado.');
         $municipality = $this->normalizeRequiredInt($data['municipality'] ?? null, 'Es necesario seleccionar un municipio.');
-        $section = $this->normalizeRequiredText($data['section'] ?? null, 'Es necesario capturar un numero de sección.');
+        $section = $this->normalizeRequiredInt($data['section'] ?? null, 'Es necesario capturar un número de sección válido.');
 
+        if (!$this->sectionsRepository->municipalityBelongsToState($municipality, $state)) {
+            throw new InvalidArgumentException('El municipio no pertenece al estado seleccionado.');
+        }
         $conn = $this->sectionsRepository->getConnection();
         $conn->beginTransaction();
         try {
@@ -66,7 +71,7 @@ class SectionsService extends Service
                 'state'                                 => $state,
                 'municipality'                          => $municipality
             ]))
-                throw new RuntimeException("La Sección $section ya se encuentra registrada");
+                throw new InvalidArgumentException("La Sección $section ya se encuentra registrada");
 
             $sectionUuid = $this->generateUuidBinary();
             $sectionId = $this->sectionsRepository->insertSection([
@@ -92,26 +97,4 @@ class SectionsService extends Service
         }
     }
     
-    public function getSectionsData(array $data): ?array {
-        try {
-            $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
-
-            $sectionsData = $this->sectionsRepository->getSectionsData([
-                'uuid'                          => $this->uuidStringToBinary($data['uuid'])
-            ]);
-
-            return [
-                'id'                        => $this->uuidBinaryToString($sectionsData['uuid']),
-                'organization'              => $sectionsData['organizacion'],
-                'contact'                   => $sectionsData['contacto'] ?? '',
-                'phone'                     => $sectionsData['telefono'] ?? '',
-                'email'                     => $sectionsData['email'] ?? '',
-                'active'                    => $sectionsData['activo'] ?? '',
-                'registered_by'             => $sectionsData['registro'],
-                'registered_date'           => $sectionsData['f_registro']
-            ];
-        } catch (\Throwable $e) {
-            throw $e;
-        }
-    }
 }

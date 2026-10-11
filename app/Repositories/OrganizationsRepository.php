@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use PDO;
+use App\Auth\Authorization;
 
 class OrganizationsRepository
 {
@@ -35,6 +36,11 @@ class OrganizationsRepository
 
         $params = [];
 
+        $organization = Authorization::scopeOrganizationId();
+        if ($organization !== null) {
+            $sql .= ' AND o.id = :organizacion';
+        }
+
         $fields = ['o.organizacion', 'o.contacto', 'o.telefono', 'o.email', 'r.nombre'];
 
         $conditions = [];
@@ -49,11 +55,14 @@ class OrganizationsRepository
         $sql .= " AND (" . implode(' OR ', $conditions) . ")";
 
         $sql .= "
-            ORDER BY o.organizacion ASC
+            ORDER BY o.organizacion, o.id ASC
             LIMIT :limit OFFSET :offset
         ";
 
         $stmt = $this->db->prepare($sql);
+        if ($organization !== null) {
+            $stmt->bindValue(':organizacion', $organization, PDO::PARAM_INT);
+        }
 
         foreach ($params as $key => $value) {
             $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
@@ -77,6 +86,9 @@ class OrganizationsRepository
         $stmt->execute();
         $id = $stmt->fetchColumn();
 
+        if ($id !== false) {
+            Authorization::assertOrganization((int) $id);
+        }
         return $id !== false ? (int) $id : null;
     }
 
@@ -116,6 +128,7 @@ class OrganizationsRepository
     }
 
     public function getOrganizationData(array $data): ?array {
+        $this->getOrganizationId($data);
         $sql = "
             SELECT
                 o.id,
@@ -137,10 +150,11 @@ class OrganizationsRepository
         $stmt->bindParam(':uuid', $data['uuid'], PDO::PARAM_LOB);
         $stmt->execute();
 
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
     
     public function getOrganizationProcesses(array $data) {
+        $this->getOrganizationId($data);
         $sql = "
             SELECT
                 pe.id,
@@ -167,8 +181,18 @@ class OrganizationsRepository
             WHERE o.uuid = :uuid
         ";
 
+        $process = Authorization::scopeProcessId();
+        if ($process !== null) {
+            $sql .= ' AND pe.id = :proceso';
+        }
+        $sql .= ' ORDER BY pe.proceso, pe.id LIMIT :limit OFFSET :offset';
         $stmt = $this->db->prepare($sql);
+        if ($process !== null) {
+            $stmt->bindValue(':proceso', $process, PDO::PARAM_INT);
+        }
         $stmt->bindParam(':uuid', $data['uuid'], PDO::PARAM_LOB);
+        $stmt->bindValue(':limit', min(101, max(1, (int) ($data['limit'] ?? 26))), PDO::PARAM_INT);
+        $stmt->bindValue(':offset', max(0, (int) ($data['offset'] ?? 0)), PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

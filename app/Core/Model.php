@@ -12,6 +12,6 @@ abstract class Model
 
     public function __construct()
     {
-        $this->db = Database::connection();
+        $this->db = (new Database())->getConnection();
     }
 }

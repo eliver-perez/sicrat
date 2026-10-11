@@ -11,6 +11,8 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Auth\Session;
 use App\Core\Database;
+use App\Core\Security\PasswordPolicy;
+use App\Core\Security\Csrf;
 
 use App\Services\AuthService;
 
@@ -35,31 +37,34 @@ class AuthController extends Controller
         $salt = env('HMAC_SALT');
 
         if(!$salt) {
-            throw new \RuntimeException('HMAL_SALT no esta configurado en .env');
+            throw new \RuntimeException('HMAC_SALT no está configurado.');
         }
 
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        Session::start();
 
         $database = new Database();
         $conn = $database->getConnection();
 
         try {
-            $username = trim((string)$request->input('username', ''));
-            $password = (string)$request->input('password', '');
+            $username = $request->input('username', '');
+            $password = $request->input('password', '');
+            if (!is_string($username) || !is_string($password)) {
+                return $response->error('Usuario y contraseña deben ser texto.', 422);
+            }
+            $username = trim($username);
             $keep = (int)$request->input('keep_me_logged_in', 0) === 1;
 
             if ($username === '' || $password === '') {
                 return $response->json([
                     'status' => 'VALIDATION_ERROR',
-                    'message' => 'Usuario y password son obligatorios'.$username
+                    'message' => 'Usuario y contraseña son obligatorios.'
                 ], 422);
             }
 
             $stmt = $conn->prepare("
                 SELECT u.id,
                        u.uuid,
+                       u.organizacion cuenta_organizacion,
                        o.id organizacion_id,
                        o.uuid organizacion_uuid,
                        o.organizacion,
@@ -86,6 +91,7 @@ class AuthController extends Controller
                     LEFT JOIN usuarios_procesos up
                         ON up.usuario = u.id
                             AND up.activo = 1
+                            AND up.f_baja IS NULL
                     LEFT JOIN procesos_electorales pe
                         ON up.proceso = pe.id
                     LEFT JOIN organizaciones o
@@ -102,7 +108,7 @@ class AuthController extends Controller
                 return $response->json(['status' => 'ERROR_AUTENTICACION'], 401);
             }
 
-            if (!password_verify($password, $user['password_hash'])) {
+            if (!PasswordPolicy::verify(PasswordPolicy::read($password), $user['password_hash'])) {
                 return $response->json(['status' => 'ERROR_AUTENTICACION'], 401);
             }
 
@@ -110,7 +116,7 @@ class AuthController extends Controller
                 return $response->json(['status' => 'FAIL_NOT_ACTIVE'], 403);
             }
 
-            $organization_id = $user['organizacion_id'];
+            $organization_id = $user['cuenta_organizacion'] ?? $user['organizacion_id'];
             $organization_uuid = $user['organizacion_uuid'];
             $organization = $user['organizacion'];
             $process_id = $user['proceso_id'];
@@ -139,6 +145,8 @@ class AuthController extends Controller
                         ON up.tipo_usuario = ut.id
                 WHERE up.usuario = :usuario
                     AND up.f_baja IS NULL
+                    AND up.activo = 1
+                    AND (u.organizacion IS NULL OR pe.organizacion = u.organizacion)
             ");
 
             $stmt->bindParam(':usuario', $user['id']);
@@ -158,6 +166,8 @@ class AuthController extends Controller
             $conn->beginTransaction();
 
             session_regenerate_id(true);
+            $_SESSION = [];
+            $_SESSION['SICRAT_CSRF_TOKEN'] = bin2hex(random_bytes(32));
 
             $tokenBin = random_bytes(32);
             $token = bin2hex($tokenBin);
@@ -183,6 +193,7 @@ class AuthController extends Controller
             $_SESSION['SICRAT_LAST_ACTIVITY'] = time();
             $_SESSION['SICRAT_AUTH_TOKEN'] = $token;
             $_SESSION['SICRAT_ID'] = (int)$user['id'];
+            $_SESSION['SICRAT_GLOBAL_TYPE_CODE'] = $user_type_code;
             $_SESSION['SICRAT_UUID'] = $service->uuidBinaryToString($user['uuid']);
             $_SESSION['SICRAT_USERNAME'] = $user['usuario'];
             $_SESSION['SICRAT_EMAIL'] = $user['email'];
@@ -273,100 +284,36 @@ class AuthController extends Controller
                 $conn->rollBack();
             }
 
-            session_unset();
-            session_destroy();
+            Session::clear();
 
+            error_log((string) $e);
             return $response->json([
                 'status' => 'ERROR_SQL',
-                'message' => $e->getMessage()
+                'message' => 'No fue posible iniciar sesión.'
             ], 500);
         }
     }
 
-    // public function logout(Request $request, Response $response) {
-    //     $salt = env('HMAC_SALT');
-
-    //     if(!$salt) {
-    //         throw new \RuntimeException('HMAL_SALT no esta configurado en .env');
-    //     }
-
-    //     if (session_status() === PHP_SESSION_NONE) {
-    //         session_start();
-    //     }
-
-    //     $database = new DatabaseConnection();
-    //     $conn = $database->GetDatabaseConnector();
-
-    //     try {
-    //         if (!empty($_SESSION['SICRAT_AUTH_TOKEN'])) {
-    //             $tokenHex = $_SESSION['SICRAT_AUTH_TOKEN'];
-
-    //             if (ctype_xdigit($tokenHex) && strlen($tokenHex) === 64) {
-    //                 $tokenBin = hex2bin($tokenHex);
-    //                 $tokenHash = hash_hmac('sha256', $tokenBin, $salt, true);
-
-    //                 $stmt = $conn->prepare("
-    //                     DELETE FROM usuarios_sesiones
-    //                     WHERE token_hash = :token_hash
-    //                 ");
-    //                 $stmt->bindValue(':token_hash', $tokenHash, PDO::PARAM_LOB);
-    //                 $stmt->execute();
-    //             }
-    //         }
-
-    //         $_SESSION = [];
-    //         session_destroy();
-
-    //         return $response->json(['status' => 'OK']);
-    //     } catch (Throwable $e) {
-    //         return $response->json([
-    //             'status' => 'ERROR_LOGOUT',
-    //             'message' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
     public function logout(Request $request, Response $response) {
-        $salt = env('HMAC_SALT');
-
-        $session = new Session();
-        $database = new Database();
-        $conn = $database->getConnection();
-
+        $conn = (new Database())->getConnection();
         try {
-            $conn->beginTransaction();
-            $id = $session->getId();
-            $authentication_token_bin = hex2bin($session->getToken());
-            $authentication_token_hash = hash_hmac('sha256', $authentication_token_bin, $salt, true);
-            
-            $stmt = $conn->prepare('SELECT id, destruida_en FROM usuarios_sesiones WHERE usuario = :usuario AND token_hash = :token AND destruida_en IS NULL');
-            $stmt->bindParam(':usuario', $id);
-            $stmt->bindParam(':token', $authentication_token_hash);
-            $stmt->execute();
-            $data = $stmt->fetch();
-
-            if($data != null && $data['destruida_en'] == null) {
-                $stmt = $conn->prepare('UPDATE usuarios_sesiones SET destruida_en = NOW() WHERE id = :id');
-                $stmt->bindParam(':id', $data['id']);
-                $stmt->execute();
-            }
-
-            $conn->commit();
-            
-            session_unset();     // unset $_SESSION variable for the run-time 
-            session_destroy();   // destroy session data in storage
+            $token = $_SESSION['SICRAT_AUTH_TOKEN'];
+            $statement = $conn->prepare('UPDATE usuarios_sesiones SET destruida_en = NOW(), motivo_cierre = :motivo WHERE usuario = :usuario AND token_hash = :token AND destruida_en IS NULL');
+            $statement->bindValue(':motivo', 'logout');
+            $statement->bindValue(':usuario', (int) $_SESSION['SICRAT_ID'], PDO::PARAM_INT);
+            $statement->bindValue(':token', hash_hmac('sha256', hex2bin($token), env('HMAC_SALT'), true), PDO::PARAM_LOB);
+            $statement->execute();
+            Session::clear();
             return $response->json(['status' => 'OK']);
-        } catch(Exception $ex) {
-            $conn->rollBack();
-            echo json_encode(array('status' => 'FAIL'));
+        } catch (Throwable $exception) {
+            Session::clear();
+            return $response->exception($exception);
         }
     }
 
     public function me(Request $request, Response $response)
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        Session::start();
 
         if (empty($_SESSION['SICRAT_ID'])) {
             return $response->json([
@@ -381,6 +328,7 @@ class AuthController extends Controller
                 'email' => $_SESSION['SICRAT_EMAIL'] ?? null,
                 'nombre' => $_SESSION['SICRAT_NAME'] ?? null,
                 'auth_time' => $_SESSION['SICRAT_AUTH_TIME'] ?? null,
+                'csrf_token' => Csrf::token(),
             ]
         ]);
     }

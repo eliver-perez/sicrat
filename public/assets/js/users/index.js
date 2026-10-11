@@ -1,6 +1,7 @@
 // JavaScript Document
 
 var homeURL;
+var usersPagination;
 var selected_user = '';
 var new_user = false, modify_user = false, registering_user = false, modifying_user = false;
 var defaultSelectedState = 28;
@@ -8,6 +9,7 @@ var defaultSelectedMunicipality = 1960;
 
 function InitializeValues(home) {
 	homeURL = home;
+	usersPagination = createPagination('#table-users', () => GetUsers());
 	$('#btn-users-new').on('click', NewUser);
 	$('#btn-users-cancel').on('click', CancelUser);
 	$('#select-users-organization').on('change', GetProcesses);
@@ -64,11 +66,11 @@ function ClearUser() {
 	$(`#field-users-name`).val('');
 	$(`#field-users-last-name`).val('');
 	$(`#field-users-last-name-2`).val('');
-	$(`#chk-users-active`).prop('checked', true);
+	$(`#chk-users-status`).prop('checked', true);
 }
 
 function GetOrganizations() {
-	$.ajax({
+	loadOptions({
         url: `${homeURL}/api/organizations`,
 		type: 'get',
 		dataType: "json",
@@ -97,13 +99,13 @@ function GetOrganizations() {
 				ShowToastMessage(XMLHttpRequest.responseText, 'error');
 			}
 		}  
-	});
+	}, 'organizations');
 }
 
 function GetProcesses() {
 	$('#select-users-process').empty();
 	if($('#select-users-organization').val() != null && $('#select-users-organization').val() != 'N/A') {
-		$.ajax({
+		loadOptions({
 			url: `${homeURL}/api/organizations/${$('#select-users-organization').val()}/electoral-process`,
 			type: 'get',
 			dataType: "json",
@@ -125,7 +127,7 @@ function GetProcesses() {
 					ShowToastMessage(XMLHttpRequest.responseText, 'error');
 				}
 			}  
-		});
+		}, 'electoral_processes');
 	}
 }
 
@@ -161,24 +163,26 @@ function GetUsers() {
         url: `${homeURL}/api/users`,
 		type: 'get',
 		data: {
+			...usersPagination.params(),
 			search: ''
 		},
 		dataType: "json",
 		success: function(response) {
+			usersPagination.update(response.pagination);
 			var rows = '';
 			console.log(response);
 			$.each(response.data.users, function(k, v) {
-				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${v.id}">
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.name}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.username}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.email}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.type}</td>
+				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.name)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.username)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.email)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.type)}</td>
 								<td class="px-3.5 py-2.5 whitespace-nowrap">
 									<span class="py-0.5 px-2.5 inline-flex items-center gap-x-1 text-xs font-medium bg-${v.active == 1 ? 'primary' : 'danger'}/15 text-${v.active == 1 ? 'primary' : 'danger'} rounded">
 										${v.active == 1 ? 'Activo' : 'Inactivo'}
 									</span>
 								</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.last_active_date}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.last_active_date)}</td>
 							</tr>`;
 			});
 			$('#table-users tbody').append(rows);
@@ -218,6 +222,7 @@ function RegisterUser() {
 					console.log(response);
 					if(response.success) {
 						CancelUser();
+						usersPagination.reset();
 						GetUsers();
 						ShowToastMessage(response.message, 'success');
 					} else {

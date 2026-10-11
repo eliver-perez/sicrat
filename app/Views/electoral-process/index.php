@@ -15,7 +15,7 @@
 
                             <div class="overflow-x-auto">
                                 <div class="min-w-full inline-block align-middle">
-                                    <div class="overflow-hidden min-h-[480px] max-h-[480px]">
+                                    <div class="overflow-y-auto min-h-[480px] max-h-[480px]">
                                         <table id="table-electoral-process" class="min-w-full divide-y divide-default-200 dark:divide-white/14">
                                             <thead class="bg-default-150">
                                                 <tr class="text-default-600">
@@ -43,7 +43,7 @@
                             <div class="card-body">
                                 <h6 class="card-title mb-4">Detalles</h6>
 
-                                <form id="form-register-electoral-process" no-validate action="javascript:RegisterElectoralProcess()">
+                                <form id="form-register-electoral-process" no-validate action="<?= escape_html(base_url('organizations')); ?>">
                                     <div class="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-x-5">
                                         <div class="col-span-3 mb-4">
                                             <label for="field-electoral-process" class="inline-block mb-2 font-medium">Proceso</label>
@@ -91,8 +91,8 @@
                     </div>
                 </div>
 
-<script src="<?= asset('js/electoral-process/index.js'); ?>"></script>
+<script src="<?= escape_html(asset('js/electoral-process/index.js')); ?>"></script>
 
 <script>
-    var currentLink = '<?= base_url('electoral-process'); ?>';
+    var currentLink = <?= json_script(base_url('electoral-process')); ?>;
 </script>

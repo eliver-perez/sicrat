@@ -22,9 +22,9 @@ function GetUserInfo() {
 		success: function(response) {
 			console.log(response);
 			if(response.success) {
-				$('#field-profile-name').html(response.data.name);
-				$('#field-profile-type').html(response.data.type);
-				$('#field-profile-email').html(response.data.email);
+				$('#field-profile-name').text(response.data.name);
+				$('#field-profile-type').text(response.data.type);
+				$('#field-profile-email').text(response.data.email);
 			} else {
 				ShowToastMessage(response.message, 'error');
 			}

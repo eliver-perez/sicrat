@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Service;
+use App\Auth\Authorization;
 use App\Repositories\ElectoralProcessRepository;
 use App\Repositories\OrganizationsRepository;
 use App\Repositories\SettingsRepository;
@@ -95,6 +96,7 @@ class ElectoralProcessService extends Service
     }
 
     public function create(array $data): ?array {
+        Authorization::requireOperation('processes.create');
         $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
 
         $organization = $this->normalizeRequiredText($data['organization'] ?? null, 'No se recibio identificador de organizacion.');
@@ -106,7 +108,10 @@ class ElectoralProcessService extends Service
             'uuid'                                  => $this->uuidStringToBinary($organization)
         ]);
 
-        $status = $this->normalizeOptionalInt($data['status'] ?? 1);
+        if ($organizationId === null) {
+            throw new InvalidArgumentException('La organización no existe.');
+        }
+        $status = $this->normalizeStatus($data['status'] ?? 1);
 
         $conn = $this->electoralProcessRepository->getConnection();
         $conn->beginTransaction();
@@ -139,26 +144,4 @@ class ElectoralProcessService extends Service
         }
     }
     
-    public function getElectoralProcessData(array $data): ?array {
-        try {
-            $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
-
-            $electoralProcessData = $this->electoralProcessRepository->getElectoralProcessData([
-                'uuid'                          => $this->uuidStringToBinary($data['uuid'])
-            ]);
-
-            return [
-                'id'                        => $this->uuidBinaryToString($electoralProcessData['uuid']),
-                'organization'              => $electoralProcessData['organizacion'],
-                'contact'                   => $electoralProcessData['contacto'] ?? '',
-                'phone'                     => $electoralProcessData['telefono'] ?? '',
-                'email'                     => $electoralProcessData['email'] ?? '',
-                'active'                    => $electoralProcessData['activo'] ?? '',
-                'registered_by'             => $electoralProcessData['registro'],
-                'registered_date'           => $electoralProcessData['f_registro']
-            ];
-        } catch (\Throwable $e) {
-            throw $e;
-        }
-    }
 }

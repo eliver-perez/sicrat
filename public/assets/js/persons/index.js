@@ -1,6 +1,7 @@
 // JavaScript Document
 
 var homeURL;
+var personsPagination;
 var selected_person = '';
 var new_person = false, modify_person = false, registering_person = false, modifying_person = false;
 var defaultSelectedState = 28;
@@ -12,20 +13,22 @@ let lastSearchSection = '';
 
 function InitializeValues(home) {
 	homeURL = home;
+	personsPagination = createPagination('#table-persons', () => GetPersons(true));
 	$('#btn-persons-new').on('click', NewPerson);
 	$('#btn-persons-cancel').on('click', CancelPerson);
-	$('#select-filter-section').on('change', GetPersons);
+	$('#select-filter-section').on('change', () => { personsPagination.reset(); GetPersons(true); });
 	$('#field-filter-search').on('keydown', function(event) {
         if (event.which === 13) {
             event.preventDefault();
             
-            GetPersons();
+            personsPagination.reset();
+            GetPersons(true);
         }
     });
 	GetOrganizations();
 	GetSections();
 	GetGenders();
-	$('#btn-filter-search').on('click', GetPersons);
+	$('#btn-filter-search').on('click', () => { personsPagination.reset(); GetPersons(true); });
 }
 
 function EnablePersonFields(v) {
@@ -99,7 +102,7 @@ function GetGenders() {
 
 function GetOrganizations() {
 	$('#select-persons-organization').empty();
-	$.ajax({
+	loadOptions({
         url: `${homeURL}/api/organizations`,
 		type: 'get',
 		data: {
@@ -125,13 +128,13 @@ function GetOrganizations() {
 				ShowToastMessage(XMLHttpRequest.responseText, 'error');
 			}
 		}  
-	});
+	}, 'organizations');
 }
 
 function GetSections() {
 	$('#select-filter-section').empty();
 	$('#select-persons-section').empty();
-	$.ajax({
+	loadOptions({
         url: `${homeURL}/api/sections`,
 		type: 'get',
 		data: {
@@ -171,11 +174,11 @@ function GetSections() {
 				ShowToastMessage(XMLHttpRequest.responseText, 'error');
 			}
 		}  
-	});
+	}, 'sections');
 }
 
-function GetPersons() {
-	if(!searching && (lastSearchText != $('#field-filter-search').val() || lastSearchSection != $('#select-filter-section').val())) {
+function GetPersons(force = false) {
+	if(!searching && (force === true || lastSearchText != $('#field-filter-search').val() || lastSearchSection != $('#select-filter-section').val())) {
 		searching = true;
 		lastSearchText = $('#field-filter-search').val();
 		lastSearchSection = $('#select-filter-section').val();
@@ -184,17 +187,19 @@ function GetPersons() {
 			url: `${homeURL}/api/persons`,
 			type: 'get',
 			data: {
+				...personsPagination.params(),
 				search: $('#field-filter-search').val(),
 				section: $('#select-filter-section').val()
 			},
 			dataType: "json",
 			success: function(response) {
+				personsPagination.update(response.pagination);
 				searching = false;
 				var rows = '';
 				$.each(response.data.persons, function(k, v) {
-					rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${v.id}">
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.section}</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.name}</td>
+					rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.section)}</td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.name)}</td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
@@ -237,7 +242,8 @@ function RegisterPerson() {
 					registering_person = false;
 					if(response.success) {
 						CancelPerson();
-						GetPersons();
+						personsPagination.reset();
+						GetPersons(true);
 						ShowToastMessage(response.message, 'success');
 					} else {
 						ShowToastMessage(response.message, 'error');

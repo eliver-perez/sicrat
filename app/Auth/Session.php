@@ -13,17 +13,15 @@ class Session
     public ?string $nombre = null;
     public ?string $email = null;
     public ?string $token = null;
-    public ?int $tipo_codigo = null;
+    public ?string $tipo_codigo = null;
     public ?string $tipo = null;
     public bool $active = false;
 
     public function __construct()
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['SICRAT_ID']) || empty($_SESSION['SICRAT_AUTH_TOKEN'])) {
+        self::start();
+        $validator = new SessionValidator((new Database())->getConnection());
+        if (!$validator->validate()) {
             $this->destroySession();
         }
 
@@ -31,14 +29,10 @@ class Session
         $this->nombre = $_SESSION['SICRAT_NAME'] ?? null;
         $this->email = $_SESSION['SICRAT_EMAIL'] ?? null;
         $this->token = $_SESSION['SICRAT_AUTH_TOKEN'] ?? null;
-        $this->tipo_codigo = isset($_SESSION['SICRAT_USER_TYPE_CODE']) ? (int) $_SESSION['SICRAT_USER_TYPE_CODE'] : null;
-        $this->tipo = $_SESSION['SICRAT_TIPO'] ?? null;
+        $this->tipo_codigo = isset($_SESSION['SICRAT_USER_TYPE_CODE']) ? (string) $_SESSION['SICRAT_USER_TYPE_CODE'] : null;
+        $this->tipo = $_SESSION['SICRAT_USER_TYPE'] ?? null;
 
         $_SESSION['SICRAT_LAST_ACTIVITY'] = time();
-
-        if (!$this->validateToken()) {
-            $this->destroySession();
-        }
 
         $this->active = true;
     }
@@ -50,7 +44,7 @@ class Session
 
     public function getTipoId(): ?int
     {
-        return $this->tipo_codigo;
+        return isset($_SESSION['SICRAT_USER_TYPE_ID']) ? (int) $_SESSION['SICRAT_USER_TYPE_ID'] : null;
     }
 
     public function getTipo(): ?string
@@ -78,66 +72,48 @@ class Session
         return $this->active;
     }
 
-    public function destroySession(): never
+    public static function start(): void
     {
-        $_SESSION = [];
-
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
+        if (session_status() !== PHP_SESSION_NONE) {
+            return;
         }
-
-        header('Location: /autenticacion/');
-        exit;
+        session_name('SICRATSESSID');
+        ini_set('session.use_strict_mode', '1');
+        ini_set('session.use_only_cookies', '1');
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || parse_url((string) env('APP_URL', ''), PHP_URL_SCHEME) === 'https';
+        $path = parse_url((string) env('APP_URL', ''), PHP_URL_PATH) ?: '/';
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => rtrim($path, '/') . '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+        session_start();
     }
 
-    private function validateToken(): bool
+    public static function clear(): void
     {
-        $token = $this->token;
-
-        if (!$token || !ctype_xdigit($token) || strlen($token) !== 64) {
-            return false;
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', [
+                'expires' => time() - 3600,
+                'path' => $params['path'],
+                'domain' => $params['domain'],
+                'secure' => $params['secure'],
+                'httponly' => true,
+                'samesite' => $params['samesite'] ?? 'Lax',
+            ]);
+            session_destroy();
         }
+    }
 
-        $tokenBin = hex2bin($token);
-        if ($tokenBin === false) {
-            return false;
-        }
-
-        $salt = env('HMAC_SALT');
-        if (!$salt) {
-            return false;
-        }
-
-        $tokenHash = hash_hmac('sha256', $tokenBin, $salt, true);
-
-        $database = new Database();
-        $conn = $database->getConnection();
-
-        $stmt = $conn->prepare("
-            SELECT id, expira_en
-            FROM usuarios_sesiones
-            WHERE usuario = :usuario
-              AND token_hash = :token
-            LIMIT 1
-        ");
-        $stmt->bindValue(':usuario', $this->id, PDO::PARAM_INT);
-        $stmt->bindValue(':token', $tokenHash, PDO::PARAM_LOB);
-        $stmt->execute();
-
-        $data = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$data) {
-            return false;
-        }
-
-        $stmt = $conn->prepare("
-            UPDATE usuarios_sesiones
-            SET ultima_actividad = NOW()
-            WHERE id = :id
-        ");
-        $stmt->bindValue(':id', $data['id'], PDO::PARAM_LOB);
-        $stmt->execute();
-
-        return true;
+    public function destroySession(): never
+    {
+        self::clear();
+        header('Location: ' . base_url('/autenticacion/'));
+        exit;
     }
 }

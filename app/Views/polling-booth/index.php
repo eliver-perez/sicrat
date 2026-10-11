@@ -11,6 +11,7 @@
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="card-title">Casillas</h6>
+                                <p class="text-sm text-default-500">La administración de casillas todavía no está disponible.</p>
                             </div>
 
                             <div class="overflow-x-auto">
@@ -41,7 +42,7 @@
                             <div class="card-body">
                                 <h6 class="card-title mb-4">Detalles</h6>
 
-                                <form id="form-register-polling-booth" no-validate action="javascript:RegisterSection()">
+                                <form id="form-register-polling-booth" no-validate onsubmit="return false">
                                     <div class="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-x-5">
                                         <div class="col-span-3 mb-4">
                                             <label for="select-polling-booth-section" class="inline-block mb-2 font-medium">Sección</label>
@@ -92,8 +93,8 @@
                     </div>
                 </div>
 
-<script src="<?= asset('js/polling-booth/index.js'); ?>"></script>
+<script src="<?= escape_html(asset('js/polling-booth/index.js')); ?>"></script>
 
 <script>
-    var currentLink = '<?= base_url('polling-booth'); ?>';
+    var currentLink = <?= json_script(base_url('polling-booth')); ?>;
 </script>

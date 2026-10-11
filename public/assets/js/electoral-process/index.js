@@ -1,11 +1,13 @@
 // JavaScript Document
 
 var homeURL;
+var processesPagination;
 var selected_organization = '';
 var new_electoral_process = false, modify_electoral_process = false, registering_electoral_process = false, modifying_electoral_process = false;
 
 function InitializeValues(home) {
 	homeURL = home;
+	processesPagination = createPagination('#table-electoral-process', () => GetElectoralProcess());
 	$('#btn-electoral-process-new').on('click', NewElectoralProcess);
 	$('#btn-electoral-process-cancel').on('click', CancelElectoralProcess);
 	GetElectoralProcess();
@@ -21,17 +23,7 @@ function EnableElectoralProcessFields(v) {
 }
 
 function NewElectoralProcess() {
-	if(!new_electoral_process && !modify_electoral_process && selected_organization != '') {
-		new_electoral_process = true;
-		if(!$('#btn-electoral-process-new').hasClass('hidden'))
-			$('#btn-electoral-process-new').addClass('hidden');
-		if($('#btn-electoral-process-register').hasClass('hidden'))
-			$('#btn-electoral-process-register').removeClass('hidden');
-		if($('#btn-electoral-process-cancel').hasClass('hidden'))
-			$('#btn-electoral-process-cancel').removeClass('hidden');
-		ClearElectoralProcess();
-		EnableElectoralProcessFields(false);
-	}
+	window.location.href = `${homeURL}/organizations`;
 }
 
 function ClearElectoralProcess() {
@@ -111,24 +103,26 @@ function GetElectoralProcess() {
         url: `${homeURL}/api/electoral-process`,
 		type: 'get',
 		data: {
+			...processesPagination.params(),
 			search: ''
 		},
 		dataType: "json",
 		success: function(response) {
+			processesPagination.update(response.pagination);
 			var rows = '';
 			console.log(response);
 			$.each(response.data.processes, function(k, v) {
-				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${v.id}">
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.organization}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.process}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.type}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.character}</td>
+				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.organization)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.process)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.type)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.character)}</td>
                                 <td class="px-3.5 py-2.5 whitespace-nowrap">
 									<span class="py-0.5 px-2.5 inline-flex items-center gap-x-1 text-xs font-medium bg-${v.status == 1 ? 'primary' : 'danger'}/15 text-${v.status == 1 ? 'primary' : 'danger'} rounded">
 										${v.status == 1 ? 'Activo' : 'Inactivo'}
 									</span>
 								</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.registered_date}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.registered_date)}</td>
 							</tr>`;
 			});
 			$('#table-electoral-process tbody').append(rows);

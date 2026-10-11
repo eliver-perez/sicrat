@@ -15,7 +15,7 @@
 
                             <div class="overflow-x-auto">
                                 <div class="min-w-full inline-block align-middle">
-                                    <div class="overflow-hidden min-h-[480px] max-h-[480px]">
+                                    <div class="overflow-y-auto min-h-[480px] max-h-[480px]">
                                         <table id="table-sections" class="min-w-full divide-y divide-default-200 dark:divide-white/14">
                                             <thead class="bg-default-150">
                                                 <tr class="text-default-600">
@@ -81,8 +81,8 @@
                     </div>
                 </div>
 
-<script src="<?= asset('js/sections/index.js'); ?>"></script>
+<script src="<?= escape_html(asset('js/sections/index.js')); ?>"></script>
 
 <script>
-    var currentLink = '<?= base_url('sections'); ?>';
+    var currentLink = <?= json_script(base_url('sections')); ?>;
 </script>

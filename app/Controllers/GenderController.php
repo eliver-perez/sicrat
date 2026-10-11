@@ -29,10 +29,7 @@ class GenderController extends Controller
                 ]
             ]);
         } catch (Throwable $e) {
-            return $response->json([
-                'status' => 'ERROR',
-                'message' => 'No fue posible obtener los géneros.'
-            ], 500);
+            return $response->exception($e);
         }
     }
 }

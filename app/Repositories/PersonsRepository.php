@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use PDO;
+use App\Auth\Authorization;
 
 class PersonsRepository
 {
@@ -43,6 +44,11 @@ class PersonsRepository
 
         $params = [];
 
+        $organization = Authorization::scopeOrganizationId();
+        if ($organization !== null) {
+            $sql .= ' AND p.organizacion = :organizacion';
+        }
+
         $fields = ["TRIM(
                         CONCAT(
                             p.nombre, ' ',
@@ -54,7 +60,7 @@ class PersonsRepository
                     'p.paterno',
                     'p.materno',
                     'se.seccion',
-                    'r.registro'];
+                    'r.nombre'];
 
         $conditions = [];
         $params = [];
@@ -68,11 +74,14 @@ class PersonsRepository
         $sql .= " AND (" . implode(' OR ', $conditions) . ")";
 
         $sql .= "
-            ORDER BY p.paterno, p.nombre ASC
+            ORDER BY p.paterno, p.nombre, p.id ASC
             LIMIT :limit OFFSET :offset
         ";
 
         $stmt = $this->db->prepare($sql);
+        if ($organization !== null) {
+            $stmt->bindValue(':organizacion', $organization, PDO::PARAM_INT);
+        }
 
         foreach ($params as $key => $value) {
             $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
@@ -141,5 +150,10 @@ class PersonsRepository
         $stmt->execute();
 
         return (int) $this->db->lastInsertId();
+    }
+    public function genderExists(string $gender): bool {
+        $statement = $this->db->prepare('SELECT 1 FROM generos WHERE id = :genero');
+        $statement->execute(['genero' => $gender]);
+        return (bool) $statement->fetchColumn();
     }
 }

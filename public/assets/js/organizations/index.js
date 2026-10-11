@@ -1,12 +1,16 @@
 // JavaScript Document
 
 var homeURL;
+var organizationsPagination;
+var organizationProcessesPagination;
 var selected_organization = '';
 var new_organization = false, modify_organization = false, registering_organization = false, modifying_organization = false;
 var new_electoral_process = false, modify_electoral_process = false, registering_electoral_process = false, modifying_electoral_process = false;
 
 function InitializeValues(home) {
 	homeURL = home;
+	organizationsPagination = createPagination('#table-organizations', () => GetOrganizations());
+	organizationProcessesPagination = createPagination('#table-electoral-process', GetOrganizationProcesses);
 	$('#btn-organization-new').on('click', NewOrganization);
 	$('#btn-organization-cancel').on('click', CancelOrganization);
 	$('#btn-electoral-process-new').on('click', NewElectoralProcess);
@@ -101,22 +105,24 @@ function GetOrganizations() {
         url: `${homeURL}/api/organizations`,
 		type: 'get',
 		data: {
+			...organizationsPagination.params(),
 			search: ''
 		},
 		dataType: "json",
 		success: function(response) {
+			organizationsPagination.update(response.pagination);
 			var rows = '';
 			console.log(response);
 			$.each(response.data.organizations, function(k, v) {
-				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${v.id}">
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.organization}</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.contact}</td>
+				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.organization)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.contact)}</td>
                                 <td class="px-3.5 py-2.5 whitespace-nowrap">
 									<span class="py-0.5 px-2.5 inline-flex items-center gap-x-1 text-xs font-medium bg-${v.active == 1 ? 'primary' : 'danger'}/15 text-${v.active == 1 ? 'primary' : 'danger'} rounded">
 										${v.active == 1 ? 'Activo' : 'Inactivo'}
 									</span>
 								</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.registered_date}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.registered_date)}</td>
 							</tr>`;
 			});
 			$('#table-organizations tbody').append(rows);
@@ -253,21 +259,8 @@ function GetOrganizationData(id) {
 				$(`#field-email`).val(response.data.email);
 				$(`#chk-active`).prop('checked', response.data.active == 1 ? true : false);
 
-				var rows = '';
-				$.each(response.data.processes, function(k, v) {
-					rows += `<tr class="text-default-800 hover:bg-default-100 process-tr" data-id="${v.id}">
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.process}</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.type}</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.character}</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap">
-										<span class="py-0.5 px-2.5 inline-flex items-center gap-x-1 text-xs font-medium bg-${v.status == 1 ? 'primary' : 'danger'}/15 text-${v.status == 1 ? 'primary' : 'danger'} rounded">
-											${v.status == 1 ? 'Si' : 'No'}
-										</span>
-									</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${v.registered_date}</td>
-								</tr>`;
-				});
-				$('#table-electoral-process tbody').append(rows);
+				organizationProcessesPagination.reset();
+				RenderOrganizationProcesses(response.data.processes, response.data.processes_pagination);
 			} else {
 				ShowToastMessage(response.message, 'error');
 			}
@@ -321,4 +314,38 @@ function RegisterElectoralProcess() {
 				}  
 		});
 	}
+}
+function RenderOrganizationProcesses(processes, pagination) {
+	var rows = '';
+	$.each(processes, function(k, v) {
+		rows += `<tr class="text-default-800 hover:bg-default-100 process-tr" data-id="${escapeHTML(v.id)}">
+						<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.process)}</td>
+						<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.type)}</td>
+						<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.character)}</td>
+						<td class="px-3.5 py-2.5 whitespace-nowrap">
+							<span class="py-0.5 px-2.5 inline-flex items-center gap-x-1 text-xs font-medium bg-${v.status == 1 ? 'primary' : 'danger'}/15 text-${v.status == 1 ? 'primary' : 'danger'} rounded">
+								${v.status == 1 ? 'Si' : 'No'}
+							</span>
+						</td>
+						<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.registered_date)}</td>
+					</tr>`;
+	});
+	$('#table-electoral-process tbody').empty().append(rows);
+	organizationProcessesPagination.update(pagination);
+}
+
+function GetOrganizationProcesses() {
+	if (!selected_organization) return;
+	$.ajax({
+		url: `${homeURL}/api/organizations/${selected_organization}/electoral-process`,
+		type: 'get',
+		data: organizationProcessesPagination.params(),
+		dataType: 'json',
+		success(response) {
+			RenderOrganizationProcesses(response.data.electoral_processes, response.pagination);
+		},
+		error() {
+			ShowToastMessage('No fue posible obtener los procesos.', 'error');
+		}
+	});
 }

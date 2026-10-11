@@ -21,11 +21,6 @@ class LocationRepository
         $sql = "SELECT id, estado FROM estados WHERE 1=1";
         $params = [];
 
-        if ($countryId !== null) {
-            $sql .= " AND pais = :pais";
-            $params['pais'] = $countryId;
-        }
-
         if ($search !== null && $search !== '') {
             $sql .= " AND estado LIKE :search";
             $params['search'] = '%' . $search . '%';
@@ -151,7 +146,7 @@ class LocationRepository
 
     public function findLocalities(?int $municipalityId = null, ?string $search = null): array
     {
-        $sql = "SELECT id, localidad, cp FROM localidades WHERE 1=1";
+        $sql = "SELECT id, localidad, codigo_postal FROM localidades WHERE 1=1";
         $params = [];
 
         if ($municipalityId !== null) {
@@ -225,7 +220,7 @@ class LocationRepository
 
         if ($localityId !== null) {
             $sql .= " AND localidad = :localidad";
-            $params['municipio'] = $localityId;
+            $params['localidad'] = $localityId;
         }
 
         if ($search !== null && $search !== '') {

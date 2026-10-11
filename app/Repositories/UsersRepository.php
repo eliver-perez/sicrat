@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use PDO;
+use App\Auth\Authorization;
 
 class UsersRepository
 {
@@ -36,24 +37,35 @@ class UsersRepository
                     FROM usuarios u
                         LEFT JOIN usuarios_tipos ut
                             ON ut.id = u.tipo_usuario
+                    WHERE 1 = 1
         ";
 
         $params = [];
+        $organization = Authorization::scopeOrganizationId();
+        if ($organization !== null) {
+            $sql .= ' AND u.organizacion = :organizacion';
+            $params['organizacion'] = $organization;
+        }
 
         if ($data['search'] !== null && $data['search'] !== '') {
-            $sql .= " AND usuario LIKE :search";
+            $sql .= " AND u.usuario LIKE :search";
             $params['search'] = '%' . $data['search'] . '%';
         }
 
-        $sql .= " ORDER BY u.paterno, u.nombre ASC";
+        $sql .= " ORDER BY u.paterno, u.nombre, u.id ASC LIMIT :limit OFFSET :offset";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value);
+        }
+        $stmt->bindValue(':limit', $data['limit'], PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $data['offset'], PDO::PARAM_INT);
+        $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getUserData(array $data): array
+    public function getUserData(array $data): ?array
     {
         $sql = "SELECT u.id,
                         u.uuid,
@@ -89,7 +101,7 @@ class UsersRepository
         $stmt->bindParam(':uuid', $data['uuid'], PDO::PARAM_LOB);
         $stmt->execute();
 
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
 
@@ -134,52 +146,25 @@ class UsersRepository
     }
 
     public function findById(int $id): ?array {
-        $stmt = $this->db->prepare("
-            SELECT
-                p.id,
-                CONCAT(COALESCE(p.nombre, ''),
-                        COALESCE(CONCAT(' ', p.paterno), ''),
-                        COALESCE(CONCAT(' ', p.materno), '')) nombre,
-                CONCAT(COALESCE(p.calle, ''),
-                        COALESCE(CONCAT(' ', p.num_ext), ''),
-                        COALESCE(CONCAT(', ', p.num_int), ', '),
-                        COALESCE(CONCAT(', ', c.colonia), ', '),
-                        COALESCE(CONCAT(', ', m.municipio), ', '),
-                        COALESCE(e.estado, '')) domicilio,
-                p.email,
-                p.telefono,
-                p.estatus,
-                p.f_registro,
-                p.f_actualizacion
-            FROM personal p
-                LEFT JOIN colonias c
-                    ON p.colonia = c.id
-                LEFT JOIN municipios m
-                    ON c.municipio = m.id
-                LEFT JOIN estados e
-                    ON m.estado = e.id
-            WHERE p.id = :id
-        ");
-
-        $stmt->execute([
-            'id' => $id,
-        ]);
-
-        $row = $stmt->fetch();
-
-        return $row ?: null;
+        $stmt = $this->db->prepare('SELECT id, uuid, organizacion, usuario, nombre, email, activo FROM usuarios WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user) {
+            Authorization::assertOrganization($user['organizacion'] === null ? null : (int) $user['organizacion']);
+        }
+        return $user ?: null;
     }
 
-    public function userExists(string $email): bool {
+    public function userExists(string $username): bool {
         $stmt = $this->db->prepare("
             SELECT 1
             FROM usuarios
-            WHERE email = :email
+            WHERE usuario = :usuario
             LIMIT 1
         ");
 
         $stmt->execute([
-            'email' => $email
+            'usuario' => $username
         ]);
 
         return (bool) $stmt->fetchColumn();
@@ -210,7 +195,7 @@ class UsersRepository
                 :materno,
                 :password_hash,
                 :tipo_usuario,
-                1,
+                :activo,
                 :registro,
                 NOW()
             )
@@ -226,6 +211,7 @@ class UsersRepository
         $stmt->bindParam('password_hash', $data['password'], PDO::PARAM_STR);
         $stmt->bindParam('tipo_usuario', $data['user_type'], PDO::PARAM_INT);
         $stmt->bindParam('registro', $data['uid'], PDO::PARAM_INT);
+        $stmt->bindValue('activo', $data['status'], PDO::PARAM_INT);
 
         $stmt->execute();
 
@@ -244,13 +230,14 @@ class UsersRepository
                 :usuario,
                 :proceso,
                 :tipo_usuario,
-                1,
+                :activo,
                 NOW()
             )
         ");
         $stmt->bindParam('usuario', $data['user'], PDO::PARAM_INT);
         $stmt->bindParam('proceso', $data['process'], PDO::PARAM_INT);
         $stmt->bindParam('tipo_usuario', $data['user_type'], PDO::PARAM_INT);
+        $stmt->bindValue('activo', 1, PDO::PARAM_INT);
         $stmt->execute();
         return (int) $this->db->lastInsertId();
     }
@@ -262,5 +249,10 @@ class UsersRepository
         $stmt->bindParam('password', $data['password'], PDO::PARAM_STR);
         $stmt->bindParam('uuid', $data['uuid'], PDO::PARAM_LOB);
         $stmt->execute();
+    }
+    public function userTypeExists(int $type): bool {
+        $statement = $this->db->prepare('SELECT 1 FROM usuarios_tipos WHERE id = :tipo');
+        $statement->execute(['tipo' => $type]);
+        return (bool) $statement->fetchColumn();
     }
 }

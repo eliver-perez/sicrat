@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Auth\Authorization;
+use App\Core\Security\Csrf;
+use App\Middleware\AuthMiddleware;
+
 class Router
 {
     private Request $request;
@@ -16,32 +20,32 @@ class Router
         $this->response = $response;
     }
 
-    public function get(string $pattern, callable|array $handler): void
+    public function get(string $pattern, callable|array $handler, string $operation = 'authenticated'): void
     {
-        $this->add('GET', $pattern, $handler);
+        $this->add('GET', $pattern, $handler, $operation);
     }
 
-    public function post(string $pattern, callable|array $handler): void
+    public function post(string $pattern, callable|array $handler, string $operation = 'authenticated'): void
     {
-        $this->add('POST', $pattern, $handler);
+        $this->add('POST', $pattern, $handler, $operation);
     }
 
-    public function put(string $pattern, callable|array $handler): void
+    public function put(string $pattern, callable|array $handler, string $operation = 'authenticated'): void
     {
-        $this->add('PUT', $pattern, $handler);
+        $this->add('PUT', $pattern, $handler, $operation);
     }
 
-    public function patch(string $pattern, callable|array $handler): void
+    public function patch(string $pattern, callable|array $handler, string $operation = 'authenticated'): void
     {
-        $this->add('PATCH', $pattern, $handler);
+        $this->add('PATCH', $pattern, $handler, $operation);
     }
 
-    public function delete(string $pattern, callable|array $handler): void
+    public function delete(string $pattern, callable|array $handler, string $operation = 'authenticated'): void
     {
-        $this->add('DELETE', $pattern, $handler);
+        $this->add('DELETE', $pattern, $handler, $operation);
     }
 
-    private function add(string $method, string $pattern, callable|array $handler): void
+    private function add(string $method, string $pattern, callable|array $handler, string $operation = 'authenticated'): void
     {
         $paramNames = [];
 
@@ -61,6 +65,7 @@ class Router
             'regex'      => $regex,
             'paramNames' => $paramNames,
             'handler'    => $handler,
+            'operation'  => $operation,
         ];
     }
 
@@ -97,7 +102,21 @@ class Router
                 $params[$name] = $matches[$index] ?? null;
             }
 
-            $this->executeHandler($route['handler'], $params);
+            try {
+                if ($route['operation'] !== 'public') {
+                    if (!(new AuthMiddleware())->handle($this->request, $this->response)) {
+                        return;
+                    }
+                    Authorization::requireOperation($route['operation']);
+                }
+                if (!in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
+                    Csrf::validate($this->request);
+                }
+                $this->request->setRouteParams($params);
+                $this->executeHandler($route['handler'], $params);
+            } catch (\Throwable $exception) {
+                $this->response->exception($exception);
+            }
             return;
         }
 
@@ -106,10 +125,18 @@ class Router
         $this->response->error('Ruta no encontrada', 404);
     }
 
-    private function executeHandler(array $handler, array $routeParams = []): void {
+    private function executeHandler(callable|array $handler, array $routeParams = []): void {
+        if (!is_array($handler)) {
+            $handler($this->request, $this->response, ...array_values($routeParams));
+            return;
+        }
         [$controllerClass, $method] = $handler;
 
+        if (!method_exists($controllerClass, $method)) {
+            throw new HttpError('Ruta no disponible.', 404);
+        }
         $controller = new $controllerClass();
+        $controller->setRouteParams($routeParams);
 
         $arguments = array_merge(
             [$this->request, $this->response],

@@ -5,10 +5,13 @@
     // require_once __DIR__.'/index-template.php';
 ?>
 
+<?php if (!empty($_SESSION['SICRAT_AVAILABLE_ROLES']) && !\App\Core\Auth::isSuperAdmin()): ?>
+    <p class="p-4 text-default-700">Esta cuenta tiene varios accesos electorales y no tiene uno activo.</p>
+<?php endif; ?>
 
-<script src="<?= asset('js/dashboard/index.js'); ?>"></script>
+<script src="<?= escape_html(asset('js/dashboard/index.js')); ?>"></script>
 
 <script>
-    var currentLink = '<?= base_url(''); ?>';
-    var callBack = '<?= isset($_GET['callBack']) ? $_GET['callBack'] : ''; ?>';
+    var currentLink = <?= json_script(base_url('')); ?>;
+    var callBack = <?= json_script(is_string($_GET['callBack'] ?? null) ? $_GET['callBack'] : ''); ?>;
 </script>

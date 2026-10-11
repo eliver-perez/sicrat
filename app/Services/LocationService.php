@@ -18,14 +18,6 @@ class LocationService
     {
         $search = $this->normalizeOptionalText($search);
 
-        if ($countryId !== null) {
-            $this->validatePositiveId($countryId, 'El país indicado no es válido.');
-
-            if (!$this->repository->countryExists($countryId)) {
-                throw new InvalidArgumentException('El país indicado no existe.');
-            }
-        }
-
         return $this->repository->findStates($countryId, $search);
     }
 
@@ -76,25 +68,11 @@ class LocationService
 
     public function createState(array $data): int
     {
-        $countryId = isset($data['country_id']) ? (int) $data['country_id'] : 0;
-        $code = $this->normalizeOptionalText($data['codigo'] ?? null);
         $name = $this->normalizeRequiredText($data['nombre'] ?? null, 'El nombre del estado es obligatorio.');
-
-        $this->validatePositiveId($countryId, 'El país es obligatorio.');
-
-        if (!$this->repository->countryExists($countryId)) {
-            throw new InvalidArgumentException('El país indicado no existe.');
+        if ($this->repository->stateExistsByName(0, $name)) {
+            throw new InvalidArgumentException('Ya existe un estado con ese nombre.');
         }
-
-        if ($this->repository->stateExistsByName($countryId, $name)) {
-            throw new RuntimeException('Ya existe un estado con ese nombre para el país indicado.');
-        }
-
-        return $this->repository->insertState([
-            'country_id' => $countryId,
-            'codigo' => $code,
-            'nombre' => $name
-        ]);
+        return $this->repository->insertState(['estado' => $name]);
     }
 
     public function createMunicipality(array $data): int
@@ -110,13 +88,12 @@ class LocationService
         }
 
         if ($this->repository->municipalityExistsByName($stateId, $name)) {
-            throw new RuntimeException('Ya existe un municipio con ese nombre para el estado indicado.');
+            throw new InvalidArgumentException('Ya existe un municipio con ese nombre para el estado indicado.');
         }
 
         return $this->repository->insertMunicipality([
-            'state_id' => $stateId,
-            'codigo' => $code,
-            'nombre' => $name
+            'estado' => $stateId,
+            'municipio' => $name
         ]);
     }
 
@@ -133,13 +110,13 @@ class LocationService
         }
 
         if ($this->repository->localityExistsByName($municipalityId, $name)) {
-            throw new RuntimeException('Ya existe una colonia con ese nombre para el municipio indicado.');
+            throw new InvalidArgumentException('Ya existe una colonia con ese nombre para el municipio indicado.');
         }
 
         return $this->repository->insertLocality([
-            'municipality_id' => $municipalityId,
-            'codigo' => $code,
-            'nombre' => $name
+            'municipio' => $municipalityId,
+            'localidad' => $name,
+            'codigo_postal' => $this->normalizeOptionalText($data['codigo_postal'] ?? null)
         ]);
     }
 

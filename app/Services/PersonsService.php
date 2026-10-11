@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Service;
+use App\Auth\Authorization;
 use App\Repositories\PersonsRepository;
 use App\Repositories\OrganizationsRepository;
 use App\Repositories\SectionsRepository;
@@ -29,13 +30,13 @@ class PersonsService extends Service
             $search = $this->normalizeOptionalText($data['search'] ?? null);
             $section = $this->normalizeOptionalText($data['section'] ?? null);
             
-            if($section == 'N/A') {
+            if($section === null || $section === 'N/A') {
                 $sectionId = null;
             } else {
                 $sectionId = $this->uuidStringToBinary($section);
             }
 
-            $limit = $this->normalizeOptionalInt($data['limit'] ?? 500000);
+            $limit = $this->normalizeOptionalInt($data['limit'] ?? 25);
             $offset = $this->normalizeOptionalInt($data['offset'] ?? 0);
 
             $persons_data = $this->personsRepository->getAll([
@@ -65,6 +66,7 @@ class PersonsService extends Service
     }
 
     public function create(array $data): ?array {
+        Authorization::requireOperation('persons.create');
         $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
 
         $organization = $this->normalizeRequiredText($data['organization'] ?? null, 'Es necesario seleccionar una organización.');
@@ -83,6 +85,9 @@ class PersonsService extends Service
             'uuid'                      => $this->uuidStringToBinary($section)
         ]);
 
+        if ($organizationId === null || $sectionId === null || !$this->personsRepository->genderExists($gender)) {
+            throw new InvalidArgumentException('La organización, sección o género no es válido.');
+        }
         $conn = $this->personsRepository->getConnection();
         $conn->beginTransaction();
         try {
@@ -111,26 +116,4 @@ class PersonsService extends Service
         }
     }
     
-    public function getSectionsData(array $data): ?array {
-        try {
-            $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
-
-            $sectionsData = $this->personsRepository->getSectionsData([
-                'uuid'                          => $this->uuidStringToBinary($data['uuid'])
-            ]);
-
-            return [
-                'id'                        => $this->uuidBinaryToString($sectionsData['uuid']),
-                'organization'              => $sectionsData['organizacion'],
-                'contact'                   => $sectionsData['contacto'] ?? '',
-                'phone'                     => $sectionsData['telefono'] ?? '',
-                'email'                     => $sectionsData['email'] ?? '',
-                'active'                    => $sectionsData['activo'] ?? '',
-                'registered_by'             => $sectionsData['registro'],
-                'registered_date'           => $sectionsData['f_registro']
-            ];
-        } catch (\Throwable $e) {
-            throw $e;
-        }
-    }
 }

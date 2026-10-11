@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Service;
+use App\Core\Pagination;
+use App\Auth\Authorization;
 use App\Repositories\OrganizationsRepository;
 use App\Repositories\SettingsRepository;
 use App\Services\SettingsService;
@@ -50,15 +52,16 @@ class OrganizationsService extends Service
     }
 
     public function create(array $data): ?array {
+        Authorization::requireOperation('organizations.create');
         $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
 
         $organization = $this->normalizeRequiredText($data['organization'] ?? null, 'El nombre de la organizacion es obligatorio.');
         $contact = $this->normalizeRequiredText($data['contact'] ?? null, 'El nombre del contacto es obligatorio.');
 
-        $phone = $this->normalizeOptionalText($data['phone'] ?? 1);
-        $email = $this->normalizeOptionalText($data['email'] ?? 1);
+        $phone = $this->normalizeOptionalText($data['phone'] ?? null);
+        $email = $this->normalizeOptionalText($data['email'] ?? null);
 
-        $active = $this->normalizeOptionalInt($data['active'] ?? 1);
+        $active = $this->normalizeStatus($data['active'] ?? 1);
 
         $conn = $this->organizationsRepository->getConnection();
         $conn->beginTransaction();
@@ -95,6 +98,10 @@ class OrganizationsService extends Service
                 'uuid'                          => $this->uuidStringToBinary($data['uuid'])
             ]);
 
+            if (!$organizationData) {
+                throw new \App\Core\HttpError('La organización no está disponible.', 404);
+            }
+
             $processes_data = $this->organizationsRepository->getOrganizationProcesses([
                 'uuid'                          => $this->uuidStringToBinary($data['uuid'])
             ]);
@@ -125,7 +132,8 @@ class OrganizationsService extends Service
                 'active'                    => $organizationData['activo'] ?? '',
                 'registered_by'             => $organizationData['registro'],
                 'registered_date'           => $organizationData['f_registro'],
-                'processes'                 => $processes
+                'processes'                 => array_slice($processes, 0, 25),
+                'processes_pagination'       => Pagination::response($processes, 25, 0)
             ];
         } catch (\Throwable $e) {
             throw $e;
@@ -139,7 +147,9 @@ class OrganizationsService extends Service
             $uuid = $this->normalizeRequiredText($data['uuid'] ?? null, 'No se recibio identificador de organization.');
 
             $processes_data = $this->organizationsRepository->getOrganizationProcesses([
-                'uuid'                          => $this->uuidStringToBinary($data['uuid'])
+                'uuid'                          => $this->uuidStringToBinary($data['uuid']),
+                'limit'                         => $data['limit'] ?? 26,
+                'offset'                        => $data['offset'] ?? 0
             ]);
             
             $processes = array();

@@ -2,7 +2,7 @@
 
 		function ShowSweetAlert(type, title, message, confirmButton) {
 			Swal.fire({
-				title: title,
+				titleText: title,
 				text: message,
 				icon: type,
 				padding: '2em',
@@ -12,7 +12,7 @@
 		
 		function ShowSweetAlertConfirmCallback(type, title, message, confirmButton, callback) {
 			Swal.fire({
-				title: title,
+				titleText: title,
 				text: message,
 				icon: type,
 				padding: '2em',
@@ -24,7 +24,7 @@
 		
 		function ShowSweetAlertConfirmCancelCallback(type, title, message, confirmButton, cancelButton, callback) {
 			Swal.fire({
-				title: title,
+				titleText: title,
 				text: message,
 				icon: type,
 				padding: '2em',
@@ -41,7 +41,7 @@
 			Swal.fire({
 				toast: true,
 				icon: type,
-				title: message,
+				titleText: message,
 				animation: true,
 				position: 'top-end',
 				showConfirmButton: false,

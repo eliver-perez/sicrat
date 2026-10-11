@@ -54,7 +54,7 @@ class ProfilesController extends Controller
             $currentUserId = Auth::id();
 
             if($currentUserId === null) {
-                throw new RuntimeException("No autenticado.");
+                throw new \App\Core\HttpError("No autenticado.", 401);
             }
             $service = $this->getService();
 
@@ -68,16 +68,8 @@ class ProfilesController extends Controller
                 'message' => 'Datos de Perfil.',
                 'data' => $profile
             ], 200);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return $response->exception($e);
         }
     }
     
@@ -86,7 +78,7 @@ class ProfilesController extends Controller
             $currentUserId = Auth::id();
 
             if($currentUserId === null) {
-                throw new RuntimeException("No autenticado.");
+                throw new \App\Core\HttpError("No autenticado.", 401);
             }
             $service = $this->getService();
 
@@ -98,20 +90,12 @@ class ProfilesController extends Controller
             ]);
 
             return $response->json([
-                'success' => true,
-                'message' => 'Constraseña actualizada.',
+                'success' => $updated['changed'],
+                'message' => $updated['message'],
                 'data' => $updated
-            ], 200);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
+            ], $updated['changed'] ? 200 : 422);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return $response->exception($e);
         }
     }
 }

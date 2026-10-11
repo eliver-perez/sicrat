@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use PDO;
+use App\Auth\Authorization;
 
 class ElectoralProcessRepository
 {
@@ -74,7 +75,15 @@ class ElectoralProcessRepository
 
         $params = [];
 
-        $fields = ['o.organizacion', 'o.contacto', 'o.telefono', 'o.email', 'r.nombre'];
+        $organization = Authorization::scopeOrganizationId();
+        if ($organization !== null) {
+            $sql .= ' AND pe.organizacion = :organizacion';
+        }
+        $process = Authorization::scopeProcessId();
+        if ($process !== null) {
+            $sql .= ' AND pe.id = :proceso';
+        }
+        $fields = ['pe.proceso', 'o.organizacion', 'te.tipo', 'ce.caracter', 'r.nombre'];
 
         $conditions = [];
         $params = [];
@@ -88,11 +97,18 @@ class ElectoralProcessRepository
         $sql .= " AND (" . implode(' OR ', $conditions) . ")";
 
         $sql .= "
-            ORDER BY o.organizacion ASC
+            ORDER BY o.organizacion, pe.id ASC
             LIMIT :limit OFFSET :offset
         ";
 
         $stmt = $this->db->prepare($sql);
+        if ($organization !== null) {
+            $stmt->bindValue(':organizacion', $organization, PDO::PARAM_INT);
+        }
+
+        if ($process !== null) {
+            $stmt->bindValue(':proceso', $process, PDO::PARAM_INT);
+        }
 
         foreach ($params as $key => $value) {
             $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
@@ -108,15 +124,21 @@ class ElectoralProcessRepository
 
     public function getElectoralProcessId($data): ?int {
         $stmt = $this->db->prepare("
-            SELECT id
+            SELECT id, organizacion
             FROM procesos_electorales
             WHERE uuid = :uuid
             LIMIT 1");
         $stmt->bindValue(':uuid', $data['uuid'], PDO::PARAM_LOB);
         $stmt->execute();
-        $id = $stmt->fetchColumn();
-
-        return $id !== false ? (int) $id : null;
+        $process = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($process) {
+            Authorization::assertOrganization((int) $process['organizacion']);
+            $scope = Authorization::scopeProcessId();
+            if ($scope !== null && $scope !== (int) $process['id']) {
+                throw new \App\Core\HttpError('El proceso no está disponible.', 404);
+            }
+        }
+        return $process ? (int) $process['id'] : null;
     }
 
     public function insertProcess(array $data): int {
@@ -161,5 +183,10 @@ class ElectoralProcessRepository
         $stmt->execute();
 
         return (int) $this->db->lastInsertId();
+    }
+    public function belongsToOrganization(int $processId, int $organizationId): bool {
+        $stmt = $this->db->prepare('SELECT 1 FROM procesos_electorales WHERE id = :proceso AND organizacion = :organizacion');
+        $stmt->execute(['proceso' => $processId, 'organizacion' => $organizationId]);
+        return (bool) $stmt->fetchColumn();
     }
 }

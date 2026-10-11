@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Service;
+use App\Core\HttpError;
+use App\Core\Security\PasswordPolicy;
 use App\Repositories\ProfilesRepository;
 use App\Repositories\UsersRepository;
 use App\Repositories\OrganizationsRepository;
@@ -31,7 +33,7 @@ class ProfilesService extends Service
             $logged_uuid = $this->uuidBinaryToString($logged_uuid_bin);
 
             if($uuid != $logged_uuid)
-                throw new RuntimeException("Sin acceso a modificar información.");
+                throw new HttpError("Sin acceso a modificar información.", 403);
 
             $profile_data = $this->usersRepository->getUserData([
                 'uuid'                          => $this->uuidStringToBinary($uuid)
@@ -55,17 +57,11 @@ class ProfilesService extends Service
     
     public function updatePassword(array $data): ?array {
         try {
-            $salt = env('HMAC_SALT');
-
-            if(!$salt) {
-                throw new \RuntimeException('HMAL_SALT no esta configurado en .env');
-            }
-
             $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
             $uuid = $this->normalizeRequiredText($data['uuid'] ?? null, 'No se recibio un perfil.');
 
-            $old_password = $this->normalizeRequiredText($data['old_password'] ?? null, 'No se recibio contraseña');
-            $new_password = $this->normalizeRequiredText($data['new_password'] ?? null, 'No se recibio contraseña');
+            $old_password = PasswordPolicy::read($data['old_password'] ?? null);
+            $new_password = PasswordPolicy::newPassword($data['new_password'] ?? null);
 
             $password_hash = $this->encrypt_hash($new_password);
 
@@ -73,7 +69,7 @@ class ProfilesService extends Service
             $logged_uuid = $this->uuidBinaryToString($logged_uuid_bin);
 
             if($uuid != $logged_uuid)
-                throw new RuntimeException("Sin acceso a modificar información.");
+                throw new HttpError("Sin acceso a modificar información.", 403);
 
             $profile_data = $this->usersRepository->getUserData([
                 'uuid'                          => $this->uuidStringToBinary($uuid)
@@ -86,7 +82,7 @@ class ProfilesService extends Service
                 ];
             }
 
-            if (!password_verify($old_password, $profile_data['password_hash'])) {
+            if (!PasswordPolicy::verify($old_password, $profile_data['password_hash'])) {
                 return [
                     'changed'                   => false,
                     'message'                   => 'Contraseña no coincide.'

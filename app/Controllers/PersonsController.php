@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Core\Pagination;
 use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
@@ -54,23 +55,23 @@ class PersonsController extends Controller
             $currentUserId = Auth::id();
 
             if($currentUserId === null) {
-                throw new RuntimeException("No autenticado.");
+                throw new \App\Core\HttpError("No autenticado.", 401);
             }
             $service = $this->getService();
 
             $section = trim((string)$this->request->query('section', null));
             $search = trim((string)$this->request->query('search', null));
             
-            $limit = (int)$this->request->query('limit', 10);
+            $limit = (int)$this->request->query('limit', 25);
             $offset = (int)$this->request->query('offset', 0);
 
-            $limit = max(1, min($limit, 5000000));
-            $offset = max(0, $offset);
+            $limit = Pagination::limit($limit);
+            $offset = Pagination::offset($offset);
 
             $persons = $service->getAll([
                 'section'                       => $section,
                 'search'                        => $search,
-                'limit'                         => $limit,
+                'limit'                         => $limit + 1,
                 'offset'                        => $offset,
                 'uid'                           => $currentUserId
             ]);
@@ -78,19 +79,12 @@ class PersonsController extends Controller
             return $response->json([
                     'success' => true,
                     'data' => [
-                        'persons' => $persons
-                    ]
+                        'persons' => array_slice($persons, 0, $limit)
+                    ],
+                    'pagination' => Pagination::response($persons, $limit, $offset)
                 ], 200);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return $response->exception($e);
         }
     }
 
@@ -99,7 +93,7 @@ class PersonsController extends Controller
             $currentUserId = Auth::id();
 
             if($currentUserId === null) {
-                throw new RuntimeException("No autenticado.");
+                throw new \App\Core\HttpError("No autenticado.", 401);
             }
 
             $service = $this->getService();
@@ -122,16 +116,8 @@ class PersonsController extends Controller
                     'id' => $person['uuid'],
                 ]
             ], 201);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return $response->exception($e);
         }
     }
 }

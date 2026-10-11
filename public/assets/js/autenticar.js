@@ -49,7 +49,7 @@ function Authenticate() {
 						autenticando = false;
 						try {
 							var response = JSON.parse(XMLHttpRequest.responseText);
-							ShowToastMessage(response.message, 'error');
+							ShowToastMessage(response.message || (response.status === 'ERROR_AUTENTICACION' ? 'Usuario o contraseña incorrectos.' : response.status === 'FAIL_NOT_ACTIVE' ? 'La cuenta está deshabilitada.' : 'No fue posible iniciar sesión.'), 'error');
 							
 						} catch (e) {
 							ShowToastMessage(XMLHttpRequest.responseText, 'error');

@@ -1,10 +1,6 @@
 <?php
 	require_once __DIR__.'/../../app/Core/init.php';
 
-	if(!$session->verifyUserRights(['superadmin']) && !$session->verifyUserRights(['captura-personas'])) {
-		$session->denyAccess();
-	}
-
 	$uri = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 	$segments = explode('/', $uri);
 
@@ -22,6 +18,7 @@
 		$view = APP_PATH . '/Views/profile/index.php';
 	} else {
 		header('Location: '.base_url('?callBack=missingInfo'));
+		exit;
 	}
 
 	require APP_PATH . '/Views/layout/main.php';

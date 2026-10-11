@@ -54,16 +54,8 @@ class UsersTypesController extends Controller
                         'users_types' => $data
                     ]
                 ], 200);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return $response->exception($e);
         }
     }
 }

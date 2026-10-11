@@ -124,13 +124,71 @@ function ActiveMenu(l) {
   });
 }
 
-function escapeHTML(str) {
-	return str
-	  .replace(/&/g, "&amp;")
-	  .replace(/'/g, "\\'")
-	  .replace(/"/g, '&quot;')
-	  .replace(/</g, "&lt;")
-	  .replace(/>/g, "&gt;");
+function escapeHTML(value) {
+	const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+	return String(value ?? '').replace(/[&<>"']/g, character => entities[character]);
+}
+
+// Cada listado mantiene su propio desplazamiento y conserva sus filtros al cambiar de página.
+function createPagination(tableSelector, onChange) {
+	const container = document.createElement('div');
+	container.className = 'flex items-center justify-end gap-3 p-3 text-sm';
+	const previous = document.createElement('button');
+	const next = document.createElement('button');
+	const label = document.createElement('span');
+	previous.type = next.type = 'button';
+	previous.textContent = 'Anterior';
+	next.textContent = 'Siguiente';
+	previous.className = next.className = 'btn bg-primary text-white btn-sm disabled:opacity-50';
+	container.append(previous, label, next);
+	const table = document.querySelector(tableSelector);
+	const panel = table.closest('.overflow-x-auto') || table.parentElement;
+	// Los controles quedan fuera del área de desplazamiento para que siempre sean accesibles.
+	panel.insertAdjacentElement('afterend', container);
+	const pagination = {
+		limit: 25,
+		offset: 0,
+		params() { return { limit: this.limit, offset: this.offset }; },
+		reset() { this.offset = 0; },
+		update(metadata) {
+			if (!metadata) return;
+			if (Number.isInteger(metadata.offset)) this.offset = metadata.offset;
+			previous.disabled = this.offset === 0;
+			next.disabled = !metadata.has_more;
+			label.textContent = `Página ${Math.floor(this.offset / this.limit) + 1}`;
+		}
+	};
+	previous.disabled = next.disabled = true;
+	previous.addEventListener('click', () => {
+		pagination.offset = Math.max(0, pagination.offset - pagination.limit);
+		onChange();
+	});
+	next.addEventListener('click', () => {
+		pagination.offset += pagination.limit;
+		onChange();
+	});
+	return pagination;
+}
+
+// Los selectores recorren páginas acotadas; no dependen de un listado masivo del servidor.
+function loadOptions(options, key) {
+	const rows = [];
+	function loadPage(offset) {
+		$.ajax({
+			...options,
+			data: { ...options.data, limit: 100, offset },
+			success(response) {
+				rows.push(...response.data[key]);
+				if (response.pagination?.has_more) {
+					loadPage(offset + 100);
+				} else {
+					response.data[key] = rows;
+					options.success(response);
+				}
+			}
+		});
+	}
+	loadPage(0);
 }
 
 function formatTimeTo12h(time24) {

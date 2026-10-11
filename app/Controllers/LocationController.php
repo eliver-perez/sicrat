@@ -31,7 +31,7 @@ class LocationController extends Controller
         try {
             $service = $this->getService();
 
-            $countryId = $request->queryInt('id');
+            $countryId = null;
 
             $search = $request->query('search');
 
@@ -43,30 +43,19 @@ class LocationController extends Controller
                     'states' => $states
                 ]
             ]);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                // 'message' => 'No fue posible obtener los estados.'
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ], 500);
+            return $response->exception($e);
         }
     }
 
-    public function municipalities(Request $request, Response $response, int $id)
+    public function municipalities(Request $request, Response $response, string $id)
     {
         try {
             $service = $this->getService();
 
             $search = $request->query('search');
 
-            $municipalities = $service->getMunicipalities($id, $search);
+            $municipalities = $service->getMunicipalities($this->routeId($id), $search);
 
             return $response->json([
                 'success' => true,
@@ -74,25 +63,17 @@ class LocationController extends Controller
                     'municipalities' => $municipalities
                 ]
             ]);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => 'No fue posible obtener los municipios.'
-            ], 500);
+            return $response->exception($e);
         }
     }
 
-    public function localities(Request $request, Response $response)
+    public function localities(Request $request, Response $response, string $id)
     {
         try {
             $service = $this->getService();
 
-            $municipalityId = $request->queryInt('id');
+            $municipalityId = $this->routeId($id);
 
             $search = $request->query('search');
 
@@ -104,25 +85,17 @@ class LocationController extends Controller
                     'localities' => $localities
                 ]
             ]);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => 'No fue posible obtener las colonias.'
-            ], 500);
+            return $response->exception($e);
         }
     }
 
-    public function neighborhoods(Request $request, Response $response)
+    public function neighborhoods(Request $request, Response $response, string $id)
     {
         try {
             $service = $this->getService();
 
-            $localityId = $request->queryInt('id');
+            $localityId = $this->routeId($id);
 
             $search = $request->query('search');
 
@@ -134,16 +107,8 @@ class LocationController extends Controller
                     'neighborhoods' => $neighborhoods
                 ]
             ]);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => 'No fue posible obtener las colonias.'
-            ], 500);
+            return $response->exception($e);
         }
     }
 
@@ -152,7 +117,7 @@ class LocationController extends Controller
         try {
             $service = $this->getService();
 
-            $input = $this->getJsonInput();
+            $input = $request->input();
 
             $stateId = $service->createState($input);
 
@@ -163,25 +128,18 @@ class LocationController extends Controller
                     'state_id' => $stateId
                 ]
             ], 201);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => 'No fue posible registrar el estado.'
-            ], 500);
+            return $response->exception($e);
         }
     }
 
-    public function storeMunicipality(Request $request, Response $response)
+    public function storeMunicipality(Request $request, Response $response, string $id)
     {
         try {
             $service = $this->getService();
 
-            $input = $this->getJsonInput();
+            $input = $request->input();
+            $input['state_id'] = $this->routeId($id);
 
             $municipalityId = $service->createMunicipality($input);
 
@@ -192,25 +150,18 @@ class LocationController extends Controller
                     'municipality_id' => $municipalityId
                 ]
             ], 201);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => 'No fue posible registrar el municipio.'
-            ], 500);
+            return $response->exception($e);
         }
     }
 
-    public function storeLocality(Request $request, Response $response)
+    public function storeLocality(Request $request, Response $response, string $id)
     {
         try {
             $service = $this->getService();
 
-            $input = $this->getJsonInput();
+            $input = $request->input();
+            $input['municipality_id'] = $this->routeId($id);
 
             $localityId = $service->createLocality($input);
 
@@ -221,28 +172,16 @@ class LocationController extends Controller
                     'locality_id' => $localityId
                 ]
             ], 201);
-        } catch (InvalidArgumentException | RuntimeException $e) {
-            return $response->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
         } catch (Throwable $e) {
-            return $response->json([
-                'success' => false,
-                'message' => 'No fue posible registrar la colonia.'
-            ], 500);
+            return $response->exception($e);
         }
     }
 
-    private function getJsonInput(): array
+    private function routeId(string $value): int
     {
-        $rawInput = file_get_contents('php://input');
-        $data = json_decode($rawInput, true);
-
-        if (!is_array($data)) {
-            throw new InvalidArgumentException('El cuerpo de la petición no contiene un JSON válido.');
+        if (filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value <= 0) {
+            throw new InvalidArgumentException('El identificador no es válido.');
         }
-
-        return $data;
+        return (int) $value;
     }
 }

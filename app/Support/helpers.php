@@ -29,6 +29,9 @@ function loadEnv(string $path): void {
             $value = substr($value, 1, -1);
         }
 
+        // Permite configurar el proceso sin sobrescribir sus variables con el archivo local.
+        $existing = getenv($name);
+        $value = $_ENV[$name] ?? ($existing !== false ? $existing : $value);
         $_ENV[$name] = $value;
         $_SERVER[$name] = $value;
     }
@@ -84,4 +87,12 @@ function moduleEnabled(array $modules, string $module) : ?stdClass {
             return $m;
     }
     return null;
+}
+
+function escape_html(mixed $value): string {
+    return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function json_script(mixed $value): string {
+    return json_encode($value, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
 }
