@@ -70,6 +70,7 @@ function openPerson(uuid) {
         }}, 'electoral_processes');
         const dialog = document.getElementById('person-detail');
         if (!dialog.open) dialog.showModal();
+        if (typeof window.InitializePersonOperations==='function') window.InitializePersonOperations(uuid,homeURL);
     }).fail(identityError);
 }
 

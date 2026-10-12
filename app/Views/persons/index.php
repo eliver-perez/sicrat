@@ -140,6 +140,7 @@
 <?php require __DIR__ . '/phase2.php'; ?>
 <script src="<?= escape_html(asset('js/persons/index.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/identity.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/persons/activity.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/import.js')); ?>"></script>
 
 <script>

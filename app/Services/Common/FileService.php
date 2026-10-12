@@ -20,7 +20,7 @@ class FileService
 		$actor=(new Access($this->repository))->actor();
 		$effective=(new Access($this->repository))->context($organization,$process,'archivos.subir');
 		$this->owners->authorize($entity,$record,$organization,$process,'write',$actor);
-		if (!$effective['super']) (new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson($entity==='personas' ? $record : 0,'archivos.subir',$process);
+		$this->owners->authorize($entity,$record,$organization,$process,'write',$actor,'archivos.subir');
 		$source=$file['tmp_name'] ?? '';
 		if (($file['error'] ?? UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK || !is_string($source) || !is_uploaded_file($source)) throw new \InvalidArgumentException('Carga inválida.');
 		$clientPath=$file['full_path'] ?? $file['name'] ?? '';
@@ -37,6 +37,7 @@ class FileService
 		$extension=strtolower(pathinfo($name,PATHINFO_EXTENSION));
 		$allowed=['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'application/pdf'=>['pdf']];
 		if (!isset($allowed[$mime]) || !in_array($extension,$allowed[$mime],true)) throw new \InvalidArgumentException('El tipo real y la extensión del archivo no están permitidos.');
+		$this->owners->validateFile($entity,$record,$mime);
 		if ($mime==='application/pdf') {
 			$handle=fopen($source,'rb'); $header=fread($handle,8); fseek($handle,max(0,$size-1024)); $tail=stream_get_contents($handle); fclose($handle);
 			if (!str_starts_with($header,'%PDF-') || !str_contains($tail,'%%EOF')) throw new \InvalidArgumentException('Documento PDF inválido.');
@@ -70,6 +71,11 @@ class FileService
 	private function store(string $uuid,int $organization,?int $process,string $entity,int $record,int $actor,string $name,array $variants,string $type): int
 	{
 		return $this->repository->transaction(function () use ($uuid,$organization,$process,$entity,$record,$actor,$name,$variants,$type) {
+			if ($entity!=='exportaciones') {
+				$this->owners->lock($entity,$record);
+				(new Access($this->repository))->context($organization,$process,'archivos.subir',$actor);
+				$this->owners->authorize($entity,$record,$organization,$process,'write',$actor,'archivos.subir');
+			}
 			$normal=$variants['normal']; $path=$this->storage->path($normal['path']);
 			$typeId=$this->repository->one('SELECT id FROM archivos_tipos WHERE codigo=?',[$type])['id'];
 			$id=$this->repository->insert("INSERT INTO archivos (uuid,organizacion,proceso,entidad,entidad_id,tipo,nombre_original,ruta,mime_type,tamanio,sha256,estado,subido_por,ancho,alto,f_registro) VALUES (?,?,?,?,?,?,?,?,?,?,?,'activo',?,?,?,NOW())",[Values::binary($uuid),$organization,$process,$entity,$record,$typeId,$name,$normal['path'],$normal['mime'],filesize($path),hash_file('sha256',$path),$actor,$normal['width'],$normal['height']]);
@@ -86,6 +92,7 @@ class FileService
 		$permission=$row['entidad']==='exportaciones' ? 'exportaciones.descargar' : 'archivos.ver';
 		(new Access($this->repository))->context((int) $row['organizacion'],$process,$permission,$actor);
 		$this->owners->authorize($row['entidad'],(int) $row['entidad_id'],(int) $row['organizacion'],$process,'read',$actor);
+		$this->owners->authorize($row['entidad'],(int) $row['entidad_id'],(int) $row['organizacion'],$process,'read',$actor,$permission);
 		if ($row['entidad']==='personas') (new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson((int) $row['entidad_id'],$permission,$process,$actor);
 		$path=$this->storage->path($row['variante_ruta']);
 		if (!is_file($path) || filesize($path)!=(int) $row['variante_tamanio'] || !hash_equals($row['variante_hash'],hash_file('sha256',$path))) throw new HttpError('Archivo no disponible o integridad inválida.',404);
@@ -99,7 +106,7 @@ class FileService
 		if (($filters['search'] ?? '')!=='') { $filter.=' AND (p.codigo_persona LIKE ? OR CONCAT_WS(\' \',p.nombre,p.paterno,p.materno) LIKE ?)'; $search='%'.$filters['search'].'%'; $parameters[]=$search; $parameters[]=$search; }
 		if (($filters['section'] ?? null)!==null) { $filter.=' AND p.seccion=?'; $parameters[]=$filters['section']; }
 		do {
-			$rows=$this->repository->rows("SELECT a.id,a.uuid FROM archivos a LEFT JOIN personas p ON a.entidad='personas' AND p.id=a.entidad_id WHERE a.organizacion=? AND (a.proceso IS NULL OR a.proceso <=> ?) AND a.entidad<>'exportaciones' AND a.estado='activo' AND a.id>? $filter ORDER BY a.id LIMIT 100",[$organization,$process,$last,...$parameters]);
+			$rows=$this->repository->rows("SELECT a.id,a.uuid FROM archivos a LEFT JOIN personas p ON a.entidad='personas' AND p.id=a.entidad_id WHERE a.organizacion=? AND (a.proceso IS NULL OR a.proceso <=> ?) AND a.entidad NOT IN ('exportaciones','mensajes') AND a.estado='activo' AND a.id>? $filter ORDER BY a.id LIMIT 100",[$organization,$process,$last,...$parameters]);
 			foreach ($rows as $row) {
 				$last=(int) $row['id']; $uuid=Values::uuidText($row['uuid']);
 				try { $file=$this->authorized($uuid,'normal',false); yield ['uuid'=>$uuid,...$file]; }
@@ -113,6 +120,7 @@ class FileService
 		$actor=(new Access($this->repository))->actor(); $process=$row['proceso']===null ? null : (int) $row['proceso'];
 		(new Access($this->repository))->context((int) $row['organizacion'],$process,'archivos.eliminar');
 		$this->owners->authorize($row['entidad'],(int) $row['entidad_id'],(int) $row['organizacion'],$process,'write',$actor);
+		$this->owners->authorize($row['entidad'],(int) $row['entidad_id'],(int) $row['organizacion'],$process,'write',$actor,'archivos.eliminar');
 		if ($row['entidad']==='personas') (new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson((int) $row['entidad_id'],'archivos.eliminar',$process);
 		$this->repository->transaction(function () use ($row,$process) {
 			$this->repository->execute("UPDATE archivos SET estado='eliminado' WHERE id=?",[$row['id']]);

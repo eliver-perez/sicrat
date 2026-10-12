@@ -15,7 +15,8 @@ async function main() {
     for (let attempt=0; !fs.existsSync(portFile) && attempt<100; attempt++) await pause(100);
     if (!fs.existsSync(portFile)) throw new Error('Chrome no inició.');
     const port = Number(fs.readFileSync(portFile,'utf8').split('\n')[0]);
-    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    let targets;
+    for (let attempt=0;attempt<100;attempt++) { try { targets=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json();if(targets.some(target=>target.type==='page'))break; } catch(error) { if(attempt===99)throw error; }await pause(100); }
     socket = new WebSocket(targets.find(target => target.type === 'page').webSocketDebuggerUrl);
     await new Promise((resolve,reject) => { socket.addEventListener('open',resolve,{once:true}); socket.addEventListener('error',reject,{once:true}); });
     let nextId=0; const pending=new Map();
@@ -33,6 +34,7 @@ async function main() {
     }
     async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate(expression)) return; await pause(100); } throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if (process.argv.includes('--only-phase5')) { checks+=await require('./phase5-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 5 sin excepciones JavaScript.');return; }
     await navigate('/autenticacion/');
     const login=await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const result=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({username:'administrador',password:' nueva contraseña '})}); return result.status; })()`);
     assert.equal(login,200); checks++;
@@ -53,7 +55,7 @@ async function main() {
     await waitFor('document.getElementById("structure-person").options.length > 1'); checks++;
     assert.equal(await evaluate('document.querySelectorAll("#structure-participations input").length'),1); checks++;
     await navigate('/administration/');
-    await waitFor('document.querySelectorAll("#level-list button").length === 3 && document.querySelectorAll("#module-list > div").length + document.querySelectorAll("#module-essential > span").length === 15'); checks++;
+    await waitFor('document.querySelectorAll("#level-list button").length === 3 && document.querySelectorAll("#module-list > div").length + document.querySelectorAll("#module-essential > span").length === 16'); checks++;
     await waitFor('document.getElementById("permission-form").elements.scope.options.length === 6'); checks++;
     assert.equal(await evaluate('document.getElementById("phase3-message").textContent'),''); checks++;
     const configuration=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}); fs.writeFileSync(path.join(directory,'phase3-administration.png'),Buffer.from(configuration.data,'base64'),{mode:0o600});
@@ -88,7 +90,8 @@ async function main() {
         assert.equal(await evaluate('getComputedStyle(document.getElementById("services-backups")).display'),'none'); checks++;
     }
     if (process.argv.includes('--ux')) checks += await require('./ux-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
+    if (process.argv.includes('--phase5')) checks += await require('./phase5-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     assert.deepEqual(failures,[]); checks++;
     console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
 }
-main().catch(error => { console.error(error.message); process.exitCode=1; }).finally(() => { socket?.close(); browser.kill('SIGTERM'); });
+main().catch(error => { console.error(error.stack || error.message); process.exitCode=1; }).finally(() => { socket?.close(); browser.kill('SIGTERM'); });

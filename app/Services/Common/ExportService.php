@@ -26,6 +26,7 @@ class ExportService
 		if (!in_array($format,['pdf','xlsx','csv'],true) && !($type==='paquete' && $format==='zip')) throw new \InvalidArgumentException('Formato de exportación no permitido.');
 		$actor=(new Access($this->repository))->actor();
 		$clean=['search'=>isset($filters['search']) ? Values::text($filters['search'],150,true) : '', 'section'=>empty($filters['section']) ? null : Values::integer($filters['section'])];
+		$clean=[...$clean,...\App\Services\Operations\Exports::filters($type,$filters)];
 		$context=['organization'=>$organization,'process'=>$process,'actor'=>$actor,'filters'=>$clean];
 		$this->registry->authorize($context,'exportaciones.generar');
 		$types=$type==='paquete' ? $this->registry->packageTypes() : [$type];

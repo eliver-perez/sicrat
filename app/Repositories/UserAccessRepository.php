@@ -40,10 +40,17 @@ class UserAccessRepository
     {
         $statement = $this->db->prepare('INSERT INTO usuarios_procesos (usuario,proceso,tipo_usuario,activo,f_registro,f_baja) VALUES (?,?,?,?,NOW(),?) ON DUPLICATE KEY UPDATE tipo_usuario=VALUES(tipo_usuario),activo=VALUES(activo),f_baja=VALUES(f_baja)');
         $statement->execute([$user,$process,$type,$active,$active === 1 ? null : date('Y-m-d H:i:s')]);
+        $this->synchronizeMessaging($user);
     }
     public function link(int $user, ?int $person): void
     {
         $statement = $this->db->prepare('UPDATE usuarios SET persona=?,f_actualizacion=NOW() WHERE id=?');
         $statement->execute([$person,$user]);
+        $this->synchronizeMessaging($user);
+    }
+    private function synchronizeMessaging(int $user): void
+    {
+        $statement=$this->db->prepare('SELECT organizacion FROM usuarios WHERE id=?'); $statement->execute([$user]); $organization=$statement->fetchColumn();
+        if ($organization) (new \App\Services\Operations\MessagingService(new CommonRepository($this->db)))->synchronizeOrganization((int) $organization);
     }
 }

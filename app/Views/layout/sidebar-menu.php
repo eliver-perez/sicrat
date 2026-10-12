@@ -132,6 +132,28 @@
                         <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/administration')); ?>"><span class="menu-icon"><i data-lucide="settings"></i></span><div class="menu-text">Configuración electoral</div></a></li>
                         <?php } ?>
                         <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/services')); ?>"><span class="menu-icon"><i data-lucide="bell"></i></span><div class="menu-text">Servicios y notificaciones</div></a></li>
+                        <?php
+                            $operationNavigation=[];
+                            if (\App\Core\Auth::processId()) {
+                                $moduleRepository=new \App\Repositories\ModuleRepository((new \App\Core\Database())->getConnection());
+                                foreach (['interacciones'=>['Interacciones','phone'],'encuestas'=>['Encuestas','clipboard-list'],'tareas'=>['Tareas y metas','list-checks'],'eventos'=>['Eventos y brigadas','calendar-days'],'peticiones'=>['Peticiones e incidencias','inbox'],'transporte'=>['Transporte y logística','bus'],'conversaciones'=>['Mensajería','messages-square']] as $entity=>[$name,$icon]) {
+                                    $definition=\App\Services\Operations\Catalog::entity($entity);
+                                    $rights=$entity==='encuestas' ? ['encuestas.ver','encuestas.crear','encuestas.aplicar','encuestas.ver_resultados','encuestas.corregir','encuestas.administrar','encuestas.aprobar'] : [$definition['permission'].'.ver'];
+                                    if ($entity==='tareas') $rights[]='metas.ver';
+                                    if ($entity==='peticiones') $rights[]='incidencias.ver';
+                                    if (!$session->verifyUserRights($rights)) continue;
+                                    try { $moduleRepository->require($definition['module'],\App\Core\Auth::processId()); }
+                                    catch (\App\Core\HttpError) { continue; }
+                                    if ($entity==='tareas' && !$session->verifyUserRights(['tareas.ver'])) $entity='metas';
+                                    if ($entity==='peticiones' && !$session->verifyUserRights(['peticiones.ver'])) $entity='incidencias';
+                                    $operationNavigation[]=[$entity,$name,$icon];
+                                }
+                            }
+                            if ($operationNavigation) { ?>
+                        <li class="menu-title"><span>Operación</span></li>
+                        <?php foreach ($operationNavigation as [$entity,$name,$icon]) { ?>
+                        <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/operations/?module='.$entity)); ?>"><span class="menu-icon"><i data-lucide="<?= escape_html($icon); ?>"></i></span><div class="menu-text"><?= escape_html($name); ?></div></a></li>
+                        <?php } } ?>
                     </ul>
         
                 </div>

@@ -170,3 +170,32 @@ $router->get('/api/backups/{id}/restore', [\App\Controllers\CommonServicesContro
 $router->post('/api/backups/{id}/restore', [\App\Controllers\CommonServicesController::class,'restore'], 'backups.admin');
 
 $router->post('/api/jobs/{id}/{action}', [\App\Controllers\CommonServicesController::class,'administerJob'], 'jobs.admin');
+
+// Operación: sesión/CSRF comunes; el servicio comprueba permiso, módulo y alcance del contexto objetivo.
+$operations=\App\Controllers\OperationsController::class;
+$router->get('/api/operations/interaction-elections', [\App\Controllers\OperationsController::class,'elections'], 'operations.access');
+$router->get('/api/operations/capabilities',[$operations,'capabilities'],'operations.access');
+$router->get('/api/operations/event-types',[$operations,'types'],'operations.access');
+$router->post('/api/operations/event-types',[$operations,'types'],'operations.access');
+$router->get('/api/operations/indicators',[$operations,'indicators'],'operations.access');
+$router->get('/api/operations/transport-summary',[$operations,'transportSummary'],'operations.access');
+$router->get('/api/operations/contacts',[$operations,'contacts'],'operations.access');
+$router->get('/api/operations/message-policy',[$operations,'policy'],'operations.access');
+$router->put('/api/operations/message-policy',[$operations,'policy'],'operations.access');
+$router->post('/api/operations/outgoing',[$operations,'outgoing'],'operations.access');
+$router->get('/api/persons/{id}/activity',[$operations,'timeline'],'persons.read');
+$router->get('/api/operations/{entity}/people',[$operations,'people'],'operations.access');
+$router->get('/api/operations/{entity}/approvers',[$operations,'approvers'],'operations.access');
+$router->get('/api/operations/encuestas/{id}/responses/{response}',[$operations,'surveyResponse'],'operations.access');
+$router->put('/api/operations/encuestas/{id}/responses/{response}',[$operations,'surveyResponse'],'operations.access');
+$router->get('/api/operations/eventos/{id}/participants/{participant}/qr',[$operations,'qr'],'operations.access');
+$router->get('/api/operations/conversaciones/{id}/messages/{message}/receipts',[$operations,'receipts'],'operations.access');
+$router->post('/api/operations/conversaciones/{id}/messages/{message}/moderate',[$operations,'moderate'],'operations.access');
+$router->get('/api/operations/{entity}/{id}/history',[$operations,'related'],'operations.access');
+$router->get('/api/operations/{entity}/{id}/files',[$operations,'related'],'operations.access');
+$router->get('/api/operations/{entity}/{id}/{action}',[$operations,'query'],'operations.access');
+$router->post('/api/operations/{entity}/{id}/{action}',[$operations,'action'],'operations.access');
+$router->get('/api/operations/{entity}/{id}',[$operations,'detail'],'operations.access');
+$router->put('/api/operations/{entity}/{id}',[$operations,'detail'],'operations.access');
+$router->get('/api/operations/{entity}',[$operations,'index'],'operations.access');
+$router->post('/api/operations/{entity}',[$operations,'index'],'operations.access');

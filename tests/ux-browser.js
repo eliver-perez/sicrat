@@ -40,6 +40,7 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
         await size(1600,1000);
     }
     async function bounds(description) {
+        verify(await evaluate('parseFloat(getComputedStyle(document.querySelector("main")).paddingTop) >= 12'),description + ': separación superior uniforme');
         const geometry = await evaluate(`(() => { const header=document.querySelector('.app-header'); const selector=document.getElementById('electoral-context-select'); const toggle=document.getElementById('button-toggle-menu'); const rectangles=[header,selector,toggle].filter(Boolean).map(element=>element.getBoundingClientRect()); return {width:innerWidth,scroll:document.documentElement.scrollWidth,rectangles:rectangles.map(rect=>({left:rect.left,right:rect.right}))}; })()`);
         verify(geometry.scroll <= geometry.width + 2,description + ': sin desbordamiento horizontal de página');
         verify(geometry.rectangles.every(rect=>rect.left >= -1 && rect.right <= geometry.width+1),description + ': header dentro del viewport');

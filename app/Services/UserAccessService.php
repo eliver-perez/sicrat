@@ -104,6 +104,7 @@ class UserAccessService extends Service
             if ($user['organizacion'] !== null) $db->prepare('SELECT id FROM organizaciones WHERE id=? FOR UPDATE')->execute([$user['organizacion']]);
             if (!$active) (new StructureService(new \App\Repositories\StructureRepository($db)))->withdrawCapacity((int) $user['id']);
             $db->prepare('UPDATE usuarios SET activo=?,f_actualizacion=NOW() WHERE id=?')->execute([$active,$user['id']]);
+            if ($user['organizacion']!==null) (new \App\Services\Operations\MessagingService(new \App\Repositories\CommonRepository($db)))->synchronizeOrganization((int) $user['organizacion']);
             (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($db)))->record($user['organizacion']===null ? null : (int) $user['organizacion'],null,'estado','usuarios',(int) $user['id'],['activo'=>$user['activo']],['activo'=>$active]);
             $db->commit();
         } catch (\Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }

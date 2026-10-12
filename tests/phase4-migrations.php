@@ -16,7 +16,7 @@ try {
 	$db->exec('CREATE TABLE esquema_migraciones (nombre VARCHAR(190) PRIMARY KEY,checksum CHAR(64),aplicada_en DATETIME)');
 	$runner=new App\Core\Migrations($db);
 	foreach (glob(dirname(__DIR__).'/database/migrations/*.php') as $file) {
-		if (basename($file)==='20261012_005_servicios_comunes.php') continue;
+		if (basename($file)>='20261012_005_servicios_comunes.php') continue;
 		(require $file)($db,$runner); $db->prepare('INSERT INTO esquema_migraciones VALUES (?,?,NOW())')->execute([basename($file),hash_file('sha256',$file)]);
 	}
 	foreach ([1,2] as $organization) $db->prepare('INSERT INTO organizaciones (uuid,organizacion,f_registro) VALUES (?,?,NOW())')->execute([random_bytes(16),'Org '.$organization]);
@@ -32,7 +32,8 @@ try {
 	migration4Check(!$runner->columnExists('archivos','estado'),'Conflicto de archivos tampoco modifica el esquema.');
 	$db->exec('UPDATE archivos SET organizacion=1');
 	$previous=[]; foreach (['auditoria','archivos','usuarios','organizaciones','procesos_electorales','estructura_transferencias'] as $table) $previous[$table]=$db->query('SELECT * FROM '.$table)->fetchAll(PDO::FETCH_ASSOC);
-	migration4Check($runner->run()===['20261012_005_servicios_comunes.php'],'Migra exclusivamente Fase 4 desde Fase 3.');
+	$applied=$runner->run();
+	migration4Check(($applied[0] ?? null)==='20261012_005_servicios_comunes.php','Migra Fase 4 desde Fase 3 antes de las migraciones posteriores.');
 	foreach ($previous as $table=>$rows) {
 		$now=$db->query('SELECT * FROM '.$table)->fetchAll(PDO::FETCH_ASSOC);
 		foreach ($rows as $index=>$row) migration4Check(array_intersect_key($now[$index],$row)===$row,'Conserva ID y campos originales de '.$table);

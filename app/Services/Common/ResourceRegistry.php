@@ -12,6 +12,9 @@ class ResourceRegistry
 {
 	private array $owners = [];
 	private array $filters = [];
+	private array $decisions = [];
+	private array $filePolicies = [];
+	private array $locks = [];
 	public function __construct(private CommonRepository $repository)
 	{
 		$this->register('personas',function (int $record,int $organization,?int $process,string $operation,int $actor,?string $permission = null): void {
@@ -27,6 +30,7 @@ class ResourceRegistry
 			if ($operation!=='read') throw new HttpError('El resultado de exportación es administrado por su servicio.',403);
 			(new ExportService($this->repository))->authorizeResult($record,$actor);
 		});
+		\App\Services\Operations\Resources::register($this,$repository);
 	}
 	public function register(string $entity, callable $authorize,?callable $listingPredicate = null): void
 	{
@@ -46,5 +50,20 @@ class ResourceRegistry
 	{
 		if (!isset($this->owners[$entity])) throw new HttpError('No existe autorización para el recurso propietario.',403);
 		($this->owners[$entity])($record,$organization,$process,$operation,$actor,$permission);
+	}
+	public function onDecision(string $entity,callable $callback): void { $this->decisions[$entity]=$callback; }
+	public function onLock(string $entity,callable $callback): void { $this->locks[$entity]=$callback; }
+	public function lock(string $entity,int $record): void
+	{
+		if (isset($this->locks[$entity])) ($this->locks[$entity])($record);
+	}
+	public function decision(array $approval,string $state,int $actor): void
+	{
+		if (isset($this->decisions[$approval['entidad']])) ($this->decisions[$approval['entidad']])($approval,$state,$actor);
+	}
+	public function filePolicy(string $entity,callable $callback): void { $this->filePolicies[$entity]=$callback; }
+	public function validateFile(string $entity,int $record,string $mime): void
+	{
+		if (isset($this->filePolicies[$entity])) ($this->filePolicies[$entity])($record,$mime);
 	}
 }

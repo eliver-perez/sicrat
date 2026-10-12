@@ -81,5 +81,6 @@ class StructureRepository
         $elections = array_map('intval',array_column($this->elections($container),'id'));
         (new \App\Services\Common\AuditService(new CommonRepository($this->db)))->record($organization,$process,$action,'estructura',$member ?? $container,$before,$after,['contenedor'=>$container,'elecciones'=>$elections,'motivo'=>$reason]);
         $this->execute('UPDATE estructuras_organizacionales SET version=version+1 WHERE id=?',[$container]);
+        (new \App\Services\Operations\MessagingService(new CommonRepository($this->db)))->synchronizeOrganization($organization);
     }
 }

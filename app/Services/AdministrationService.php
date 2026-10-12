@@ -23,6 +23,10 @@ class AdministrationService extends Service
     private function audit(?int $organization, ?int $process, string $entity, int $record, mixed $before, mixed $after): void
     {
         (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($this->repository->connection())))->record($organization,$process,'configurar',$entity,$record,$before,$after);
+        if (in_array($entity,['permisos_usuarios','permisos_usuarios_tipo'],true)) {
+            $messaging=new \App\Services\Operations\MessagingService(new \App\Repositories\CommonRepository($this->repository->connection()));
+            if ($organization===null) $messaging->synchronizeAll(); else $messaging->synchronizeOrganization($organization);
+        }
     }
 
     private function process(?string $uuid = null): array

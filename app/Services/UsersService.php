@@ -167,6 +167,7 @@ class UsersService extends Service
                 }
             }
             (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($conn)))->record($organizationId,$processId,'alta','usuarios',$userId,null,['tipo'=>$user_type,'activo'=>$status,'persona'=>$person['id'] ?? null]);
+            if ($organizationId!==null) (new \App\Services\Operations\MessagingService(new \App\Repositories\CommonRepository($conn)))->synchronizeOrganization($organizationId);
             $conn->commit();
             return [
                 'id'                            => $this->uuidBinaryToString($userUuid)

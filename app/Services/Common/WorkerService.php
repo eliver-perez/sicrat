@@ -22,6 +22,12 @@ class WorkerService
 			$repository->execute('DELETE FROM personas_importaciones WHERE expira_en<NOW() LIMIT 100');
 			(new BackupService($repository))->retention((int) $job['usuario']);
 		});
+		$this->register('tarea_recurrente',function ($payload,$job) use ($repository) {
+			(new ActorContext($repository))->run((int) $job['usuario'],(int) $job['proceso'],fn()=>(new \App\Services\Operations\TaskService($repository))->recur((int) $payload['task'],$payload['day']));
+		});
+		$this->register('mensaje_notificar',function ($payload,$job) use ($repository) {
+			(new ActorContext($repository))->run((int) $job['usuario'],(int) $job['proceso'],fn()=>(new \App\Services\Operations\MessagingService($repository))->notify((int) $payload['message']));
+		});
 	}
 	public function register(string $type,callable $handler): void { $this->handlers[$type]=$handler; }
 	public function run(int $maximum = 10,int $seconds = 60,?string $type = null): int

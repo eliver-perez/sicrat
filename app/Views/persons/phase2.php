@@ -17,6 +17,7 @@
     </form>
     <section class="ux-section"><h6 class="card-title">Participación electoral</h6>
     <div id="person-participations" class="mb-4 overflow-x-auto"></div>
+    <div id="person-operational-activity" class="mb-4"></div>
     <label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
     <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button></section>
 </dialog>

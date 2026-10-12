@@ -31,7 +31,16 @@ dialog.card.max-w-2xl, dialog.card.max-w-3xl, #restore-dialog { max-width: 48rem
 [hidden] { display: none !important; }
 .btn.hidden, main form.hidden, dialog form.hidden { display: none !important; }
 .page-content, main, main .card, main .grid > *, main .flex > * { min-width: 0; }
-main { padding: 0 1.5rem 1.5rem; }
+main { padding: 1rem 1.5rem 1.5rem; }
+.op-form-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.op-table-scroll { max-height: 28rem; overflow: auto; }
+.op-picker { border: 1px solid var(--color-default-200,#e2e8f0); border-radius: .375rem; padding: .75rem; min-width: 0; }
+.op-picker select { margin-top: .5rem; }
+.op-picker-chosen { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+.op-message { border: 1px solid var(--color-default-200,#e2e8f0); border-radius: .5rem; padding: 1rem; margin-bottom: .75rem; }
+.op-message p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.op-question { border: 1px solid var(--color-default-200,#e2e8f0); border-radius: .375rem; padding: 1rem; margin-bottom: 1rem; }
+.op-small-note { font-size: .8rem; color: var(--color-default-600,#475569); }
 main .btn:not(.btn-icon), dialog .btn:not(.btn-icon) {
     display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
     min-height: 2.5rem; border: 1px solid var(--color-default-300, #cbd5e1);
@@ -104,7 +113,8 @@ main .max-h-\[480px\] { max-height: 28rem; }
 #structure-members td:first-child { min-width: 15rem; }
 @media (max-width: 1279px) { .ux-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 639px) {
-    main { padding: 0 1rem 1rem; }
+    main { padding: 1rem; }
+    .op-form-fields { grid-template-columns: minmax(0,1fr); }
     .app-header > div { padding: 0 .75rem; gap: .5rem; }
     .app-header > div > div { gap: .5rem; }
     .ux-election-context { width: min(53vw, 21rem); }

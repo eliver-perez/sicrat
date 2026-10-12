@@ -19,6 +19,7 @@ class ExportRegistry
 		$this->register('participaciones','Participaciones',['Código','Nombre','Elección','Activo'],fn ($context)=>$this->participations($context));
 		$this->register('estructura','Estructura',['Código','Nombre','Estructura','Responsable','Nivel','Activo'],fn ($context)=>$this->structure($context));
 		$this->register('usuarios_accesos','Usuarios_y_accesos',['Usuario','Nombre','Cuenta activa','Elección','Rol electoral','Acceso activo','Persona'],fn ($context)=>$this->accounts($context));
+		\App\Services\Operations\Exports::register($this,$repository);
 	}
 	public function register(string $type,string $title,array $columns,callable $rows,bool $inPackage = true): void { $this->exporters[$type]=['title'=>$title,'columns'=>$columns,'rows'=>$rows,'package'=>$inPackage]; }
 	public function packageTypes(): array { return array_keys(array_filter($this->exporters,static fn ($definition)=>$definition['package'])); }

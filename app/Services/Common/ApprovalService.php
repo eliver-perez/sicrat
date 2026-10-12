@@ -46,11 +46,18 @@ class ApprovalService
 		$row['steps']=$this->repository->rows('SELECT orden,aprobador,estado,resuelto_por,motivo,fecha FROM aprobaciones_pasos WHERE aprobacion=? ORDER BY orden',[$row['id']]);
 		return $row;
 	}
+	// Todos los consumidores bloquean primero el recurso, luego la solicitud y sus pasos.
+	private function locked(string $uuid): array
+	{
+		$row=$this->repository->one('SELECT * FROM aprobaciones WHERE uuid=?',[Values::binary($uuid)]) ?? throw new HttpError('Solicitud no disponible.',404);
+		$this->owners->lock($row['entidad'],(int) $row['entidad_id']);
+		return $this->repository->one('SELECT * FROM aprobaciones WHERE id=? FOR UPDATE',[$row['id']]);
+	}
 	public function resolve(string $uuid,bool $approved,string $reason): void
 	{
 		$actor=(new Access($this->repository))->actor(); $reason=Values::text($reason,500);
 		$this->repository->transaction(function () use ($uuid,$approved,$reason,$actor) {
-			$row=$this->repository->one('SELECT * FROM aprobaciones WHERE uuid=? FOR UPDATE',[Values::binary($uuid)]) ?? throw new HttpError('Solicitud no disponible.',404);
+			$row=$this->locked($uuid);
 			ApprovalState::pending($row['estado']);
 			if ($row['vence_en']!==null && strtotime($row['vence_en'])<=time()) throw new HttpError('La solicitud ha expirado.',409);
 			$process=$row['proceso']===null ? null : (int) $row['proceso'];
@@ -61,7 +68,10 @@ class ApprovalService
 			$state=ApprovalState::decision($approved);
 			$this->repository->execute('UPDATE aprobaciones_pasos SET estado=?,resuelto_por=?,motivo=?,fecha=NOW() WHERE aprobacion=? AND orden=?',[$state,$actor,$reason,$row['id'],$step['orden']]);
 			$pending=$this->repository->one("SELECT orden FROM aprobaciones_pasos WHERE aprobacion=? AND estado='pendiente' LIMIT 1",[$row['id']]);
-			if (!$approved || !$pending) $this->repository->execute('UPDATE aprobaciones SET estado=?,resuelta_en=NOW() WHERE id=?',[$state,$row['id']]);
+			if (!$approved || !$pending) {
+				$this->repository->execute('UPDATE aprobaciones SET estado=?,resuelta_en=NOW() WHERE id=?',[$state,$row['id']]);
+				$this->owners->decision($row,$state,$actor);
+			}
 			(new AuditService($this->repository))->record((int) $row['organizacion'],$process,$approved ? 'aprobar' : 'rechazar','aprobaciones',(int) $row['id'],['estado'=>'pendiente'],['estado'=>$pending && $approved ? 'pendiente' : $state,'paso'=>$step['orden'],'motivo'=>$reason]);
 		});
 	}
@@ -69,19 +79,36 @@ class ApprovalService
 	{
 		$actor=(new Access($this->repository))->actor();
 		$this->repository->transaction(function () use ($uuid,$reason,$actor) {
-			$row=$this->repository->one('SELECT * FROM aprobaciones WHERE uuid=? FOR UPDATE',[Values::binary($uuid)]) ?? throw new HttpError('Solicitud no disponible.',404);
+			$row=$this->locked($uuid);
 			$this->view($row,$actor); ApprovalState::pending($row['estado']);
 			if ((int) $row['solicitante']!==$actor) (new Access($this->repository))->super($actor);
 			$this->repository->execute("UPDATE aprobaciones SET estado='cancelada',resuelta_en=NOW() WHERE id=?",[$row['id']]);
+			$this->owners->decision($row,'cancelada',$actor);
 			(new AuditService($this->repository))->record((int) $row['organizacion'],$row['proceso']===null ? null : (int) $row['proceso'],'cancelar','aprobaciones',(int) $row['id'],null,['motivo'=>Values::text($reason,500)]);
+		});
+	}
+	// Integración interna: una reasignación autorizada retira el cierre pendiente antes de cambiar responsable.
+	public function withdrawForResource(int $id,string $entity,int $record,string $permission,string $reason): void
+	{
+		$actor=(new Access($this->repository))->actor();
+		$this->repository->transaction(function() use($id,$entity,$record,$permission,$reason,$actor) {
+			$row=$this->repository->one('SELECT * FROM aprobaciones WHERE id=? AND entidad=? AND entidad_id=? FOR UPDATE',[$id,$entity,$record]) ?? throw new HttpError('Solicitud no disponible.',404);
+			ApprovalState::pending($row['estado']);
+			$this->owners->authorize($entity,$record,(int) $row['organizacion'],(int) $row['proceso'],'write',$actor,$permission);
+			$this->repository->execute("UPDATE aprobaciones SET estado='cancelada',resuelta_en=NOW() WHERE id=?",[$id]);
+			$this->owners->decision($row,'cancelada',$actor);
+			(new AuditService($this->repository))->record((int) $row['organizacion'],(int) $row['proceso'],'cancelar','aprobaciones',$id,null,['motivo'=>Values::text($reason,500),'origen'=>'reasignacion']);
 		});
 	}
 	public function expire(): int
 	{
 		return $this->repository->transaction(function () {
-			$rows=$this->repository->rows("SELECT * FROM aprobaciones WHERE estado='pendiente' AND vence_en<=NOW() LIMIT 100 FOR UPDATE");
+			$rows=$this->repository->rows("SELECT * FROM aprobaciones WHERE estado='pendiente' AND vence_en<=NOW() ORDER BY id LIMIT 100");
 			foreach ($rows as $row) {
+				$row=$this->locked(Values::uuidText($row['uuid']));
+				if ($row['estado']!=='pendiente' || $row['vence_en']===null || strtotime($row['vence_en'])>time()) continue;
 				$this->repository->execute("UPDATE aprobaciones SET estado='expirada',resuelta_en=NOW() WHERE id=?",[$row['id']]);
+				$this->owners->decision($row,'expirada',(int) $row['solicitante']);
 				(new AuditService($this->repository))->record((int) $row['organizacion'],$row['proceso']===null ? null : (int) $row['proceso'],'expirar','aprobaciones',(int) $row['id']);
 			}
 			return count($rows);
