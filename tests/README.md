@@ -1,4 +1,4 @@
-# Pruebas de Fases 1, 2 y 3
+# Pruebas de Fases 1, 2, 3 y 4
 
 No requiere dependencias de desarrollo ni un framework de pruebas.
 
@@ -45,3 +45,22 @@ php tests/integration.php --phase3 --browser
 `phase3-frontend.js` verifica texto seguro, selección de elecciones, controles según permisos, paginación, JSON, CSRF y bloqueo de peticiones a otro origen.
 
 `--browser` utiliza el Chrome ya instalado en macOS y el WebSocket integrado de Node 22; no instala dependencias. Inicia un perfil temporal, usa exclusivamente las credenciales ficticias y el servidor desechable de esta suite, verifica las pantallas/modal/búsqueda/configuración y registra excepciones JavaScript. Cierra Chrome y deja capturas PNG en el directorio temporal para inspección. Es una prueba adicional local; no es requisito del código de producción. Ejecutar la suite sin esa opción donde Chrome no esté disponible.
+
+## Fase 4
+
+```sh
+node tests/phase4-frontend.js
+php tests/phase4-migrations.php
+php tests/integration.php --phase4
+php tests/integration.php --phase4 --browser
+```
+
+`--phase4` ejecuta completas las Fases 1–3. Añade auditoría sanitizada y filtros, aprobación simple/secuencial, snapshot, cancelación/caducidad, cargas multipart reales, JPEG con EXIF, WebP/miniatura, media con permiso/alcance/CSRF, notificaciones internas, consentimiento por canal y proveedores falsos. Nunca envía correo ni WhatsApp reales.
+
+Dos procesos `queue-writer.php`, que rechaza bases fuera del patrón desechable, verifican concurrencia y caída tras el claim. También se prueban lease vivo, recuperación, backoff, agotamiento, idempotencia, cancelación y reintento administrativo. Las exportaciones generan PDF/XLSX/CSV/ZIP reales sobre más de mil personas, con protección de fórmulas y autorización al descargar.
+
+Los backups se escriben en un directorio privado del ensayo. Se utilizan el cliente/dumper MySQL/MariaDB instalado (configurables con `MYSQL_CLIENT_BINARY`/`MYSQL_DUMP_BINARY`), credenciales temporales 0600 y otra base aleatoria para restauraciones. Se comprueban full, incrementales consecutivos, cambios/eliminaciones, daño interno/externo, dependencia faltante, retención/protección, espacio insuficiente, mutex y cifrado Sodium. La base y los directorios reales de SICRAT no se restauran ni se borran.
+
+`phase4-migrations.php` prepara datos históricos y conflictos antes del DDL, conserva sus campos/IDs y comprueba reejecución. GD con WebP, EXIF, ZIP, cURL, Sodium y las bibliotecas Composer del proyecto cubren los casos reales. No se instalan paquetes del sistema.
+
+Con `--browser` se conservan los casos de Fase 3 y se añaden auditoría, notificaciones, exportaciones, trabajos, respaldos, upload/miniatura y aislamiento visual del cliente. La captura adicional es `phase4-services.png`. Los resultados y procedimientos operativos están en `FASE4.md`.

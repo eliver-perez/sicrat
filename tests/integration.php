@@ -5,6 +5,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/app/Support/helpers.php';
 loadEnv(dirname(__DIR__) . '/.env');
+date_default_timezone_set('America/Mexico_City');
 
 // Solo crea y elimina una base desechable con nombre generado. Nunca escribe en DB_DATABASE.
 $databaseName = 'sicrat_phase1_test_' . bin2hex(random_bytes(6));
@@ -23,6 +24,7 @@ function verify(bool $condition, string $description): void {
 
 function request(string $client, string $method, string $path, ?array $data = null, ?string $csrf = null): array {
     global $baseUrl, $temporaryDirectory;
+    $headers=[];
     $curl = curl_init($baseUrl . $path);
     $options = [
         CURLOPT_RETURNTRANSFER => true,
@@ -30,6 +32,7 @@ function request(string $client, string $method, string $path, ?array $data = nu
         CURLOPT_COOKIEFILE => $temporaryDirectory . '/' . $client . '.cookies',
         CURLOPT_COOKIEJAR => $temporaryDirectory . '/' . $client . '.cookies',
         CURLOPT_TIMEOUT => 10,
+        CURLOPT_HEADERFUNCTION => static function ($handle,$line) use (&$headers) { if (str_contains($line,':')) { [$key,$value]=explode(':',$line,2); $headers[strtolower(trim($key))]=trim($value); } return strlen($line); },
     ];
     if ($data !== null) {
         $options[CURLOPT_POSTFIELDS] = http_build_query($data);
@@ -39,7 +42,7 @@ function request(string $client, string $method, string $path, ?array $data = nu
     curl_setopt_array($curl, $options);
     $body = curl_exec($curl);
     if ($body === false) throw new RuntimeException('No respondió el servidor de pruebas.');
-    return ['status' => curl_getinfo($curl, CURLINFO_HTTP_CODE), 'body' => $body, 'json' => json_decode($body, true)];
+    return ['status' => curl_getinfo($curl, CURLINFO_HTTP_CODE), 'body' => $body, 'json' => json_decode($body, true), 'headers'=>$headers];
 }
 
 function login(string $client, string $username, string $password): string {
@@ -114,6 +117,10 @@ try {
     $environment['DB_DATABASE'] = $databaseName;
     $environment['APP_URL'] = $baseUrl;
     $environment['APP_DEBUG'] = 'true';
+    $environment['PRIVATE_STORAGE_PATH'] = $temporaryDirectory . '/private';
+    $environment['BACKUP_STORAGE_PATH'] = $temporaryDirectory . '/backups';
+    $environment['SMTP_HOST'] = '';
+    $environment['WHATSAPP_TOKEN'] = '';
     $process = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $temporaryDirectory, '-S', $address, '-t', dirname(__DIR__) . '/public', __DIR__ . '/router.php'], [0 => ['pipe', 'r'], 1 => ['file', $temporaryDirectory . '/server.log', 'a'], 2 => ['file', $temporaryDirectory . '/server.log', 'a']], $pipes, dirname(__DIR__), $environment);
     for ($attempt = 0; $attempt < 50; $attempt++) {
         $socket = @stream_socket_client('tcp://' . $address, $errorCode, $errorMessage, 0.1);
@@ -217,11 +224,12 @@ try {
     $error = request('admin', 'GET', '/api/genders');
     verify($error['status'] === 500 && !str_contains($error['body'], 'SQLSTATE') && !str_contains($error['body'], 'generos') && !str_contains($error['body'], '/opt/'), 'El error interno se oculta incluso con APP_DEBUG activo.');
     $connection->exec('RENAME TABLE generos_test_error TO generos');
-    if (in_array('--phase2', $argv, true) || in_array('--phase3', $argv, true)) require __DIR__ . '/phase2.php';
-    if (in_array('--phase3', $argv, true)) require __DIR__ . '/phase3.php';
+    if (in_array('--phase2', $argv, true) || (in_array('--phase3', $argv, true) || in_array('--phase4', $argv, true))) require __DIR__ . '/phase2.php';
+    if ((in_array('--phase3', $argv, true) || in_array('--phase4', $argv, true))) require __DIR__ . '/phase3.php';
+    if (in_array('--phase4', $argv, true)) require __DIR__ . '/phase4.php';
     if (in_array('--browser', $argv, true)) {
-        if (!in_array('--phase3',$argv,true)) throw new RuntimeException('--browser requiere --phase3.');
-        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
+        if (!(in_array('--phase3',$argv,true) || in_array('--phase4',$argv,true))) throw new RuntimeException('--browser requiere --phase3.');
+        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
         fclose($browserPipes[0]); verify(proc_close($browserProcess)===0,'Validación de las pantallas en navegador real.');
     }
     echo "OK: {$checks} comprobaciones HTTP/BD (" . $connection->query('SELECT VERSION()')->fetchColumn() . ").\n";

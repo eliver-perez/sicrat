@@ -130,6 +130,7 @@ class ElectoralProcessService extends Service
                     'uid'                           => $uid
                 ]);
 
+            (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($conn)))->record($organizationId,$processId,'alta','procesos_electorales',$processId,null,['nombre'=>$process,'estatus'=>$status]);
             $conn->commit();
 
             return [

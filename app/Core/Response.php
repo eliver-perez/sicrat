@@ -58,6 +58,9 @@ class Response
             $this->error($exception->getMessage(), $exception->statusCode);
         } elseif ($exception instanceof \InvalidArgumentException) {
             $this->error($exception->getMessage(), 422);
+        } elseif ($exception instanceof \App\Services\Common\ServiceFailure) {
+            // Sólo mensajes operativos definidos por los servicios; nunca mensajes crudos de proveedores/PDO.
+            $this->error($exception->getMessage(), $exception->retryable ? 503 : 422);
         } else {
             // Los detalles técnicos permanecen en el registro PHP, nunca en la respuesta.
             error_log((string) $exception);

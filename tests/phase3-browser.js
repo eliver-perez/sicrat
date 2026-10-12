@@ -57,6 +57,30 @@ async function main() {
     await waitFor('document.getElementById("permission-form").elements.scope.options.length === 6'); checks++;
     assert.equal(await evaluate('document.getElementById("phase3-message").textContent'),''); checks++;
     const configuration=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}); fs.writeFileSync(path.join(directory,'phase3-administration.png'),Buffer.from(configuration.data,'base64'),{mode:0o600});
+    if (process.argv.includes('--phase4')) {
+        await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const choices=await (await fetch('/api/auth/elections?limit=100')).json(); const election=choices.data.electoral_processes.find(item=>item.process==='Proceso 1'); await fetch('/api/auth/election',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({process:election.id})}); })()`);
+        await navigate('/services/');
+        await waitFor('document.querySelectorAll("#backups-list tr").length > 1 && document.querySelectorAll("#file-form select option").length > 1'); checks++;
+        assert.equal(await evaluate('document.getElementById("services-jobs").hidden'),false); checks++;
+        assert.equal(await evaluate('document.getElementById("backup-policy-form").elements.retention_days.value'),'14'); checks++;
+        await evaluate('document.getElementById("audit-filter").elements.action.value="prueba_fase4"; document.getElementById("audit-filter").requestSubmit()');
+        await waitFor('document.querySelectorAll("#audit-list tr").length === 2'); checks++;
+        assert.ok((await evaluate('document.getElementById("audit-list").textContent')).includes('prueba_fase4')); checks++;
+        assert.ok((await evaluate('document.getElementById("exports-list").textContent')).includes('completada')); checks++;
+        assert.ok((await evaluate('document.getElementById("jobs-list").textContent')).includes('exportacion')); checks++;
+        assert.ok((await evaluate('document.getElementById("backup-summary").textContent')).includes('Bytes disponibles')); checks++;
+        await evaluate('document.getElementById("file-form").elements.record.value = Array.from(document.getElementById("file-form").elements.record.options).find(option=>option.textContent.includes("Evidencia Fase 4")).value');
+        const documentNode=await call('DOM.getDocument'); const fileInput=await call('DOM.querySelector',{nodeId:documentNode.root.nodeId,selector:'#file-form input[type=file]'});
+        await call('DOM.setFileInputFiles',{nodeId:fileInput.nodeId,files:[path.join(directory,'test-image.png')]});
+        await evaluate('document.getElementById("file-form").requestSubmit()');
+        await waitFor('document.querySelector("#file-result img")?.complete && document.querySelector("#file-result img")?.naturalWidth > 0'); checks++;
+        assert.equal(await evaluate('document.querySelector("#file-result img").naturalWidth'),320); checks++;
+        assert.equal(await evaluate('document.getElementById("services-message").textContent'),'Archivo procesado y guardado.'); checks++;
+        const servicesScreenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}); fs.writeFileSync(path.join(directory,'phase4-services.png'),Buffer.from(servicesScreenshot.data,'base64'),{mode:0o600});
+        await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const result=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({username:'fase4-admin-cliente',password:'Fase4 cliente seguro'})}); if (result.status!==200) throw new Error('Login cliente Fase 4 falló'); })()`);
+        await navigate('/services/'); await waitFor('document.getElementById("notifications-list").textContent.includes("Aviso Fase 4")'); checks++;
+        assert.equal(await evaluate('getComputedStyle(document.getElementById("services-backups")).display'),'none'); checks++;
+    }
     assert.deepEqual(failures,[]); checks++;
     console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
 }

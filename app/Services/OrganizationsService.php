@@ -77,6 +77,7 @@ class OrganizationsService extends Service
                     'uid'                           => $uid
                 ]);
 
+            (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($conn)))->record($organizationId,null,'alta','organizaciones',$organizationId,null,['nombre'=>$organization,'activo'=>$active]);
             $conn->commit();
 
             return [

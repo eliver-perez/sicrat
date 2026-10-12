@@ -36,6 +36,18 @@ class Authorization
         'permissions.admin' => ['permisos.administrar'],
         'modules.select' => ['modulos.seleccionar'],
         'profiles.self' => [],
+        'audit.read' => ['auditoria.ver'],
+        'approvals.read' => ['aprobaciones.ver'],
+        'approvals.resolve' => ['aprobaciones.resolver'],
+        'files.upload' => ['archivos.subir'],
+        'files.read' => ['archivos.ver','exportaciones.descargar'],
+        'files.delete' => ['archivos.eliminar'],
+        'notifications.admin' => ['notificaciones.administrar'],
+        'exports.create' => ['exportaciones.generar'],
+        'exports.download' => ['exportaciones.descargar'],
+        'jobs.admin' => ['trabajos.administrar'],
+        'jobs.read' => ['trabajos.ver'],
+        'backups.admin' => ['superadmin'],
         'identity.configure' => ['superadmin', 'admin'],
     ];
 

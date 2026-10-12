@@ -166,6 +166,7 @@ class UsersService extends Service
                     foreach ($assigned['scopes'][$permission] as $scope) if (!in_array('organizacion',$manager['scopes'][$permission],true) && !in_array($scope,$manager['scopes'][$permission],true)) throw new \App\Core\HttpError('No puedes asignar un rol con mayor alcance.',403);
                 }
             }
+            (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($conn)))->record($organizationId,$processId,'alta','usuarios',$userId,null,['tipo'=>$user_type,'activo'=>$status,'persona'=>$person['id'] ?? null]);
             $conn->commit();
             return [
                 'id'                            => $this->uuidBinaryToString($userUuid)

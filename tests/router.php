@@ -9,7 +9,7 @@ if (!preg_match('/^sicrat_phase1_test_[a-f0-9]{12}$/', (string) env('DB_DATABASE
 }
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $public = dirname(__DIR__) . '/public';
-if (str_starts_with($path, '/api/')) {
+if (str_starts_with($path, '/api/') || str_starts_with($path, '/media/')) {
     $_SERVER['SCRIPT_NAME'] = '/api.php';
     require $public . '/api.php';
     return;
@@ -21,7 +21,7 @@ if ($path === '/') {
     return;
 }
 $first = explode('/', trim($path, '/'))[0];
-if (in_array($first, ['autenticacion', 'users', 'persons', 'organizations', 'sections', 'electoral-process', 'profile', 'polling-booth', 'structure', 'administration'], true)) {
+if (in_array($first, ['autenticacion', 'users', 'persons', 'organizations', 'sections', 'electoral-process', 'profile', 'polling-booth', 'structure', 'administration', 'services'], true)) {
     require $public . '/' . $first . '/index.php';
     return;
 }

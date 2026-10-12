@@ -390,6 +390,7 @@ class StructureService extends Service
             $this->repository->execute('INSERT INTO estructura_transferencias (uuid,estructura,integrante,origen,destino,reemplazo,modalidad,version,solicitante,aprobador,motivo,fecha) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())',[$requestUuid,$container['id'],$member['id'],$member['nodo_padre'],$destination['id'] ?? null,$replacement['id'] ?? null,$mode,$container['version'],Auth::id(),$approver,$reason]);
             // Solicitar no altera la versión estructural usada para detectar solicitudes obsoletas.
             $this->repository->execute("INSERT INTO estructura_historial (estructura,integrante,accion,usuario,despues,motivo,fecha) VALUES (?,?,'solicitud_transferencia',?,?,?,NOW())",[$container['id'],$member['id'],Auth::id(),json_encode(['request'=>$this->uuidBinaryToString($requestUuid),'approver'=>$approver],JSON_THROW_ON_ERROR),$reason]);
+            (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($this->repository->connection())))->record((int) $container['organizacion'],null,'solicitud_transferencia','estructura_transferencias',$this->uuidBinaryToString($requestUuid),null,['solicitante'=>Auth::id(),'aprobador'=>$approver,'version'=>$container['version']]);
             return ['id'=>$this->uuidBinaryToString($requestUuid),'state'=>'pendiente'];
         });
     }
@@ -400,8 +401,8 @@ class StructureService extends Service
             $container = $this->locked($uuid);
             $request = $this->repository->rows('SELECT * FROM estructura_transferencias WHERE uuid=? AND estructura=? FOR UPDATE',[$this->uuidStringToBinary($requestUuid),$container['id']])[0] ?? null;
             if (!$request) throw new HttpError('La solicitud no está disponible.',404);
-            if ($request['estado']!=='pendiente') throw new HttpError('La solicitud ya fue resuelta.',409);
-            if ((int) $request['aprobador']!==Auth::id() && !Auth::isSuperAdmin()) throw new HttpError('Esta solicitud corresponde a otro aprobador.',403);
+            \App\Services\Common\ApprovalState::pending($request['estado']);
+            \App\Services\Common\ApprovalState::resolver((int) $request['aprobador'],Auth::id(),Auth::isSuperAdmin());
             $member = $this->repository->rows('SELECT * FROM estructura WHERE id=?',[$request['integrante']])[0];
             $destination = $request['destino'] ? $this->repository->rows('SELECT * FROM estructura WHERE id=?',[$request['destino']])[0] : null;
             $replacement = $request['reemplazo'] ? $this->repository->rows('SELECT * FROM estructura WHERE id=?',[$request['reemplazo']])[0] : null;
@@ -415,7 +416,7 @@ class StructureService extends Service
                 $this->guard($container,'estructura.transferir_' . $request['modalidad'],[...$persons,...($destination ? [(int) $destination['persona']] : [])],(int) $request['solicitante']);
                 $this->move($container,$member,$destination,$request['modalidad'],$replacement,$request['motivo']);
             }
-            $this->repository->execute('UPDATE estructura_transferencias SET estado=?,resuelto_por=?,motivo_resolucion=?,fecha_resolucion=NOW() WHERE id=?',[$approved ? 'aprobada' : 'rechazada',Auth::id(),$reason,$request['id']]);
+            $this->repository->execute('UPDATE estructura_transferencias SET estado=?,resuelto_por=?,motivo_resolucion=?,fecha_resolucion=NOW() WHERE id=?',[\App\Services\Common\ApprovalState::decision((bool) $approved),Auth::id(),$reason,$request['id']]);
             $this->repository->history((int) $container['id'],(int) $member['id'],$approved ? 'aprobacion_transferencia' : 'rechazo_transferencia',null,['request'=>$requestUuid],null,$reason);
         });
     }

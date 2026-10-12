@@ -15,3 +15,12 @@ dialog.card[open] {
 dialog.card::backdrop {
     background: rgba(0, 0, 0, 0.35);
 }
+
+[id^="services-"][hidden] { display: none; }
+
+[id^="services-"] table { width: 100%; border-collapse: collapse; }
+[id^="services-"] th, [id^="services-"] td { padding: .75rem; text-align: left; vertical-align: top; border-bottom: 1px solid #e5e7eb; min-width: 6rem; }
+[id^="services-"] pre { max-width: 34rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+[id^="services-"] .btn, #approval-dialog .btn, #restore-dialog .btn { display: inline-block; border: 1px solid #d1d5db; padding: .5rem .75rem; margin: .25rem; border-radius: .375rem; }
+[id^="services-"] .btn:hover, #approval-dialog .btn:hover, #restore-dialog .btn:hover { background: #eef2ff; }
+@media (min-width: 900px) { #audit-filter { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

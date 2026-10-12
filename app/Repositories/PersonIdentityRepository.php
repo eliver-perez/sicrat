@@ -75,7 +75,9 @@ class PersonIdentityRepository
     public function setPolicy(int $organization, int $curp, int $key): void
     {
         $statement = $this->db->prepare('UPDATE organizaciones SET curp_unica=?, clave_elector_unica=?, f_actualizacion=NOW() WHERE id=?');
+        $before = $this->policy($organization);
         $statement->execute([$curp, $key, $organization]);
+        $this->audit($organization, null, 'configurar', 'identidad_politica', $organization, $before, ['curp_unica'=>$curp,'clave_elector_unica'=>$key]);
     }
 
     public function matches(int $organization, array $fields, bool $approximate, ?int $exclude = null): array
@@ -121,15 +123,19 @@ class PersonIdentityRepository
         $columns = array_keys($fields);
         $statement = $this->db->prepare('INSERT INTO personas (' . implode(',', $columns) . ', f_registro) VALUES (' . implode(',', array_fill(0, count($columns), '?')) . ', NOW())');
         $statement->execute(array_values($fields));
-        return (int) $this->db->lastInsertId();
+        $id = (int) $this->db->lastInsertId();
+        $this->audit((int) $fields['organizacion'], null, 'alta', 'personas', $id, null, $fields);
+        return $id;
     }
 
     public function update(int $id, array $fields): void
     {
         if ($fields === []) return;
+        $beforeStatement = $this->db->prepare('SELECT * FROM personas WHERE id=?'); $beforeStatement->execute([$id]); $before = $beforeStatement->fetch(PDO::FETCH_ASSOC);
         $sets = array_map(static fn (string $column): string => $column . '=?', array_keys($fields));
         $statement = $this->db->prepare('UPDATE personas SET ' . implode(',', $sets) . ', f_actualizacion=NOW() WHERE id=?');
         $statement->execute([...array_values($fields), $id]);
+        $this->audit((int) $before['organizacion'], null, 'editar', 'personas', $id, array_intersect_key($before,$fields), $fields);
     }
 
     public function address(int $person, bool $lock = false): ?array
@@ -150,6 +156,8 @@ class PersonIdentityRepository
             $statement = $this->db->prepare('INSERT INTO personas_domicilios (persona,' . implode(',', $columns) . ') VALUES (?,' . implode(',', array_fill(0, count($columns), '?')) . ')');
             $statement->execute([$person, ...array_values($fields)]);
         }
+        $organizationStatement = $this->db->prepare('SELECT organizacion FROM personas WHERE id=?'); $organizationStatement->execute([$person]);
+        $this->audit((int) $organizationStatement->fetchColumn(),null,'domicilio','personas',$person,$previous,$fields);
     }
 
     public function participations(int $person): array
@@ -167,7 +175,18 @@ class PersonIdentityRepository
 
     public function participate(int $person, int $process, int $active): void
     {
-        $statement = $this->db->prepare('INSERT INTO personas_procesos (persona,proceso,activo,f_registro) VALUES (?,?,?,NOW()) ON DUPLICATE KEY UPDATE activo=VALUES(activo), f_actualizacion=NOW()');
-        $statement->execute([$person, $process, $active]);
+        $repository = new CommonRepository($this->db);
+        $repository->transaction(function () use ($person,$process,$active,$repository) {
+            $before = $repository->one('SELECT activo FROM personas_procesos WHERE persona=? AND proceso=?',[$person,$process]);
+            $organization = (int) $repository->one('SELECT organizacion FROM personas WHERE id=?',[$person])['organizacion'];
+            $statement = $this->db->prepare('INSERT INTO personas_procesos (persona,proceso,activo,f_registro) VALUES (?,?,?,NOW()) ON DUPLICATE KEY UPDATE activo=VALUES(activo), f_actualizacion=NOW()');
+            $statement->execute([$person, $process, $active]);
+            $this->audit($organization,$process,'participacion','personas',$person,$before,['activo'=>$active]);
+        });
+    }
+
+    private function audit(int $organization, ?int $process, string $action, string $entity, int $record, mixed $before, mixed $after): void
+    {
+        (new \App\Services\Common\AuditService(new CommonRepository($this->db)))->record($organization,$process,$action,$entity,$record,$before,$after);
     }
 }

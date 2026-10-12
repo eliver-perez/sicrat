@@ -53,6 +53,7 @@ class UserAccessService extends Service
                 foreach ($newScopes as $scope) if (!in_array('organizacion',$manager['scopes'][$permission],true) && !in_array($scope,$manager['scopes'][$permission],true)) throw new \App\Core\HttpError('No puedes asignar un rol con mayor alcance.',403);
             }
             if (!$active || (($before['super'] || in_array('estructura.formar',$before['rights'],true)) && !$after['super'] && !in_array('estructura.formar',$after['rights'],true))) (new StructureService(new \App\Repositories\StructureRepository($db)))->withdrawCapacity((int) $user['id'],(int) $process['id']);
+            (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($db)))->record((int) $user['organizacion'],(int) $process['id'],'acceso_electoral','usuarios',(int) $user['id'],['rights'=>$before['rights'],'scopes'=>$before['scopes']],['tipo'=>$type,'activo'=>$active,'rights'=>$after['rights'],'scopes'=>$after['scopes']]);
             $db->commit();
         } catch (\Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }
     }
@@ -81,7 +82,9 @@ class UserAccessService extends Service
                 if ($statement->fetchColumn()) throw new \App\Core\HttpError('Esta persona ya tiene una cuenta SICRAT.',409);
             }
             if ($user['persona'] !== null && (int) $user['persona']!==$personId) (new StructureService(new \App\Repositories\StructureRepository($db)))->withdrawCapacity((int) $user['id']);
-            $this->repository->link((int) $user['id'], $personId); $db->commit();
+            $this->repository->link((int) $user['id'], $personId);
+            (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($db)))->record($user['organizacion']===null ? null : (int) $user['organizacion'],null,'vincular_persona','usuarios',(int) $user['id'],['persona'=>$user['persona']],['persona'=>$personId]);
+            $db->commit();
         } catch (\PDOException $error) {
             if ($db->inTransaction()) $db->rollBack();
             if (($error->errorInfo[1] ?? 0)===1062) throw new \App\Core\HttpError('Esta persona ya tiene una cuenta SICRAT.',409);
@@ -100,7 +103,9 @@ class UserAccessService extends Service
         try {
             if ($user['organizacion'] !== null) $db->prepare('SELECT id FROM organizaciones WHERE id=? FOR UPDATE')->execute([$user['organizacion']]);
             if (!$active) (new StructureService(new \App\Repositories\StructureRepository($db)))->withdrawCapacity((int) $user['id']);
-            $db->prepare('UPDATE usuarios SET activo=?,f_actualizacion=NOW() WHERE id=?')->execute([$active,$user['id']]); $db->commit();
+            $db->prepare('UPDATE usuarios SET activo=?,f_actualizacion=NOW() WHERE id=?')->execute([$active,$user['id']]);
+            (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($db)))->record($user['organizacion']===null ? null : (int) $user['organizacion'],null,'estado','usuarios',(int) $user['id'],['activo'=>$user['activo']],['activo'=>$active]);
+            $db->commit();
         } catch (\Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }
     }
 }

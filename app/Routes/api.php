@@ -139,3 +139,33 @@ $router->get('/api/users/{id}/territories', [\App\Controllers\AdministrationCont
 $router->put('/api/users/{id}/territories', [\App\Controllers\AdministrationController::class,'territories'], 'permissions.admin');
 $router->get('/api/organizations/{id}/modules', [\App\Controllers\AdministrationController::class,'modules'], 'modules.select');
 $router->put('/api/organizations/{id}/modules/{module}', [\App\Controllers\AdministrationController::class,'module'], 'modules.select');
+
+
+// Servicios esenciales de Fase 4: independientes de los módulos opcionales.
+$router->get('/api/audit', [\App\Controllers\CommonServicesController::class,'audit'], 'audit.read');
+$router->get('/api/approvals', [\App\Controllers\CommonServicesController::class,'approvals'], 'approvals.read');
+$router->get('/api/approvals/{id}', [\App\Controllers\CommonServicesController::class,'approval'], 'approvals.read');
+$router->put('/api/approvals/{id}', [\App\Controllers\CommonServicesController::class,'approval'], 'approvals.resolve');
+$router->post('/api/approvals/{id}/cancel', [\App\Controllers\CommonServicesController::class,'cancelApproval'], 'approvals.read');
+$router->post('/api/files', [\App\Controllers\CommonServicesController::class,'upload'], 'files.upload');
+$router->delete('/api/files/{id}', [\App\Controllers\CommonServicesController::class,'deleteFile'], 'files.delete');
+$router->get('/media/{id}', [\App\Controllers\CommonServicesController::class,'media'], 'authenticated');
+$router->get('/api/notifications', [\App\Controllers\CommonServicesController::class,'notifications'], 'authenticated');
+$router->post('/api/notifications/read', [\App\Controllers\CommonServicesController::class,'readNotifications'], 'authenticated');
+$router->get('/api/notification-config', [\App\Controllers\CommonServicesController::class,'notificationConfiguration'], 'notifications.admin');
+$router->put('/api/notification-config', [\App\Controllers\CommonServicesController::class,'notificationConfiguration'], 'notifications.admin');
+$router->get('/api/notification-deliveries', [\App\Controllers\CommonServicesController::class,'deliveries'], 'notifications.admin');
+$router->get('/api/exports', [\App\Controllers\CommonServicesController::class,'exports'], 'authenticated');
+$router->post('/api/exports', [\App\Controllers\CommonServicesController::class,'exports'], 'exports.create');
+$router->get('/api/exports/{id}/download', [\App\Controllers\CommonServicesController::class,'exportDownload'], 'exports.download');
+$router->get('/api/jobs', [\App\Controllers\CommonServicesController::class,'jobs'], 'jobs.read');
+$router->get('/api/backups', [\App\Controllers\CommonServicesController::class,'backups'], 'backups.admin');
+$router->post('/api/backups', [\App\Controllers\CommonServicesController::class,'backups'], 'backups.admin');
+$router->get('/api/backup-policy', [\App\Controllers\CommonServicesController::class,'backupPolicy'], 'backups.admin');
+$router->put('/api/backup-policy', [\App\Controllers\CommonServicesController::class,'backupPolicy'], 'backups.admin');
+$router->post('/api/backups/{id}/verify', [\App\Controllers\CommonServicesController::class,'verifyBackup'], 'backups.admin');
+$router->put('/api/backups/{id}/protect', [\App\Controllers\CommonServicesController::class,'protectBackup'], 'backups.admin');
+$router->get('/api/backups/{id}/restore', [\App\Controllers\CommonServicesController::class,'restorePreview'], 'backups.admin');
+$router->post('/api/backups/{id}/restore', [\App\Controllers\CommonServicesController::class,'restore'], 'backups.admin');
+
+$router->post('/api/jobs/{id}/{action}', [\App\Controllers\CommonServicesController::class,'administerJob'], 'jobs.admin');

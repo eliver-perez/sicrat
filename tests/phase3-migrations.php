@@ -48,7 +48,8 @@ try {
     migrationReject(fn () => (require $structureFile)($db,$runner),'Ciclo');
     $db->exec('UPDATE estructura SET nodo_padre=NULL WHERE id=1');
     $db->exec('UPDATE estructura SET nivel=2 WHERE id=2');
-    migrationCheck(count($runner->run())===1,'Migra desde un estado post-Fase 2 con estructura histórica.');
+    $applied=$runner->run();
+    migrationCheck(in_array('20261012_004_estructuras.php',$applied,true),'Migra desde un estado post-Fase 2 con estructura histórica.');
     migrationCheck($db->query('SELECT ' . $columns . ' FROM estructura ORDER BY id')->fetchAll(PDO::FETCH_ASSOC)===$previous,'Conserva todos los campos históricos e IDs de estructura.');
     migrationCheck($db->query('SELECT * FROM personas_responsables')->fetchAll(PDO::FETCH_ASSOC)===$responsibles,'Referencias anteriores conservan los mismos IDs.');
     migrationCheck((int) $db->query('SELECT COUNT(*) FROM estructura_relaciones')->fetchColumn()===3,'Reconstruye correctamente el cierre de relaciones históricas.');

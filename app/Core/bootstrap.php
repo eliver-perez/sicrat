@@ -19,6 +19,12 @@ ini_set('display_startup_errors', '0');
 error_reporting(E_ALL);
 
 set_exception_handler(function (Throwable $exception): void {
+    if (PHP_SAPI === 'cli') {
+        $message = $exception instanceof \App\Services\Common\ServiceFailure || $exception instanceof InvalidArgumentException
+            ? $exception->getMessage() : 'No se completó el comando. Revisar configuración y estado de los servicios.';
+        fwrite(STDERR, $message . PHP_EOL);
+        exit(1);
+    }
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
     if (str_contains($path, '/api/')) {
         (new Response())->exception($exception);
@@ -31,6 +37,12 @@ set_exception_handler(function (Throwable $exception): void {
 });
 
 loadEnv(BASE_PATH . '/.env');
+if (PHP_SAPI !== 'cli' && \App\Services\Common\Maintenance::active()) {
+    http_response_code(503);
+    header('Retry-After: 300');
+    header('Cache-Control: no-store');
+    exit('SICRAT se encuentra en mantenimiento.');
+}
 date_default_timezone_set('America/Mexico_City');
 $config = require __DIR__ . '/config.php';
 $encryptionService = new EncryptionService(env('APP_ENCRYPTION_KEY', ''));

@@ -131,6 +131,7 @@
                         <?php } if ($session->verifyUserRights(['modulos.seleccionar', 'permisos.administrar', 'niveles.administrar'])) { ?>
                         <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/administration')); ?>"><span class="menu-icon"><i data-lucide="settings"></i></span><div class="menu-text">Configuración electoral</div></a></li>
                         <?php } ?>
+                        <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/services')); ?>"><span class="menu-icon"><i data-lucide="bell"></i></span><div class="menu-text">Servicios y notificaciones</div></a></li>
                     </ul>
         
                 </div>

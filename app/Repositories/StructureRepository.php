@@ -77,6 +77,9 @@ class StructureRepository
     public function history(int $container, ?int $member, string $action, mixed $before, mixed $after, ?int $process = null, ?string $reason = null): void
     {
         $this->execute('INSERT INTO estructura_historial (estructura,integrante,proceso,accion,usuario,antes,despues,motivo,fecha) VALUES (?,?,?,?,?,?,?,?,NOW())',[$container,$member,$process,$action,\App\Core\Auth::id(),$before === null ? null : json_encode($before,JSON_THROW_ON_ERROR),$after === null ? null : json_encode($after,JSON_THROW_ON_ERROR),$reason]);
+        $organization = (int) $this->rows('SELECT organizacion FROM estructuras_organizacionales WHERE id=?',[$container])[0]['organizacion'];
+        $elections = array_map('intval',array_column($this->elections($container),'id'));
+        (new \App\Services\Common\AuditService(new CommonRepository($this->db)))->record($organization,$process,$action,'estructura',$member ?? $container,$before,$after,['contenedor'=>$container,'elecciones'=>$elections,'motivo'=>$reason]);
         $this->execute('UPDATE estructuras_organizacionales SET version=version+1 WHERE id=?',[$container]);
     }
 }

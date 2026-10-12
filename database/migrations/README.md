@@ -44,3 +44,13 @@ Preflight de estructura antigua: exige cuentas vinculadas a personas de la misma
 La columna generada nullable `persona_activa` y su índice único permiten varias proyecciones históricas y exactamente una activa por persona/elección. La adaptación de datos antiguos es transaccional después del DDL. La aplicación actual debe desplegarse junto con estas migraciones; los cambios DDL no tienen reversión automática destructiva.
 
 El módulo de estructura queda sin habilitar por defecto. El Super Administrador autoriza su disponibilidad para la organización y, cuando corresponda, la elección; el administrador selecciona su uso dentro de esos límites. Los componentes esenciales permanecen disponibles.
+
+## 20261012_005_servicios_comunes.php
+
+Reutiliza `auditoria` y `archivos`: añade referencia/información JSON e índices de auditoría, permite contexto global NULL; añade elección, integridad, estado, dimensiones y variantes privadas de archivos, y amplía tamaño a BIGINT. Conserva todos los IDs y campos anteriores. Un archivo antiguo queda `historico`: su ruta no se publica ni se transforma sin revisión explícita.
+
+El preflight rechaza auditoría electoral con organización incompatible y archivos cuyo cargador ordinario pertenece a otro cliente antes del primer DDL. No concilia ni elimina datos.
+
+Añade aprobaciones/pasos, trabajos, notificaciones/configuración/envíos, exportaciones, respaldos/política y restauraciones. Las tablas de transferencias de Fase 3 permanecen intactas. Se añaden permisos granulares, con plantilla electoral del administrador, sin conceder privilegios de backup a clientes. Valores iniciales: BD diaria, archivos full semanal, incremental diario, retención 14 días.
+
+Se ensayó en bases desechables, con datos/conflictos históricos y mediante restauración del respaldo real local. La aplicación local preservó los registros originales de 76 tablas y la reejecución no dejó migraciones pendientes. El SQL original, las cuatro migraciones anteriores y los informes previos conservaron sus hashes. El procedimiento y respaldo están documentados en `FASE4.md`; no existe un `down` destructivo.

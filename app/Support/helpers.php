@@ -38,7 +38,8 @@ function loadEnv(string $path): void {
 }
 
 function env(string $key, mixed $default = null): mixed {
-    return $_ENV[$key] ?? $_SERVER[$key] ?? $default;
+    $processValue = getenv($key);
+    return $_ENV[$key] ?? $_SERVER[$key] ?? ($processValue !== false ? $processValue : $default);
 }
 
 function config(string $key, mixed $default = null): mixed {

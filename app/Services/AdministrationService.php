@@ -20,6 +20,11 @@ class AdministrationService extends Service
 {
     public function __construct(private AdministrationRepository $repository) {}
 
+    private function audit(?int $organization, ?int $process, string $entity, int $record, mixed $before, mixed $after): void
+    {
+        (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($this->repository->connection())))->record($organization,$process,'configurar',$entity,$record,$before,$after);
+    }
+
     private function process(?string $uuid = null): array
     {
         if ($uuid !== null && $uuid !== '') return (new ElectoralContextRepository($this->repository->connection()))->authorized($this->uuidStringToBinary($uuid),Authorization::scopeOrganizationId());
@@ -77,6 +82,7 @@ class AdministrationService extends Service
                 $service->validateHierarchy((int) $container['id']);
                 (new StructureRepository($this->repository->connection()))->history((int) $container['id'],null,'configuracion_nivel',$previous,['name'=>$name,'order'=>$order,'can_recruit'=>$recruit,'same_level'=>$same],(int) $process['id']);
             }
+            $this->audit((int) $process['organizacion'],(int) $process['id'],'niveles_organizacionales',$previous ? (int) $previous['id'] : (int) $this->repository->rows('SELECT id FROM niveles_organizacionales WHERE uuid=?',[$levelUuid])[0]['id'],$previous,['nombre'=>$name,'orden'=>$order,'activo'=>$active,'puede_reclutar'=>$recruit,'permite_mismo_nivel'=>$same]);
             return ['id'=>$this->uuidBinaryToString($levelUuid)];
         });
     }
@@ -94,6 +100,8 @@ class AdministrationService extends Service
                 if (!$user || ($user['organizacion']!==null && (int) $user['organizacion']!==(int) $process['organizacion'])) throw new InvalidArgumentException('El aprobador no pertenece a la organización.');
                 (new PermissionRepository($this->repository->connection()))->require((int) $user['id'],'estructura.aprobar_transferencias',(int) $process['id']); $approver = (int) $user['id'];
             }
+            $beforeConfig=$this->repository->rows('SELECT promocion_primera_incorporacion,requiere_aprobacion,aprobador FROM procesos_estructura_config WHERE proceso=?',[$process['id']])[0] ?? null;
+            $this->audit((int) $process['organizacion'],(int) $process['id'],'procesos_estructura_config',(int) $process['id'],$beforeConfig,['promocion_primera_incorporacion'=>$promotion,'requiere_aprobacion'=>$approval,'aprobador'=>$approver]);
             $this->repository->execute('INSERT INTO procesos_estructura_config (proceso,promocion_primera_incorporacion,requiere_aprobacion,aprobador,editado_por,fecha) VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE promocion_primera_incorporacion=VALUES(promocion_primera_incorporacion),requiere_aprobacion=VALUES(requiere_aprobacion),aprobador=VALUES(aprobador),editado_por=VALUES(editado_por),fecha=NOW()',[$process['id'],$promotion,$approval,$approver,Auth::id()]);
             foreach ($this->repository->rows('SELECT estructura FROM estructuras_procesos WHERE proceso=? AND activo=1',[$process['id']]) as $container) (new StructureRepository($this->repository->connection()))->history((int) $container['estructura'],null,'configuracion_reglas',null,['auto_promote'=>$promotion,'approval_required'=>$approval,'approver'=>$approver],(int) $process['id']);
             return ['auto_promote'=>$promotion,'approval_required'=>$approval,'approver'=>$data['approver'] ?? null];
@@ -127,6 +135,7 @@ class AdministrationService extends Service
             } else {
                 $this->repository->execute('INSERT INTO usuarios_tipos (codigo,tipo,organizacion) VALUES (?,?,?)',['r-' . bin2hex(random_bytes(8)),$name,$process['organizacion']]); $id = (int) $this->repository->connection()->lastInsertId();
             }
+            $this->audit((int) $process['organizacion'],(int) $process['id'],'usuarios_tipos',$id,$role ?? null,['tipo'=>$name]);
             return ['id'=>$id];
         });
     }
@@ -184,10 +193,12 @@ class AdministrationService extends Service
             $accounts = $this->repository->rows('SELECT usuario,proceso FROM usuarios_procesos WHERE tipo_usuario=? AND activo=1 AND f_baja IS NULL' . ($process ? ' AND proceso=?' : ''),$process ? [$roleId,$process['id']] : [$roleId]); $before = $this->beforeCapacity($accounts);
             $processId = $process['id'] ?? null;
             $context = $process ? 'electoral' : 'global';
-            $existing = $this->repository->rows('SELECT uuid FROM permisos_usuarios_tipo WHERE tipo=? AND permiso=? AND proceso <=> ? AND contexto=?',[$roleId,$code,$processId,$context]);
+            $existing = $this->repository->rows('SELECT uuid,valor,alcance FROM permisos_usuarios_tipo WHERE tipo=? AND permiso=? AND proceso <=> ? AND contexto=?',[$roleId,$code,$processId,$context]);
             if ($existing!==[]) $this->repository->execute('UPDATE permisos_usuarios_tipo SET valor=?,alcance=?,editado_por=?,f_actualizacion=NOW() WHERE tipo=? AND permiso=? AND proceso <=> ? AND contexto=?',[$value,$scope,Auth::id(),$roleId,$code,$processId,$context]);
             else $this->repository->execute('INSERT INTO permisos_usuarios_tipo (uuid,tipo,permiso,proceso,valor,alcance,editado_por,contexto,f_actualizacion) VALUES (?,?,?,?,?,?,?,?,NOW())',[$this->generateUuidBinary(),$roleId,$code,$processId,$value,$scope,Auth::id(),$context]);
-            $this->protectCapacity($accounts,$before); return ['saved'=>true];
+            $this->protectCapacity($accounts,$before);
+            $this->audit($process ? (int) $process['organizacion'] : ($role['organizacion']===null ? null : (int) $role['organizacion']),$processId===null ? null : (int) $processId,'permisos_usuarios_tipo',$roleId,$existing[0] ?? null,['permiso'=>$code,'valor'=>$value,'alcance'=>$scope]);
+            return ['saved'=>true];
         });
     }
     public function individual(string $uuid, ?array $data = null): array
@@ -206,10 +217,12 @@ class AdministrationService extends Service
             if ($process && (int) $user['organizacion']!==(int) $process['organizacion']) throw new InvalidArgumentException('La cuenta y la elección pertenecen a organizaciones distintas.');
             $accounts = $this->repository->rows('SELECT usuario,proceso FROM usuarios_procesos WHERE usuario=? AND activo=1 AND f_baja IS NULL' . ($process ? ' AND proceso=?' : ''),$process ? [$user['id'],$process['id']] : [$user['id']]); $before = $this->beforeCapacity($accounts);
             $processId = $process['id'] ?? null;
-            $existing = $this->repository->rows('SELECT uuid FROM permisos_usuarios WHERE usuario=? AND permiso=? AND proceso <=> ?',[$user['id'],$code,$processId]);
+            $existing = $this->repository->rows('SELECT uuid,valor,alcance FROM permisos_usuarios WHERE usuario=? AND permiso=? AND proceso <=> ?',[$user['id'],$code,$processId]);
             if ($existing!==[]) $this->repository->execute('UPDATE permisos_usuarios SET valor=?,alcance=?,editado_por=?,f_actualizacion=NOW() WHERE usuario=? AND permiso=? AND proceso <=> ?',[$value,$scope,Auth::id(),$user['id'],$code,$processId]);
             else $this->repository->execute('INSERT INTO permisos_usuarios (uuid,usuario,organizacion,permiso,proceso,valor,alcance,editado_por,f_actualizacion) VALUES (?,?,?,?,?,?,?,?,NOW())',[$this->generateUuidBinary(),$user['id'],$user['organizacion'],$code,$processId,$value,$scope,Auth::id()]);
-            $this->protectCapacity($accounts,$before); return ['saved'=>true];
+            $this->protectCapacity($accounts,$before);
+            $this->audit($user['organizacion']===null ? null : (int) $user['organizacion'],$processId===null ? null : (int) $processId,'permisos_usuarios',(int) $user['id'],$existing[0] ?? null,['permiso'=>$code,'valor'=>$value,'alcance'=>$scope]);
+            return ['saved'=>true];
         });
     }
     public function territories(string $uuid, ?array $data = null): array
@@ -226,6 +239,8 @@ class AdministrationService extends Service
                 $section = $this->repository->rows('SELECT id FROM secciones_electorales WHERE uuid=?',[$this->uuidStringToBinary((string) $uuid)])[0] ?? null;
                 if (!$section) throw new InvalidArgumentException('Sección inválida.'); $ids[] = (int) $section['id'];
             }
+            $beforeTerritories=$this->repository->rows('SELECT seccion FROM usuarios_territorios WHERE usuario=? AND proceso=?',[$user['id'],$process['id']]);
+            $this->audit((int) $process['organizacion'],(int) $process['id'],'usuarios_territorios',(int) $user['id'],$beforeTerritories,['secciones'=>$ids]);
             $this->repository->execute('DELETE FROM usuarios_territorios WHERE usuario=? AND proceso=?',[$user['id'],$process['id']]);
             foreach (array_unique($ids) as $id) $this->repository->execute('INSERT INTO usuarios_territorios VALUES (?,?,?,?,NOW())',[$user['id'],$process['id'],$id,Auth::id()]);
         });
@@ -265,6 +280,7 @@ class AdministrationService extends Service
                 if (!array_key_exists('selected',$data)) $selected = 0;
                 else throw new HttpError('El módulo no está autorizado para este ámbito.',403);
             }
+            $this->audit((int) $organization,$process ? (int) $process['id'] : null,'modulos',(int) ($process['id'] ?? $organization),$definition,['modulo'=>$module,'autorizado'=>$authorized,'seleccionado'=>$selected]);
             $table = $process ? 'modulos_procesos' : 'modulos_organizaciones'; $column = $process ? 'proceso' : 'organizacion';
             $this->repository->execute("INSERT INTO $table ($column,modulo,autorizado,seleccionado,autorizado_por,seleccionado_por,fecha) VALUES (?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE autorizado=VALUES(autorizado),seleccionado=VALUES(seleccionado),autorizado_por=COALESCE(VALUES(autorizado_por),autorizado_por),seleccionado_por=COALESCE(VALUES(seleccionado_por),seleccionado_por),fecha=NOW()",[$process['id'] ?? $organization,$module,$authorized,$selected,array_key_exists('authorized',$data) ? Auth::id() : null,array_key_exists('selected',$data) ? Auth::id() : null]);
         });
