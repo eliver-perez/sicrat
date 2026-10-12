@@ -93,8 +93,10 @@ class PersonIdentityRepository
             $params[] = trim(implode(' ', array_filter([$fields['nombre'], $fields['paterno'] ?? null, $fields['materno'] ?? null])));
         }
         if ($conditions === []) return [];
-        $sql = 'SELECT id, uuid, codigo_persona, nombre, paterno, materno, curp, clave_elector, telefono, email FROM personas WHERE organizacion=? AND (' . implode(' OR ', $conditions) . ')';
+        $sql = 'SELECT id, uuid, codigo_persona, nombre, paterno, materno, curp, clave_elector, telefono, email FROM personas p WHERE organizacion=? AND (' . implode(' OR ', $conditions) . ')';
         if ($exclude !== null) { $sql .= ' AND id<>?'; $params[] = $exclude; }
+        [$scope, $scopeParams] = (new ScopeRepository($this->db))->predicate('personas.ver', \App\Core\Auth::processId());
+        $sql .= ' AND (' . $scope . ')'; $params = [...$params, ...$scopeParams];
         // Las coincidencias de identificadores deben aparecer antes de homónimos frecuentes.
         $priority = [];
         foreach (['curp', 'clave_elector'] as $column) {

@@ -1,0 +1,63 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {spawn} = require('node:child_process');
+const [base, directory] = process.argv.slice(2);
+if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(base || '') || !path.basename(directory || '').match(/^sicrat_phase1_test_[a-f0-9]{12}$/)) throw new Error('El navegador requiere el servidor y directorio desechables de integration.php.');
+const profile = path.join(directory, 'chrome-profile');
+fs.mkdirSync(profile, {mode: 0o700});
+const browser = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-extensions','--disable-sync','--metrics-recording-only','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'], {stdio: ['ignore','ignore',fs.openSync(path.join(directory,'chrome.log'),'a',0o600)]});
+const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+let socket; let checks = 0;
+const failures = [];
+async function main() {
+    const portFile = path.join(profile,'DevToolsActivePort');
+    for (let attempt=0; !fs.existsSync(portFile) && attempt<100; attempt++) await pause(100);
+    if (!fs.existsSync(portFile)) throw new Error('Chrome no inició.');
+    const port = Number(fs.readFileSync(portFile,'utf8').split('\n')[0]);
+    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    socket = new WebSocket(targets.find(target => target.type === 'page').webSocketDebuggerUrl);
+    await new Promise((resolve,reject) => { socket.addEventListener('open',resolve,{once:true}); socket.addEventListener('error',reject,{once:true}); });
+    let nextId=0; const pending=new Map();
+    socket.addEventListener('message', event => {
+        const message=JSON.parse(event.data);
+        if (message.method === 'Runtime.exceptionThrown') failures.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
+        if (message.id) { const callback=pending.get(message.id); pending.delete(message.id); if (message.error) callback.reject(new Error(message.error.message)); else callback.resolve(message.result); }
+    });
+    const call=(method,params={}) => new Promise((resolve,reject) => { const id=++nextId; pending.set(id,{resolve,reject}); socket.send(JSON.stringify({id,method,params})); });
+    await call('Page.enable'); await call('Runtime.enable'); await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1080,deviceScaleFactor:1,mobile:false});
+    async function evaluate(expression) {
+        const result=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
+        if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
+        return result.result.value;
+    }
+    async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate(expression)) return; await pause(100); } throw new Error('La interfaz no completó: ' + expression); }
+    async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    await navigate('/autenticacion/');
+    const login=await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const result=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({username:'administrador',password:' nueva contraseña '})}); return result.status; })()`);
+    assert.equal(login,200); checks++;
+    await navigate('/');
+    const selected=await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const choices=await (await fetch('/api/auth/elections?limit=100')).json(); const election=choices.data.electoral_processes.find(item=>item.process==='Promoción Fase 3'); const result=await fetch('/api/auth/election',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({process:election.id})}); return result.status; })()`);
+    assert.equal(selected,200); checks++;
+    await navigate('/structure/');
+    await waitFor('document.querySelectorAll("#structure-members tr").length === 3'); checks++;
+    assert.equal(await evaluate('document.getElementById("phase3-message").textContent'),''); checks++;
+    await evaluate('document.querySelector("#structure-members button").click()');
+    await waitFor('document.getElementById("structure-member-dialog").open'); checks++;
+    assert.ok((await evaluate('document.getElementById("structure-member-summary").textContent')).includes('Equipo directo')); checks++;
+    assert.equal(await evaluate('document.querySelectorAll("#structure-member-levels select").length'),1); checks++;
+    const screenshot=await call('Page.captureScreenshot',{format:'png'}); fs.writeFileSync(path.join(directory,'phase3-structure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});
+    await evaluate('document.getElementById("structure-member-dialog").close(); document.getElementById("structure-add").click()');
+    await waitFor('document.getElementById("structure-add-dialog").open'); checks++;
+    await evaluate('document.getElementById("structure-person-search").value="Persona autorizada para incorporar"; document.getElementById("structure-person-find").click()');
+    await waitFor('document.getElementById("structure-person").options.length > 1'); checks++;
+    assert.equal(await evaluate('document.querySelectorAll("#structure-participations input").length'),1); checks++;
+    await navigate('/administration/');
+    await waitFor('document.querySelectorAll("#level-list button").length === 3 && document.querySelectorAll("#module-list > div").length === 15'); checks++;
+    await waitFor('document.getElementById("permission-form").elements.scope.options.length === 6'); checks++;
+    assert.equal(await evaluate('document.getElementById("phase3-message").textContent'),''); checks++;
+    const configuration=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}); fs.writeFileSync(path.join(directory,'phase3-administration.png'),Buffer.from(configuration.data,'base64'),{mode:0o600});
+    assert.deepEqual(failures,[]); checks++;
+    console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
+}
+main().catch(error => { console.error(error.message); process.exitCode=1; }).finally(() => { socket?.close(); browser.kill('SIGTERM'); });

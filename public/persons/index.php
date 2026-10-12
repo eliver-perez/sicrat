@@ -1,7 +1,7 @@
 <?php
 	require_once __DIR__.'/../../app/Core/init.php';
 
-	if(!$session->verifyUserRights(['superadmin']) && !$session->verifyUserRights(['captura-personas'])) {
+	if(!$session->verifyUserRights(['personas.ver'])) {
 		$session->denyAccess();
 	}
 

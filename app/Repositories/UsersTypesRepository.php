@@ -23,11 +23,16 @@ class UsersTypesRepository
                 ut.codigo,
                 ut.tipo
             FROM usuarios_tipos ut
-            WHERE ut.codigo != 'superadmin'
+            WHERE ut.codigo != 'superadmin' AND (ut.organizacion IS NULL OR ut.organizacion = :organizacion)
             ORDER BY ut.tipo
         ";
 
         $stmt = $this->db->prepare($sql);
+        $organization=\App\Core\Auth::organizationId();
+        if (\App\Core\Auth::isSuperAdmin() && \App\Core\Auth::processId()) {
+            $context=$this->db->prepare('SELECT organizacion FROM procesos_electorales WHERE id=?'); $context->execute([\App\Core\Auth::processId()]); $organization=$context->fetchColumn();
+        }
+        $stmt->bindValue(':organizacion', $organization, PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -20,6 +20,7 @@ class UserAccessRepository
         if (!$user) throw new HttpError('La cuenta no está disponible.', 404);
         if ($user['organizacion'] === null && !\App\Core\Auth::isSuperAdmin()) throw new HttpError('La cuenta no está disponible.', 404);
         if ($user['organizacion'] !== null) Authorization::assertOrganization((int) $user['organizacion']);
+        (new AccountScopeRepository($this->db))->assertUser((int) $user['id'],'usuarios.administrar',\App\Core\Auth::processId());
         return $user;
     }
     public function accesses(int $user): array

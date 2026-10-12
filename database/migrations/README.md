@@ -31,3 +31,16 @@ Añade área de revisión específica de importaciones de personas y sus filas, 
 Eliminar estas tablas para revertir pierde las revisiones y resultados temporales. Solo sería razonable hacerlo después de comprobar que no hay importaciones que deban conservarse.
 
 Las pruebas importan el esquema original en una base desechable, añaden datos previos, ejecutan ambas migraciones, verifican conservación y repiten el ejecutor. La base local de trabajo se migró después de restaurar su respaldo en otra base desechable, ensayar las migraciones y comparar todos los campos originales de personas, usuarios y organizaciones. No se intervino en producción.
+
+
+## 20261012_003_autorizacion.php
+
+Preflight de cuentas por persona, UNIQUE nullable para `usuarios.persona`, ampliación de los tres identificadores de permiso a 128 caracteres conservando IDs/FKs, roles propios de una organización y permisos globales, plantillas electorales, permisos por elección, alcances/editor/fecha. Añade catálogo y configuración de módulos y secciones autorizadas. No cambia contraseñas, sesiones ni vínculos electorales existentes. Las tablas de permisos conservan sus UUID anteriores.
+
+## 20261012_004_estructuras.php
+
+Preflight de estructura antigua: exige cuentas vinculadas a personas de la misma organización, relaciones sin ciclos ni cruce electoral, orden válido y responsables activos. Un conflicto se informa sin borrar/fusionar/crear identidades. Evoluciona `estructura` conservando IDs y columnas originales, añade contenedores y personas, niveles por elección, proyecciones activas/históricas, historial y solicitudes específicas de transferencias. Reutiliza `estructura_relaciones` y conserva las referencias de `personas_responsables`.
+
+La columna generada nullable `persona_activa` y su índice único permiten varias proyecciones históricas y exactamente una activa por persona/elección. La adaptación de datos antiguos es transaccional después del DDL. La aplicación actual debe desplegarse junto con estas migraciones; los cambios DDL no tienen reversión automática destructiva.
+
+El módulo de estructura queda sin habilitar por defecto. El Super Administrador autoriza su disponibilidad para la organización y, cuando corresponda, la elección; el administrador selecciona su uso dentro de esos límites. Los componentes esenciales permanecen disponibles.

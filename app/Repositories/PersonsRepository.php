@@ -75,6 +75,13 @@ class PersonsRepository
 
         $sql .= " AND (" . implode(' OR ', $conditions) . ")";
 
+        [$scopeCondition, $scopeParams] = (new ScopeRepository($this->db))->predicate('personas.ver', \App\Core\Auth::processId());
+        foreach ($scopeParams as $index => $value) {
+            $scopeCondition = preg_replace('/\?/', ':scope_' . $index, $scopeCondition, 1);
+            $params['scope_' . $index] = $value;
+        }
+        $sql .= ' AND (' . $scopeCondition . ')';
+
         $sql .= "
             ORDER BY p.paterno, p.nombre, p.id ASC
             LIMIT :limit OFFSET :offset

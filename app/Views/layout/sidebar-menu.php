@@ -76,7 +76,7 @@
 	                        } ?>
         
                         <?php
-	                        if($session->verifyUserRights(['superadmin']) || $session->verifyUserRights(['captura-personas'])) { ?>
+	                        if($session->verifyUserRights(['personas.ver'])) { ?>
 
                         <li class="menu-title">
                             <span>Estructura</span>
@@ -86,7 +86,7 @@
 	                        } ?>
         
                         <?php
-	                        if($session->verifyUserRights(['superadmin']) || $session->verifyUserRights(['captura-personas'])) { ?>
+	                        if($session->verifyUserRights(['personas.ver'])) { ?>
         
                         <li class="menu-item">
                             <a class="menu-link" href="<?= escape_html(base_url('/persons')); ?>">
@@ -109,7 +109,7 @@
 	                        } ?>
         
                         <?php
-	                        if($session->verifyUserRights(['superadmin'])) { ?>
+	                        if($session->verifyUserRights(['usuarios.administrar'])) { ?>
         
                         <li class="menu-item">
                             <a class="menu-link" href="<?= escape_html(base_url('/users')); ?>">
@@ -120,6 +120,17 @@
         
                         <?php
 	                        } ?>
+                        <?php
+                            $structureEnabled = false;
+                            if (\App\Core\Auth::processId() && $session->verifyUserRights(['estructura.ver'])) {
+                                try { (new \App\Repositories\ModuleRepository((new \App\Core\Database())->getConnection()))->require('estructura', \App\Core\Auth::processId()); $structureEnabled = true; }
+                                catch (\App\Core\HttpError) {}
+                            }
+                            if ($structureEnabled) { ?>
+                        <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/structure')); ?>"><span class="menu-icon"><i data-lucide="network"></i></span><div class="menu-text">Estructura organizacional</div></a></li>
+                        <?php } if ($session->verifyUserRights(['modulos.seleccionar', 'permisos.administrar', 'niveles.administrar'])) { ?>
+                        <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/administration')); ?>"><span class="menu-icon"><i data-lucide="settings"></i></span><div class="menu-text">Configuración electoral</div></a></li>
+                        <?php } ?>
                     </ul>
         
                 </div>

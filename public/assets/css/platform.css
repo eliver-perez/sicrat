@@ -1,0 +1,17 @@
+/* La clase card no debe sobreescribir el estado nativo de los diálogos. */
+dialog.card:not([open]) {
+    display: none;
+}
+
+dialog.card[open] {
+    display: block;
+    width: calc(100% - 2rem);
+    max-width: 56rem;
+    max-height: calc(100vh - 2rem);
+    margin: auto;
+    overflow: auto;
+}
+
+dialog.card::backdrop {
+    background: rgba(0, 0, 0, 0.35);
+}

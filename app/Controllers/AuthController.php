@@ -332,6 +332,9 @@ class AuthController extends Controller
                 'csrf_token' => Csrf::token(),
                 'process_id' => \App\Core\Auth::processId(),
                 'type_code' => $_SESSION['SICRAT_USER_TYPE_CODE'] ?? null,
+                'is_superadmin' => \App\Core\Auth::isSuperAdmin(),
+                'rights' => $_SESSION['SICRAT_RIGHTS'] ?? [],
+                'scopes' => $_SESSION['SICRAT_PERMISSION_SCOPES'] ?? [],
             ]
         ]);
     }

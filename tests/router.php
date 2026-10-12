@@ -21,7 +21,7 @@ if ($path === '/') {
     return;
 }
 $first = explode('/', trim($path, '/'))[0];
-if (in_array($first, ['autenticacion', 'users', 'persons', 'organizations', 'sections', 'electoral-process', 'profile', 'polling-booth'], true)) {
+if (in_array($first, ['autenticacion', 'users', 'persons', 'organizations', 'sections', 'electoral-process', 'profile', 'polling-booth', 'structure', 'administration'], true)) {
     require $public . '/' . $first . '/index.php';
     return;
 }

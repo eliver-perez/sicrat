@@ -87,8 +87,8 @@ $router->get('/api/auth/elections', [\App\Controllers\ElectoralContextController
 $router->post('/api/auth/election', [\App\Controllers\ElectoralContextController::class, 'select'], 'authenticated');
 
 $router->get('/api/persons/{id}', [\App\Controllers\PersonIdentityController::class, 'show'], 'persons.read');
-$router->put('/api/persons/{id}', [\App\Controllers\PersonIdentityController::class, 'update'], 'persons.create');
-$router->post('/api/persons/{id}/participations', [\App\Controllers\PersonIdentityController::class, 'participation'], 'persons.create');
+$router->put('/api/persons/{id}', [\App\Controllers\PersonIdentityController::class, 'update'], 'persons.update');
+$router->post('/api/persons/{id}/participations', [\App\Controllers\PersonIdentityController::class, 'participation'], 'persons.participate');
 $router->post('/api/persons/duplicates', [\App\Controllers\PersonIdentityController::class, 'duplicates'], 'persons.read');
 $router->get('/api/organizations/{id}/identity-policy', [\App\Controllers\PersonIdentityController::class, 'policy'], 'persons.read');
 $router->put('/api/organizations/{id}/identity-policy', [\App\Controllers\PersonIdentityController::class, 'policy'], 'identity.configure');
@@ -96,13 +96,46 @@ $router->put('/api/organizations/{id}/identity-policy', [\App\Controllers\Person
 $router->get('/api/users/{id}/accesses', [\App\Controllers\UserAccessController::class, 'show'], 'users.read');
 $router->post('/api/users/{id}/accesses', [\App\Controllers\UserAccessController::class, 'assign'], 'users.create');
 $router->put('/api/users/{id}/person', [\App\Controllers\UserAccessController::class, 'link'], 'users.create');
+$router->put('/api/users/{id}/state', [\App\Controllers\UserAccessController::class, 'state'], 'users.create');
 
-$router->post('/api/person-imports', [\App\Controllers\PersonImportController::class, 'upload'], 'persons.create');
-$router->put('/api/person-imports/{id}/mapping', [\App\Controllers\PersonImportController::class, 'configure'], 'persons.create');
-$router->post('/api/person-imports/{id}/preview', [\App\Controllers\PersonImportController::class, 'preview'], 'persons.create');
-$router->put('/api/person-imports/{id}/decisions', [\App\Controllers\PersonImportController::class, 'decisions'], 'persons.create');
-$router->post('/api/person-imports/{id}/confirm', [\App\Controllers\PersonImportController::class, 'confirm'], 'persons.create');
-$router->post('/api/person-imports/{id}/apply', [\App\Controllers\PersonImportController::class, 'apply'], 'persons.create');
-$router->get('/api/person-imports/{id}', [\App\Controllers\PersonImportController::class, 'status'], 'persons.create');
+$router->post('/api/person-imports', [\App\Controllers\PersonImportController::class, 'upload'], 'persons.import');
+$router->put('/api/person-imports/{id}/mapping', [\App\Controllers\PersonImportController::class, 'configure'], 'persons.import');
+$router->post('/api/person-imports/{id}/preview', [\App\Controllers\PersonImportController::class, 'preview'], 'persons.import');
+$router->put('/api/person-imports/{id}/decisions', [\App\Controllers\PersonImportController::class, 'decisions'], 'persons.import');
+$router->post('/api/person-imports/{id}/confirm', [\App\Controllers\PersonImportController::class, 'confirm'], 'persons.import');
+$router->post('/api/person-imports/{id}/apply', [\App\Controllers\PersonImportController::class, 'apply'], 'persons.import');
+$router->get('/api/person-imports/{id}', [\App\Controllers\PersonImportController::class, 'status'], 'persons.import');
 
-$router->get('/api/person-imports/{id}/results', [\App\Controllers\PersonImportController::class, 'results'], 'persons.create');
+$router->get('/api/person-imports/{id}/results', [\App\Controllers\PersonImportController::class, 'results'], 'persons.import');
+
+// Fase 3: los servicios validan además permisos y alcance en cada contexto afectado.
+$router->get('/api/structures', [\App\Controllers\StructureController::class,'index'], 'structure.read');
+$router->post('/api/structures', [\App\Controllers\StructureController::class,'store'], 'structure.admin');
+$router->get('/api/structures/{id}', [\App\Controllers\StructureController::class,'show'], 'structure.read');
+$router->post('/api/structures/{id}/elections', [\App\Controllers\StructureController::class,'associate'], 'structure.admin');
+$router->post('/api/structures/{id}/clone', [\App\Controllers\StructureController::class,'clone'], 'structure.admin');
+$router->post('/api/structures/{id}/members', [\App\Controllers\StructureController::class,'add'], 'structure.form');
+$router->get('/api/structures/{id}/members/{member}', [\App\Controllers\StructureController::class,'detail'], 'structure.read');
+$router->put('/api/structures/{id}/members/{member}/level', [\App\Controllers\StructureController::class,'level'], 'structure.admin');
+$router->put('/api/structures/{id}/members/{member}/state', [\App\Controllers\StructureController::class,'state'], 'structure.admin');
+$router->post('/api/structures/{id}/members/{member}/transfers', [\App\Controllers\StructureController::class,'transfer'], 'structure.transfer');
+$router->get('/api/structures/{id}/transfers', [\App\Controllers\StructureController::class,'requests'], 'structure.read');
+$router->put('/api/structures/{id}/transfers/{transfer}', [\App\Controllers\StructureController::class,'resolve'], 'structure.approve');
+$router->get('/api/structures/{id}/history', [\App\Controllers\StructureController::class,'history'], 'structure.admin');
+$router->get('/api/structure-levels', [\App\Controllers\AdministrationController::class,'levels'], 'structure.read');
+$router->post('/api/structure-levels', [\App\Controllers\AdministrationController::class,'level'], 'levels.admin');
+$router->put('/api/structure-levels/{level}', [\App\Controllers\AdministrationController::class,'level'], 'levels.admin');
+$router->get('/api/structure-config', [\App\Controllers\AdministrationController::class,'configuration'], 'levels.admin');
+$router->put('/api/structure-config', [\App\Controllers\AdministrationController::class,'configuration'], 'levels.admin');
+$router->get('/api/permissions', [\App\Controllers\AdministrationController::class,'permissions'], 'permissions.admin');
+$router->get('/api/roles', [\App\Controllers\AdministrationController::class,'roles'], 'permissions.admin');
+$router->post('/api/roles', [\App\Controllers\AdministrationController::class,'role'], 'permissions.admin');
+$router->put('/api/roles/{role}', [\App\Controllers\AdministrationController::class,'role'], 'permissions.admin');
+$router->get('/api/roles/{role}/permissions', [\App\Controllers\AdministrationController::class,'rolePermission'], 'permissions.admin');
+$router->put('/api/roles/{role}/permissions', [\App\Controllers\AdministrationController::class,'rolePermission'], 'permissions.admin');
+$router->get('/api/users/{id}/permissions', [\App\Controllers\AdministrationController::class,'individual'], 'permissions.admin');
+$router->put('/api/users/{id}/permissions', [\App\Controllers\AdministrationController::class,'individual'], 'permissions.admin');
+$router->get('/api/users/{id}/territories', [\App\Controllers\AdministrationController::class,'territories'], 'permissions.admin');
+$router->put('/api/users/{id}/territories', [\App\Controllers\AdministrationController::class,'territories'], 'permissions.admin');
+$router->get('/api/organizations/{id}/modules', [\App\Controllers\AdministrationController::class,'modules'], 'modules.select');
+$router->put('/api/organizations/{id}/modules/{module}', [\App\Controllers\AdministrationController::class,'module'], 'modules.select');

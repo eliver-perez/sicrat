@@ -9,7 +9,7 @@ use App\Core\HttpError;
 
 class Authorization
 {
-    // Reproduce los accesos de las pantallas actuales. El ámbito electoral se ampliará en Fase 3.
+    // Las operaciones identifican permisos; los servicios comprueban el contexto objetivo.
     private const OPERATIONS = [
         'authenticated' => [],
         'organizations.read' => [],
@@ -20,10 +20,21 @@ class Authorization
         'catalogs.create' => ['superadmin'],
         'sections.read' => ['superadmin', 'captura-personas'],
         'sections.create' => ['superadmin'],
-        'persons.read' => ['superadmin', 'captura-personas'],
-        'persons.create' => ['superadmin', 'captura-personas'],
-        'users.read' => ['superadmin'],
-        'users.create' => ['superadmin'],
+        'persons.read' => ['personas.ver'],
+        'persons.create' => ['personas.crear'],
+        'persons.update' => ['personas.editar'],
+        'persons.participate' => ['personas.participar'],
+        'persons.import' => ['personas.importar'],
+        'users.read' => ['usuarios.administrar'],
+        'users.create' => ['usuarios.administrar'],
+        'structure.read' => ['estructura.ver'],
+        'structure.admin' => ['estructura.administrar'],
+        'structure.form' => ['estructura.formar'],
+        'structure.transfer' => ['estructura.transferir_integrante','estructura.transferir_equipo'],
+        'structure.approve' => ['estructura.aprobar_transferencias'],
+        'levels.admin' => ['niveles.administrar'],
+        'permissions.admin' => ['permisos.administrar'],
+        'modules.select' => ['modulos.seleccionar'],
         'profiles.self' => [],
         'identity.configure' => ['superadmin', 'admin'],
     ];
@@ -46,6 +57,14 @@ class Authorization
     {
         if (Auth::isSuperAdmin()) {
             return true;
+        }
+        // Compatibilidad con comprobaciones puras y páginas anteriores a la ampliación.
+        if (!isset($_SESSION['SICRAT_PERMISSION_SCOPES'])) {
+            $rights = $_SESSION['SICRAT_RIGHTS'] ?? [];
+            foreach (\App\Repositories\PermissionRepository::LEGACY as $legacy => $expanded) {
+                if (in_array($legacy,$rights,true)) $rights = [...$rights,...$expanded];
+            }
+            return array_intersect($permissions,$rights) !== [];
         }
         return array_intersect($permissions, $_SESSION['SICRAT_RIGHTS'] ?? []) !== [];
     }

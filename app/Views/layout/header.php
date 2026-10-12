@@ -102,12 +102,13 @@
         })();
     </script>
     <link rel="modulepreload" crossorigin href="<?= escape_html(base_url('template/assets/app-BxTRRtUp.js')); ?>">
-    <script type="module" crossorigin src="<?= escape_html(base_url('template/assets/index-DsDs3XAz.js')); ?>"></script>
+    <script type="module" crossorigin src="<?= escape_html(base_url('template/assets/app-BxTRRtUp.js')); ?>"></script>
     <link rel="modulepreload" crossorigin href="<?= escape_html(base_url('template/assets/flatpickr-DxeCcIwz.js')); ?>">
     <link rel="modulepreload" crossorigin href="<?= escape_html(base_url('template/assets/apexcharts.esm-DPbJ6jlt.js')); ?>">
     <!-- <script type="module" crossorigin src="<?= escape_html(base_url('/template/assets/form-choices-CeuTJViI.js')); ?>"></script> -->
     <link rel="stylesheet" crossorigin href="<?= escape_html(base_url('template/assets/app-0ZOPNGSF.css')); ?>">
     <link rel="stylesheet" crossorigin href="<?= escape_html(base_url('/template/assets/app-tw.css')); ?>">
+    <link rel="stylesheet" href="<?= escape_html(asset('css/platform.css')); ?>">
     <script src="<?= escape_html(asset('js/global.js')); ?>"></script>
 </head>
 

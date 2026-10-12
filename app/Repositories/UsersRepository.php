@@ -52,6 +52,10 @@ class UsersRepository
             $params['search'] = '%' . $data['search'] . '%';
         }
 
+        [$scope, $scopeParams] = (new AccountScopeRepository($this->db))->predicate('usuarios.administrar', \App\Core\Auth::processId());
+        foreach ($scopeParams as $index => $value) { $scope=preg_replace('/\?/', ':account_scope_' . $index,$scope,1); $params['account_scope_' . $index]=$value; }
+        $sql .= ' AND (' . $scope . ')';
+
         $sql .= " ORDER BY u.paterno, u.nombre, u.id ASC LIMIT :limit OFFSET :offset";
 
         $stmt = $this->db->prepare($sql);

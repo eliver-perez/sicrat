@@ -105,6 +105,7 @@ class UsersController extends Controller
                 'name'                      => $request->input('name'),
                 'last_name'                 => $request->input('last_name'),
                 'second_last_name'          => $request->input('second_last_name'),
+                'person'                    => $request->input('person'),
 
                 'uid'                       => $currentUserId,
             ]);

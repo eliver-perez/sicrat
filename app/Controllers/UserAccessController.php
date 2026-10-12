@@ -16,6 +16,7 @@ class UserAccessController extends Controller
     private function service(): UserAccessService { return new UserAccessService(new UserAccessRepository((new Database())->getConnection())); }
     public function show(Request $request, Response $response): void { $response->success($this->service()->detail($request->route('id'))); }
     public function assign(Request $request, Response $response): void { $this->service()->assign($request->route('id'), $request->input()); $response->success(null, 'Acceso actualizado.'); }
+    public function state(Request $request, Response $response): void { $this->service()->state($request->route('id'),$request->input()); $response->success(null,'Cuenta actualizada.'); }
     public function link(Request $request, Response $response): void
     {
         $person = $request->input('person');

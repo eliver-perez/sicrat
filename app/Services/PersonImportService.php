@@ -24,8 +24,10 @@ class PersonImportService extends Service
 
     public function upload(array $file, ?string $organization, string $delimiter = ','): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         $organizationId = $this->identity->organization($organization);
+        $effective = (new \App\Repositories\PermissionRepository($this->repository->connection()))->require(\App\Core\Auth::id() ?? 0,'personas.importar',\App\Core\Auth::processId());
+        if (!$effective['super'] && !in_array('organizacion',$effective['scopes']['personas.importar'],true)) throw new HttpError('La importación requiere alcance de organización para revisar identidades y coincidencias.',403);
         if (in_array($file['error'] ?? null, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) throw new InvalidArgumentException('El archivo supera el límite de carga permitido por el servidor.');
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'] ?? '')) throw new InvalidArgumentException('Selecciona un archivo válido.');
         if (($file['size'] ?? 0) < 1) throw new InvalidArgumentException('El archivo está vacío.');
@@ -119,7 +121,7 @@ class PersonImportService extends Service
 
     public function configure(string $id, array $data): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         $this->repository->acquire($id);
         try {
             $import = $this->repository->get($id);
@@ -143,7 +145,7 @@ class PersonImportService extends Service
 
     public function preview(string $id, int $after): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         $this->repository->acquire($id);
         try {
             $import = $this->repository->get($id);
@@ -194,7 +196,7 @@ class PersonImportService extends Service
 
     public function decisions(string $id, array $decisions): void
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         if (count($decisions)>100) throw new InvalidArgumentException('Decide hasta 100 filas por operación.');
         $this->repository->acquire($id);
         try {
@@ -226,7 +228,7 @@ class PersonImportService extends Service
 
     public function confirm(string $id): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         $this->repository->acquire($id);
         try {
             $import=$this->repository->get($id);
@@ -240,7 +242,7 @@ class PersonImportService extends Service
 
     public function apply(string $id): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         $this->repository->acquire($id);
         $db=$this->repository->connection();
         try {
@@ -297,7 +299,7 @@ class PersonImportService extends Service
 
     public function results(string $id, int $after): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         $this->repository->get($id);
         $rows = $this->repository->rows($id, max(0, $after));
         $results = array_map(static function (array $row): array {
@@ -309,7 +311,7 @@ class PersonImportService extends Service
 
     public function status(string $id): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.import');
         $import=$this->repository->get($id);
         return ['id'=>$id,'state'=>$import['estado'],'total'=>(int) $import['total'],'summary'=>$this->repository->summary($id),'planned'=>$this->repository->plannedSummary($id)];
     }

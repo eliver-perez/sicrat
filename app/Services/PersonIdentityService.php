@@ -143,6 +143,7 @@ class PersonIdentityService extends Service
     {
         Authorization::requireOperation('persons.read');
         $person = $this->repository->person($this->uuidStringToBinary($uuid));
+        (new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson((int) $person['id'], 'personas.ver', Auth::processId());
         $data = ['id' => $uuid, 'code' => $person['codigo_persona'], 'organization' => $this->uuidBinaryToString($person['organizacion_uuid'])];
         foreach (self::FIELDS as $key => [$column]) $data[$key] = $key === 'section' ? ($person['seccion_uuid'] ? $this->uuidBinaryToString($person['seccion_uuid']) : null) : $person[$column];
         $address = $this->repository->address((int) $person['id']);
@@ -153,8 +154,9 @@ class PersonIdentityService extends Service
 
     public function update(string $uuid, array $data, bool $missingOnly = false): array
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.update');
         $person = $this->repository->person($this->uuidStringToBinary($uuid));
+        (new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson((int) $person['id'], 'personas.editar', Auth::processId());
         $fields = $this->normalize($data, true);
         $address = $this->addressFields($data);
         $db = $this->repository->connection();
@@ -191,7 +193,7 @@ class PersonIdentityService extends Service
 
     public function participation(string $uuid, array $data): void
     {
-        Authorization::requireOperation('persons.create');
+        Authorization::requireOperation('persons.participate');
         $person = $this->repository->person($this->uuidStringToBinary($uuid));
         $processes = $data['processes'] ?? [];
         if (!is_array($processes) || count($processes) < 1 || count($processes) > 100) throw new InvalidArgumentException('Selecciona entre una y cien elecciones.');
@@ -200,7 +202,9 @@ class PersonIdentityService extends Service
         $authorized = [];
         foreach ($processes as $process) {
             if (!is_string($process)) throw new InvalidArgumentException('La elección no es válida.');
-            $authorized[] = $context->authorized($this->uuidStringToBinary($process), (int) $person['organizacion'], $active === 1);
+            $target = $context->authorized($this->uuidStringToBinary($process), (int) $person['organizacion'], $active === 1);
+            (new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson((int) $person['id'], 'personas.participar', (int) $target['id']);
+            $authorized[] = $target;
         }
         $db = $this->repository->connection();
         $ownsTransaction = !$db->inTransaction();

@@ -71,8 +71,10 @@ class UsersService extends Service
         }
 
         $name = $this->normalizeRequiredText($data['name'] ?? null, 'Es necesario capturar el nombre.');
-        $last_name = $this->normalizeRequiredText($data['last_name'] ?? null, 'Es necesario capturar el apellido.');
+        $last_name = $this->normalizeOptionalText($data['last_name'] ?? null);
         $second_last_name = $this->normalizeOptionalText($data['second_last_name'] ?? null);
+        foreach ([[$username,60],[$name,40],[$email ?? '',150]] as [$value,$maximum]) if (mb_strlen($value)>$maximum) throw new InvalidArgumentException('El usuario, nombre o correo supera la longitud permitida.');
+        foreach ([$last_name,$second_last_name] as $value) if ($value !== null && mb_strlen($value)>40) throw new InvalidArgumentException('El apellido supera la longitud permitida.');
 
         $user_exists = $this->usersRepository->userExists($username);
         if($user_exists)
@@ -108,8 +110,21 @@ class UsersService extends Service
         $registerProcess = $processId !== null;
 
         $conn = $this->usersRepository->getConnection();
+        $roleOwner=$conn->prepare('SELECT organizacion FROM usuarios_tipos WHERE id=?'); $roleOwner->execute([$user_type]); $typeOrganization=$roleOwner->fetchColumn();
+        if ($typeOrganization !== null && (int) $typeOrganization!==($organizationId ?? \App\Core\Auth::organizationId())) throw new InvalidArgumentException('El rol pertenece a otra organización.');
+        if (!\App\Core\Auth::isSuperAdmin()) {
+            $organizationId ??= \App\Core\Auth::organizationId();
+            if ($organizationId === null) throw new InvalidArgumentException('La cuenta debe pertenecer a una organización.');
+            Authorization::assertOrganization($organizationId);
+            $role = $conn->prepare('SELECT codigo,organizacion FROM usuarios_tipos WHERE id=?'); $role->execute([$user_type]); $typeRow=$role->fetch(\PDO::FETCH_ASSOC);
+            if (!$typeRow || $typeRow['codigo']==='superadmin' || ($typeRow['organizacion']!==null && (int) $typeRow['organizacion']!==$organizationId)) throw new InvalidArgumentException('El rol no está disponible para esta organización.');
+            (new \App\Repositories\PermissionRepository($conn))->require(\App\Core\Auth::id() ?? 0,'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
+        }
         $conn->beginTransaction();
         try {
+            if ($organizationId !== null) $conn->prepare('SELECT id FROM organizaciones WHERE id=? FOR UPDATE')->execute([$organizationId]);
+            $managerPermissions = (new \App\Repositories\PermissionRepository($conn))->require(\App\Core\Auth::id() ?? 0,'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
+            if (!$managerPermissions['super'] && empty($data['person']) && array_intersect(['eleccion','organizacion'],$managerPermissions['scopes']['usuarios.administrar'])===[]) throw new \App\Core\HttpError('Selecciona una persona dentro de tu alcance para crear su cuenta.',403);
             $userUuid = $this->generateUuidBinary();
             $userId = $this->usersRepository->insertUser([
                     'uuid'                          => $userUuid,
@@ -131,6 +146,25 @@ class UsersService extends Service
                     'process'                       => $processId,
                     'user_type'                     => $user_type
                 ]);
+            }
+            if (isset($data['person']) && $data['person'] !== '') {
+                $person = (new \App\Repositories\PersonIdentityRepository($conn))->person($this->uuidStringToBinary((string) $data['person']),true);
+                if ($organizationId === null || (int) $person['organizacion']!==$organizationId) throw new InvalidArgumentException('La persona debe pertenecer a la organización de la cuenta.');
+                (new \App\Repositories\ScopeRepository($conn))->assertPerson((int) $person['id'],'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
+                $existing=$conn->prepare('SELECT id FROM usuarios WHERE persona=? FOR UPDATE'); $existing->execute([$person['id']]);
+                if ($existing->fetchColumn()) throw new \App\Core\HttpError('Esta persona ya tiene una cuenta SICRAT.',409);
+                $conn->prepare('UPDATE usuarios SET persona=? WHERE id=?')->execute([$person['id'],$userId]);
+            }
+            if (!\App\Core\Auth::isSuperAdmin()) {
+                $globalPermissions=new \App\Repositories\PermissionRepository($conn); $base=$globalPermissions->effective($userId,null); $managerGlobal=$globalPermissions->effective(\App\Core\Auth::id(),null);
+                foreach ($base['rights'] as $permission) if (!in_array($permission,$managerGlobal['rights'],true)) throw new \App\Core\HttpError('No puedes asignar un tipo de cuenta con permisos globales superiores a los tuyos.',403);
+            }
+            if (!\App\Core\Auth::isSuperAdmin() && $processId !== null) {
+                $permissions=new \App\Repositories\PermissionRepository($conn); $manager=$permissions->effective(\App\Core\Auth::id(),$processId); $assigned=$permissions->effective($userId,$processId);
+                foreach (\App\Repositories\PermissionRepository::delegableRights($assigned['rights']) as $permission) {
+                    if (!in_array($permission,$manager['rights'],true)) throw new \App\Core\HttpError('No puedes asignar un rol con permisos superiores a los tuyos.',403);
+                    foreach ($assigned['scopes'][$permission] as $scope) if (!in_array('organizacion',$manager['scopes'][$permission],true) && !in_array($scope,$manager['scopes'][$permission],true)) throw new \App\Core\HttpError('No puedes asignar un rol con mayor alcance.',403);
+                }
             }
             $conn->commit();
             return [

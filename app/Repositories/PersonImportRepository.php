@@ -51,6 +51,8 @@ class PersonImportRepository
         $import = $statement->fetch(PDO::FETCH_ASSOC);
         if (!$import) throw new HttpError('La importación no está disponible o expiró.',404);
         Authorization::assertOrganization((int) $import['organizacion']);
+        $effective = (new PermissionRepository($this->db))->require(Auth::id() ?? 0,'personas.importar',Auth::processId());
+        if (!$effective['super'] && !in_array('organizacion',$effective['scopes']['personas.importar'],true)) throw new HttpError('La importación requiere alcance de organización para revisar identidades y coincidencias.',403);
         return $import;
     }
     public function rows(string $id, int $after, int $limit = 100): array

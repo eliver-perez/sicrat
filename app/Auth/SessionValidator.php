@@ -25,7 +25,7 @@ class SessionValidator
 
         $statement = $this->db->prepare("
             SELECT s.id sesion_id, u.id, u.uuid, u.organizacion, u.email, u.nombre,
-                   u.paterno, u.materno, ut.id tipo_id, ut.codigo tipo_codigo, ut.tipo
+                   u.paterno, u.materno, u.persona, ut.id tipo_id, ut.codigo tipo_codigo, ut.tipo
             FROM usuarios_sesiones s
                 INNER JOIN usuarios u ON u.id = s.usuario
                 INNER JOIN usuarios_tipos ut ON ut.id = u.tipo_usuario
@@ -63,20 +63,6 @@ class SessionValidator
             $organization = (int) $role['organizacion'];
         }
 
-        $inherited = [];
-        if ($role) {
-            $statement = $this->db->prepare('SELECT permiso, valor FROM permisos_usuarios_tipo WHERE tipo = :tipo');
-            $statement->execute(['tipo' => $role['tipo_id']]);
-            $inherited = $statement->fetchAll(PDO::FETCH_ASSOC);
-            // Super Administrador es un privilegio de cuenta; un tipo electoral no lo concede.
-            if ($user['tipo_codigo'] !== 'superadmin') {
-                $inherited = array_values(array_filter($inherited, static fn (array $permission): bool => $permission['permiso'] !== 'superadmin'));
-            }
-        }
-        $statement = $this->db->prepare('SELECT permiso, valor FROM permisos_usuarios WHERE usuario = :usuario AND (organizacion IS NULL OR organizacion = :organizacion)');
-        $statement->execute(['usuario' => $userId, 'organizacion' => $organization]);
-        $individual = $statement->fetchAll(PDO::FETCH_ASSOC);
-
         $_SESSION['SICRAT_UUID'] = (new \App\Services\AuthService())->uuidBinaryToString($user['uuid']);
         $_SESSION['SICRAT_GLOBAL_TYPE_CODE'] = $user['tipo_codigo'];
         $_SESSION['SICRAT_ORGANIZATION_ID'] = $organization;
@@ -97,7 +83,11 @@ class SessionValidator
         $_SESSION['SICRAT_USER_TYPE'] = $role['tipo'] ?? $user['tipo'];
         $_SESSION['SICRAT_NAME'] = trim(implode(' ', [$user['nombre'], $user['paterno'] ?? '', $user['materno'] ?? '']));
         $_SESSION['SICRAT_EMAIL'] = $user['email'];
-        $_SESSION['SICRAT_RIGHTS'] = Authorization::effectivePermissions($inherited, $individual);
+        $effective = (new \App\Repositories\PermissionRepository($this->db))->effective($userId, $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID']);
+        $_SESSION['SICRAT_RIGHTS'] = $effective['rights'];
+        $_SESSION['SICRAT_PERMISSION_SCOPES'] = $effective['scopes'];
+        $_SESSION['SICRAT_DENIED_PERMISSIONS'] = $effective['denied'];
+        $_SESSION['SICRAT_PERSON_ID'] = $user['persona'] === null ? null : (int) $user['persona'];
 
         $statement = $this->db->prepare('UPDATE usuarios_sesiones SET ultima_actividad = NOW() WHERE id = :id');
         $statement->bindValue(':id', $user['sesion_id'], PDO::PARAM_LOB);

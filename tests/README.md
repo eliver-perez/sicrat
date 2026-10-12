@@ -1,4 +1,4 @@
-# Pruebas de Fases 1 y 2
+# Pruebas de Fases 1, 2 y 3
 
 No requiere dependencias de desarrollo ni un framework de pruebas.
 
@@ -27,3 +27,21 @@ La opción `--phase2` ejecuta primero toda la regresión de Fase 1 y después la
 `phase2-frontend.js` comprueba los scripts reales de ficha, advertencias, selector y revisión mediante adaptadores DOM/jQuery. No sustituye la validación visual en navegador.
 
 Requisitos adicionales de lectura XLSX: OpenSpout instalado por `composer install` y extensiones DOM, fileinfo, filter, libxml, XMLReader y ZIP. No se añaden dependencias de desarrollo. Resultados actuales documentados en FASE2.md.
+
+
+## Fase 3
+
+```sh
+node tests/phase3-frontend.js
+php tests/phase3-migrations.php
+php tests/integration.php --phase3
+php tests/integration.php --phase3 --browser
+```
+
+`--phase3` ejecuta completas las Fases 1 y 2 antes de verificar identidad uno a uno, estructuras de personas, proyecciones por elección, jerarquía, cierre transitivo, bajas, transferencias, aprobaciones, clonación completa, independencia, módulos, alcances y promociones. Dos procesos separados prueban incorporaciones y vinculación de cuentas concurrentes; `structure-writer.php` exige el mismo patrón de base desechable. Nunca usa la base local real para estas escrituras.
+
+`phase3-migrations.php` crea otra base desechable y prepara un estado post-Fase 2 con datos históricos. Comprueba conflictos de cuentas, falta de persona, ciclos, preservación de IDs/campos/referencias, reejecución y restricción de una ubicación activa por persona/elección. El ensayo elimina su base en `finally`.
+
+`phase3-frontend.js` verifica texto seguro, selección de elecciones, controles según permisos, paginación, JSON, CSRF y bloqueo de peticiones a otro origen.
+
+`--browser` utiliza el Chrome ya instalado en macOS y el WebSocket integrado de Node 22; no instala dependencias. Inicia un perfil temporal, usa exclusivamente las credenciales ficticias y el servidor desechable de esta suite, verifica las pantallas/modal/búsqueda/configuración y registra excepciones JavaScript. Cierra Chrome y deja capturas PNG en el directorio temporal para inspección. Es una prueba adicional local; no es requisito del código de producción. Ejecutar la suite sin esa opción donde Chrome no esté disponible.
