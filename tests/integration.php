@@ -99,6 +99,12 @@ try {
         }
     }
 
+    $existingPersons = $connection->query('SELECT id,uuid,nombre,paterno,organizacion,seccion FROM personas ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $existingUsers = $connection->query('SELECT id,uuid,password_hash FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    (new App\Core\Migrations($connection))->run();
+    verify($connection->query('SELECT id,uuid,nombre,paterno,organizacion,seccion FROM personas ORDER BY id')->fetchAll(PDO::FETCH_ASSOC) === $existingPersons, 'Migraciones preservan las personas existentes.');
+    verify($connection->query('SELECT id,uuid,password_hash FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_ASSOC) === $existingUsers, 'Migraciones preservan cuentas y contraseñas.');
+
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
     $address = stream_socket_get_name($socket, false);
     fclose($socket);
@@ -211,6 +217,7 @@ try {
     $error = request('admin', 'GET', '/api/genders');
     verify($error['status'] === 500 && !str_contains($error['body'], 'SQLSTATE') && !str_contains($error['body'], 'generos') && !str_contains($error['body'], '/opt/'), 'El error interno se oculta incluso con APP_DEBUG activo.');
     $connection->exec('RENAME TABLE generos_test_error TO generos');
+    if (in_array('--phase2', $argv, true)) require __DIR__ . '/phase2.php';
     echo "OK: {$checks} comprobaciones HTTP/BD (" . $connection->query('SELECT VERSION()')->fetchColumn() . ").\n";
 } finally {
     if (is_resource($process)) { proc_terminate($process); proc_close($process); }

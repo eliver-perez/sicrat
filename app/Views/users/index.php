@@ -128,7 +128,9 @@
                     </div>
                 </div>
 
+<?php require __DIR__ . '/accesses.php'; ?>
 <script src="<?= escape_html(asset('js/users/index.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/users/accesses.js')); ?>"></script>
 
 <script>
     var currentLink = <?= json_script(base_url('users')); ?>;

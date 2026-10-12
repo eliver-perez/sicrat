@@ -47,17 +47,17 @@ class SessionValidator
         $role = null;
         if ($roleId !== null) {
             $statement = $this->db->prepare("
-                SELECT up.id, up.proceso, pe.organizacion, ut.id tipo_id, ut.codigo, ut.tipo
+                SELECT up.id, up.proceso, pe.proceso proceso_nombre, pe.organizacion, ut.id tipo_id, ut.codigo, ut.tipo
                 FROM usuarios_procesos up
                     INNER JOIN procesos_electorales pe ON pe.id = up.proceso
                     INNER JOIN usuarios_tipos ut ON ut.id = up.tipo_usuario
                 WHERE up.id = :rol AND up.usuario = :usuario
-                    AND up.activo = 1 AND up.f_baja IS NULL
+                    AND up.activo = 1 AND up.f_baja IS NULL AND pe.estatus = 1
                 LIMIT 1
             ");
             $statement->execute(['rol' => $roleId, 'usuario' => $userId]);
             $role = $statement->fetch(PDO::FETCH_ASSOC);
-            if (!$role || ($organization !== null && $organization !== (int) $role['organizacion'])) {
+            if (!$role || ($user['tipo_codigo'] !== 'superadmin' && ($organization === null || $organization !== (int) $role['organizacion']))) {
                 return false;
             }
             $organization = (int) $role['organizacion'];
@@ -68,6 +68,10 @@ class SessionValidator
             $statement = $this->db->prepare('SELECT permiso, valor FROM permisos_usuarios_tipo WHERE tipo = :tipo');
             $statement->execute(['tipo' => $role['tipo_id']]);
             $inherited = $statement->fetchAll(PDO::FETCH_ASSOC);
+            // Super Administrador es un privilegio de cuenta; un tipo electoral no lo concede.
+            if ($user['tipo_codigo'] !== 'superadmin') {
+                $inherited = array_values(array_filter($inherited, static fn (array $permission): bool => $permission['permiso'] !== 'superadmin'));
+            }
         }
         $statement = $this->db->prepare('SELECT permiso, valor FROM permisos_usuarios WHERE usuario = :usuario AND (organizacion IS NULL OR organizacion = :organizacion)');
         $statement->execute(['usuario' => $userId, 'organizacion' => $organization]);
@@ -76,7 +80,18 @@ class SessionValidator
         $_SESSION['SICRAT_UUID'] = (new \App\Services\AuthService())->uuidBinaryToString($user['uuid']);
         $_SESSION['SICRAT_GLOBAL_TYPE_CODE'] = $user['tipo_codigo'];
         $_SESSION['SICRAT_ORGANIZATION_ID'] = $organization;
-        $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID'] = $role ? (int) $role['proceso'] : null;
+        if ($user['tipo_codigo'] === 'superadmin') {
+            // La selección facilita el trabajo pero no recorta la autorización global.
+            $selected = $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID'] ?? null;
+            $statement = $this->db->prepare('SELECT id, proceso FROM procesos_electorales WHERE id = ? AND estatus = 1');
+            $statement->execute([$selected]);
+            $selectedProcess = $statement->fetch(PDO::FETCH_ASSOC);
+            $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID'] = $selectedProcess ? (int) $selected : null;
+            $_SESSION['SICRAT_ORGANIZATION_PROCESS'] = $selectedProcess['proceso'] ?? null;
+        } else {
+            $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID'] = $role ? (int) $role['proceso'] : null;
+            $_SESSION['SICRAT_ORGANIZATION_PROCESS'] = $role['proceso_nombre'] ?? null;
+        }
         $_SESSION['SICRAT_USER_TYPE_ID'] = (int) ($role['tipo_id'] ?? $user['tipo_id']);
         $_SESSION['SICRAT_USER_TYPE_CODE'] = $role['codigo'] ?? $user['tipo_codigo'];
         $_SESSION['SICRAT_USER_TYPE'] = $role['tipo'] ?? $user['tipo'];

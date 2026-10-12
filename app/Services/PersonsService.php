@@ -51,7 +51,13 @@ class PersonsService extends Service
                 foreach($persons_data as $d) {
                     array_push($persons, array(
                         'id'                        => $this->uuidBinaryToString($d['uuid']),
-                        'section'                   => str_pad((string)$d['seccion'], 4, '0', STR_PAD_LEFT),
+                        'section'                   => $d['seccion'] === null ? '' : str_pad((string)$d['seccion'], 4, '0', STR_PAD_LEFT),
+                        'code'                      => $d['codigo_persona'],
+                        'phone'                     => $d['telefono'],
+                        'alternate_phone'           => $d['telefono_alternativo'],
+                        'email'                     => $d['email'],
+                        'gender'                    => $d['genero'],
+                        'birth_date'                => $d['f_nacimiento'],
                         'name'                      => $d['nombre'],
                         'registered_by'             => $d['registro'],
                         'registered_date'           => $d['f_registro'],
@@ -66,54 +72,6 @@ class PersonsService extends Service
     }
 
     public function create(array $data): ?array {
-        Authorization::requireOperation('persons.create');
-        $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
-
-        $organization = $this->normalizeRequiredText($data['organization'] ?? null, 'Es necesario seleccionar una organización.');
-        $section = $this->normalizeRequiredText($data['section'] ?? null, 'Es necesario seleccionar una sección.');
-        $gender = $this->normalizeRequiredText($data['gender'] ?? null, 'Es necesario selección un genero.');
-        
-        $name = $this->normalizeRequiredText($data['name'] ?? null, 'Es necesario capturar el nombre.');
-        $last_name = $this->normalizeRequiredText($data['last_name'] ?? null, 'Es necesario capturar capturar el apellido paterno.');
-
-        $last_name_2 = $this->normalizeOptionalText($data['last_name_2'] ?? null);
-
-        $organizationId = $this->organizationsRepository->getOrganizationId([
-            'uuid'                      => $this->uuidStringToBinary($organization)
-        ]);
-        $sectionId = $this->sectionsRepository->getSectionId([
-            'uuid'                      => $this->uuidStringToBinary($section)
-        ]);
-
-        if ($organizationId === null || $sectionId === null || !$this->personsRepository->genderExists($gender)) {
-            throw new InvalidArgumentException('La organización, sección o género no es válido.');
-        }
-        $conn = $this->personsRepository->getConnection();
-        $conn->beginTransaction();
-        try {
-            $personUuid = $this->generateUuidBinary();
-            $sectionId = $this->personsRepository->insertPerson([
-                    'uuid'                          => $personUuid,
-                    'name'                          => $name,
-                    'last_name'                     => $last_name,
-                    'last_name_2'                   => $last_name_2,
-                    'organization'                  => $organizationId,
-                    'section'                       => $sectionId,
-                    'gender'                        => $gender,
-                    'uid'                           => $uid
-                ]);
-
-            $conn->commit();
-
-            return [
-                'uuid' => $this->uuidBinaryToString($personUuid),
-            ];
-        } catch (\Throwable $e) {
-            if ($conn->inTransaction()) {
-                $conn->rollBack();
-            }
-            throw $e;
-        }
+        return (new PersonIdentityService(new \App\Repositories\PersonIdentityRepository($this->personsRepository->getConnection())))->create($data);
     }
-    
 }

@@ -16,6 +16,7 @@ function InitializeValues(home) {
 	GetUsersTypes();
 	GetUsers();
 	GetOrganizations();
+	InitializeUserAccesses();
 }
 
 function EnableUsersFields(v) {

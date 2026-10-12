@@ -25,6 +25,7 @@ class Authorization
         'users.read' => ['superadmin'],
         'users.create' => ['superadmin'],
         'profiles.self' => [],
+        'identity.configure' => ['superadmin', 'admin'],
     ];
 
     public static function requireOperation(string $operation): void

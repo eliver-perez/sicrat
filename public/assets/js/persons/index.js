@@ -29,9 +29,12 @@ function InitializeValues(home) {
 	GetSections();
 	GetGenders();
 	$('#btn-filter-search').on('click', () => { personsPagination.reset(); GetPersons(true); });
+	InitializePersonIdentity();
+	InitializePersonImport();
 }
 
 function EnablePersonFields(v) {
+	$('.person-quick-optional').prop('readonly', v);
 	$(`#select-persons-organization`).attr('disabled', v);
 	$(`#select-persons-section`).attr('disabled', v);
 	$(`#select-persons-gender`).attr('disabled', v);
@@ -69,12 +72,16 @@ function CancelPerson() {
 }
 
 function ClearPerson() {
+	$('.person-quick-optional').val('');
+	$('#select-persons-section, #select-persons-gender').val('');
+	$('#person-duplicates').empty().addClass('hidden');
 	$(`#field-persons-name`).val('');
 	$(`#field-persons-last-name`).val('');
 	$(`#field-persons-last-name-2`).val('');
 }
 
 function GetGenders() {
+	$('#select-persons-gender').append($('<option>', {value: '', text: 'Sin género'}));
 	$.ajax({
         url: `${homeURL}/api/genders`,
 		type: 'get',
@@ -134,6 +141,7 @@ function GetOrganizations() {
 function GetSections() {
 	$('#select-filter-section').empty();
 	$('#select-persons-section').empty();
+	$('#select-persons-section').append($('<option>', {value: '', text: 'Sin sección'}));
 	loadOptions({
         url: `${homeURL}/api/sections`,
 		type: 'get',
@@ -160,8 +168,8 @@ function GetSections() {
 						text: v.section
 					}));
 				});
-				$('#select-filter-section').val(selected);
-				$('#select-persons-section').val(selected);
+				$('#select-filter-section').val('N/A');
+				$('#select-persons-section').val('');
 				$('#select-filter-section').trigger('change');
 				$('#select-persons-section').trigger('change');
 			}
@@ -199,13 +207,13 @@ function GetPersons(force = false) {
 				$.each(response.data.persons, function(k, v) {
 					rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.section)}</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.name)}</td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"><button type="button" class="text-primary person-open" data-id="${escapeHTML(v.id)}">${escapeHTML(v.code)} · ${escapeHTML(v.name)}</button></td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.birth_date)}</td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.gender)}</td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.phone)}</td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.alternate_phone)}</td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.email)}</td>
 								</tr>`;
 				});
 				$('#table-persons tbody').append(rows);
@@ -223,7 +231,7 @@ function GetPersons(force = false) {
 	}
 }
 
-function RegisterPerson() {
+function RegisterPerson(confirmDuplicate = false) {
 	if(!registering_person) {
 		registering_person = true;
 		$.ajax({
@@ -231,6 +239,11 @@ function RegisterPerson() {
 				type: 'post',
 				data: {
 					organization: $('#select-persons-organization').val(),
+					confirm_duplicate: confirmDuplicate ? 1 : 0,
+					phone: $('#person-quick-phone').val(),
+					email: $('#person-quick-email').val(),
+					curp: $('#person-quick-curp').val(),
+					elector_key: $('#person-quick-elector_key').val(),
 					section: $(`#select-persons-section`).val(),
 					gender: $(`#select-persons-gender`).val(),
 					name: $(`#field-persons-name`).val(),
@@ -254,7 +267,7 @@ function RegisterPerson() {
 					try {
 						var response = JSON.parse(XMLHttpRequest.responseText);
 						ShowToastMessage(response.message, 'error');
-						
+						if (response.data?.matches) showPersonDuplicates(response.data, function () { RegisterPerson(true); });
 					} catch (e) {
 						ShowToastMessage(XMLHttpRequest.responseText, 'error');
 					}

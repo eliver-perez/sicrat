@@ -95,7 +95,7 @@ class AuthController extends Controller
                     LEFT JOIN procesos_electorales pe
                         ON up.proceso = pe.id
                     LEFT JOIN organizaciones o
-                        ON pe.organizacion = o.id
+                        ON u.organizacion = o.id
                 WHERE u.usuario = :usuario
                 LIMIT 1
             ");
@@ -116,7 +116,7 @@ class AuthController extends Controller
                 return $response->json(['status' => 'FAIL_NOT_ACTIVE'], 403);
             }
 
-            $organization_id = $user['cuenta_organizacion'] ?? $user['organizacion_id'];
+            $organization_id = $user['cuenta_organizacion'];
             $organization_uuid = $user['organizacion_uuid'];
             $organization = $user['organizacion'];
             $process_id = $user['proceso_id'];
@@ -146,7 +146,8 @@ class AuthController extends Controller
                 WHERE up.usuario = :usuario
                     AND up.f_baja IS NULL
                     AND up.activo = 1
-                    AND (u.organizacion IS NULL OR pe.organizacion = u.organizacion)
+                    AND pe.estatus = 1
+                    AND pe.organizacion = u.organizacion
             ");
 
             $stmt->bindParam(':usuario', $user['id']);
@@ -329,6 +330,8 @@ class AuthController extends Controller
                 'nombre' => $_SESSION['SICRAT_NAME'] ?? null,
                 'auth_time' => $_SESSION['SICRAT_AUTH_TIME'] ?? null,
                 'csrf_token' => Csrf::token(),
+                'process_id' => \App\Core\Auth::processId(),
+                'type_code' => $_SESSION['SICRAT_USER_TYPE_CODE'] ?? null,
             ]
         ]);
     }

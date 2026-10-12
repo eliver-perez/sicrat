@@ -106,13 +106,20 @@
 
                                         <div class="col-span-3 mb-4">
                                             <label for="field-persons-last-name" class="inline-block mb-2 font-medium">Apellido Paterno</label>
-                                            <input type="text" id="field-persons-last-name" class="form-input" placeholder="Apellido Paterno" value="" readonly required>
+                                            <input type="text" id="field-persons-last-name" class="form-input" placeholder="Apellido Paterno" value="" readonly>
                                         </div>
 
                                         <div class="col-span-3 mb-4">
                                             <label for="field-persons-last-name-2" class="inline-block mb-2 font-medium">Apellido Materno</label>
                                             <input type="text" id="field-persons-last-name-2" class="form-input" placeholder="Apellido Materno" value="" readonly>
                                         </div>
+
+                                        <details class="mb-4">
+                                            <summary>Más datos (opcionales)</summary>
+                                            <?php foreach (['phone' => 'Teléfono', 'email' => 'Correo', 'curp' => 'CURP', 'elector_key' => 'Clave de elector'] as $field => $label): ?>
+                                            <label class="block mt-3"><?= escape_html($label) ?><input id="person-quick-<?= escape_html($field) ?>" class="form-input person-quick-optional" type="text" readonly></label>
+                                            <?php endforeach; ?>
+                                        </details>
 
                                         <div class="lg:col-span-3 col-span-1">
                                             <div class="flex justify-end gap-2">
@@ -130,7 +137,10 @@
 
                 </div>
 
+<?php require __DIR__ . '/phase2.php'; ?>
 <script src="<?= escape_html(asset('js/persons/index.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/persons/identity.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/persons/import.js')); ?>"></script>
 
 <script>
     var currentLink = <?= json_script(base_url('persons')); ?>;

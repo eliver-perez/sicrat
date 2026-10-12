@@ -66,7 +66,7 @@ $router->post('/api/sections', [SectionsController::class, 'store'], 'sections.c
  */
 
 $router->get('/api/persons', [PersonsController::class, 'index'], 'persons.read');
-$router->post('/api/persons', [PersonsController::class, 'store'], 'persons.create');
+$router->post('/api/persons', [\App\Controllers\PersonIdentityController::class, 'store'], 'persons.create');
 
 /**
  * USERS ROUTES ROUTES
@@ -82,3 +82,27 @@ $router->get('/api/users-types', [UsersTypesController::class, 'index'], 'users.
 
 $router->get('/api/profiles/{id}', [ProfilesController::class, 'show'], 'profiles.self');
 $router->put('/api/profiles/{id}/change-password', [ProfilesController::class, 'updatePassword'], 'profiles.self');
+
+$router->get('/api/auth/elections', [\App\Controllers\ElectoralContextController::class, 'index'], 'authenticated');
+$router->post('/api/auth/election', [\App\Controllers\ElectoralContextController::class, 'select'], 'authenticated');
+
+$router->get('/api/persons/{id}', [\App\Controllers\PersonIdentityController::class, 'show'], 'persons.read');
+$router->put('/api/persons/{id}', [\App\Controllers\PersonIdentityController::class, 'update'], 'persons.create');
+$router->post('/api/persons/{id}/participations', [\App\Controllers\PersonIdentityController::class, 'participation'], 'persons.create');
+$router->post('/api/persons/duplicates', [\App\Controllers\PersonIdentityController::class, 'duplicates'], 'persons.read');
+$router->get('/api/organizations/{id}/identity-policy', [\App\Controllers\PersonIdentityController::class, 'policy'], 'persons.read');
+$router->put('/api/organizations/{id}/identity-policy', [\App\Controllers\PersonIdentityController::class, 'policy'], 'identity.configure');
+
+$router->get('/api/users/{id}/accesses', [\App\Controllers\UserAccessController::class, 'show'], 'users.read');
+$router->post('/api/users/{id}/accesses', [\App\Controllers\UserAccessController::class, 'assign'], 'users.create');
+$router->put('/api/users/{id}/person', [\App\Controllers\UserAccessController::class, 'link'], 'users.create');
+
+$router->post('/api/person-imports', [\App\Controllers\PersonImportController::class, 'upload'], 'persons.create');
+$router->put('/api/person-imports/{id}/mapping', [\App\Controllers\PersonImportController::class, 'configure'], 'persons.create');
+$router->post('/api/person-imports/{id}/preview', [\App\Controllers\PersonImportController::class, 'preview'], 'persons.create');
+$router->put('/api/person-imports/{id}/decisions', [\App\Controllers\PersonImportController::class, 'decisions'], 'persons.create');
+$router->post('/api/person-imports/{id}/confirm', [\App\Controllers\PersonImportController::class, 'confirm'], 'persons.create');
+$router->post('/api/person-imports/{id}/apply', [\App\Controllers\PersonImportController::class, 'apply'], 'persons.create');
+$router->get('/api/person-imports/{id}', [\App\Controllers\PersonImportController::class, 'status'], 'persons.create');
+
+$router->get('/api/person-imports/{id}/results', [\App\Controllers\PersonImportController::class, 'results'], 'persons.create');

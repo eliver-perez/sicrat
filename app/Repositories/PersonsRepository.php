@@ -21,6 +21,7 @@ class PersonsRepository
             SELECT
                 p.id,
                 p.uuid,
+                p.codigo_persona, p.telefono, p.telefono_alternativo, p.email, p.genero, p.f_nacimiento,
                 TRIM(
                     CONCAT(
                         p.nombre, ' ',
@@ -32,7 +33,7 @@ class PersonsRepository
                 COALESCE(r.nombre, 'N/D') registro,
                 COALESCE(DATE_FORMAT(p.f_registro, '%d/%m/%Y %r'), '') f_registro
             FROM personas p
-                INNER JOIN secciones_electorales se
+                LEFT JOIN secciones_electorales se
                     ON se.id = p.seccion
                 LEFT JOIN usuarios r
                     ON r.id = p.registrado_por
@@ -56,6 +57,7 @@ class PersonsRepository
                             COALESCE(p.materno, '')
                         )
                     )",
+                    'p.codigo_persona',
                     'p.nombre',
                     'p.paterno',
                     'p.materno',

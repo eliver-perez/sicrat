@@ -34,4 +34,5 @@
         });
     </script>
 
+<script src="<?= escape_html(asset('js/electoral-context.js')); ?>"></script>
 </html>
