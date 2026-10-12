@@ -1,4 +1,4 @@
-const personLabels = {name: 'Nombre', last_name: 'Apellido paterno', last_name_2: 'Apellido materno', birth_date: 'Fecha de nacimiento', gender: 'Género (H/M)', phone: 'Teléfono', alternate_phone: 'Teléfono alternativo', email: 'Correo', curp: 'CURP', elector_key: 'Clave de elector', ocr: 'OCR', section: 'Sección', street: 'Calle', exterior_number: 'Número exterior', interior_number: 'Número interior', postal_code: 'Código postal', references: 'Referencias', neighborhood: 'Colonia', latitude: 'Latitud', longitude: 'Longitud'};
+const personLabels = {name: 'Nombre', last_name: 'Apellido paterno', last_name_2: 'Apellido materno', birth_date: 'Fecha de nacimiento', gender: 'Género', phone: 'Teléfono', alternate_phone: 'Teléfono alternativo', email: 'Correo', curp: 'CURP', elector_key: 'Clave de elector', ocr: 'OCR', section: 'Sección', street: 'Calle', exterior_number: 'Número exterior', interior_number: 'Número interior', postal_code: 'Código postal', references: 'Referencias', neighborhood: 'Colonia', latitude: 'Latitud', longitude: 'Longitud'};
 let selectedPerson = null;
 let detailOrganization = null;
 
@@ -23,8 +23,15 @@ function openPerson(uuid) {
         detailOrganization = person.organization;
         $('#person-detail-title').text(`${person.code} · ${person.name}`);
         const fields = $('#person-edit-fields').empty();
+        const groups = {};
+        const categories = {personal:'Datos personales',contact:'Contacto',address:'Domicilio'};
+        Object.entries(categories).forEach(function ([key, title]) {
+            const section = $('<fieldset>', {class:'ux-section'}); section.append($('<legend>').text(title));
+            groups[key] = $('<div>', {class:'ux-form-grid'}); section.append(groups[key]); fields.append(section);
+        });
         Object.entries(personLabels).forEach(function ([key, label]) {
-            const control = ['section', 'neighborhood', 'gender'].includes(key) ? $('<select>') : $('<input>', {type: key === 'birth_date' ? 'date' : 'text'});
+            const group = ['phone','alternate_phone','email'].includes(key) ? groups.contact : ['section','street','exterior_number','interior_number','postal_code','references','neighborhood','latitude','longitude'].includes(key) ? groups.address : groups.personal;
+            const control = key === 'references' ? $('<textarea>', {rows:3}) : ['section', 'neighborhood', 'gender'].includes(key) ? $('<select>') : $('<input>', {type: key === 'birth_date' ? 'date' : key === 'email' ? 'email' : ['phone','alternate_phone'].includes(key) ? 'tel' : 'text'});
             control.attr({name: key, class: 'form-input'}).val(person[key] || '');
             if (key === 'name') control.prop('required', true);
             if (key === 'section') {
@@ -42,17 +49,19 @@ function openPerson(uuid) {
                 if (person.neighborhood) control.append($('<option>', {value: person.neighborhood, text: 'Colonia registrada', selected: true}));
                 const choose = $('<button>', {type: 'button', class: 'btn text-primary'}).text('Elegir colonia');
                 choose.on('click', function () { choosePersonNeighborhood(control); });
-                fields.append($('<div>').append(choose));
+                group.append($('<div>', {class:'ux-actions'}).append(choose));
             }
-            fields.append($('<label>').text(label).append(control));
+            group.append($('<label>').text(label).append(control));
         });
         const participations = $('#person-participations').empty();
+        const table = $('<table>'); table.append($('<thead>').append($('<tr>').append($('<th>').text('Elección'),$('<th>').text('Estado'),$('<th>').text('Acción'))));
+        const rows = $('<tbody>'); table.append(rows); if (person.participations.length) participations.append(table);
         if (!person.participations.length) participations.text('Sin participaciones electorales visibles.');
         person.participations.forEach(function (participation) {
-            const line = $('<div>').text(`${participation.process} · ${participation.active ? 'Activa' : 'Retirada'}`);
+            const line = $('<tr>').append($('<td>').text(participation.process),$('<td>').append($('<span>', {class:'ux-badge ' + (participation.active ? 'ux-badge-success' : 'ux-badge-neutral')}).text(participation.active ? 'Activa' : 'Retirada')));
             const button = $('<button>', {type: 'button', class: 'btn text-primary'}).text(participation.active ? 'Retirar' : 'Reactivar');
             button.on('click', function () { identityRequest(`persons/${uuid}/participations`, 'post', {processes: [participation.id], active: participation.active ? 0 : 1}).done(function () { openPerson(uuid); }).fail(identityError); });
-            line.append(button); participations.append(line);
+            line.append($('<td>').append(button)); rows.append(line);
         });
         const selector = $('#person-election-select').empty();
         loadOptions({url: `${homeURL}/api/auth/elections`, type: 'get', dataType: 'json', success: function (elections) {

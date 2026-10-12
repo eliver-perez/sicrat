@@ -53,22 +53,28 @@ async function main() {
     await waitFor('document.getElementById("structure-person").options.length > 1'); checks++;
     assert.equal(await evaluate('document.querySelectorAll("#structure-participations input").length'),1); checks++;
     await navigate('/administration/');
-    await waitFor('document.querySelectorAll("#level-list button").length === 3 && document.querySelectorAll("#module-list > div").length === 15'); checks++;
+    await waitFor('document.querySelectorAll("#level-list button").length === 3 && document.querySelectorAll("#module-list > div").length + document.querySelectorAll("#module-essential > span").length === 15'); checks++;
     await waitFor('document.getElementById("permission-form").elements.scope.options.length === 6'); checks++;
     assert.equal(await evaluate('document.getElementById("phase3-message").textContent'),''); checks++;
     const configuration=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}); fs.writeFileSync(path.join(directory,'phase3-administration.png'),Buffer.from(configuration.data,'base64'),{mode:0o600});
     if (process.argv.includes('--phase4')) {
         await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const choices=await (await fetch('/api/auth/elections?limit=100')).json(); const election=choices.data.electoral_processes.find(item=>item.process==='Proceso 1'); await fetch('/api/auth/election',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({process:election.id})}); })()`);
         await navigate('/services/');
-        await waitFor('document.querySelectorAll("#backups-list tr").length > 1 && document.querySelectorAll("#file-form select option").length > 1'); checks++;
+        await waitFor('!document.getElementById("services-tab-backups").hidden');
+        await evaluate('document.getElementById("services-tab-backups").click()');
+        await waitFor('document.querySelectorAll("#backups-list tr").length > 1'); checks++;
+        await evaluate('document.getElementById("services-tab-jobs").click()'); await waitFor('document.querySelectorAll("#jobs-list tr").length > 1');
         assert.equal(await evaluate('document.getElementById("services-jobs").hidden'),false); checks++;
         assert.equal(await evaluate('document.getElementById("backup-policy-form").elements.retention_days.value'),'14'); checks++;
+        await evaluate('document.getElementById("services-tab-audit").click()'); await waitFor('document.querySelectorAll("#audit-list tr").length > 1 && Array.from(document.getElementById("audit-filter").elements.action.options).some(option=>option.value==="prueba_fase4")');
         await evaluate('document.getElementById("audit-filter").elements.action.value="prueba_fase4"; document.getElementById("audit-filter").requestSubmit()');
         await waitFor('document.querySelectorAll("#audit-list tr").length === 2'); checks++;
-        assert.ok((await evaluate('document.getElementById("audit-list").textContent')).includes('prueba_fase4')); checks++;
-        assert.ok((await evaluate('document.getElementById("exports-list").textContent')).includes('completada')); checks++;
-        assert.ok((await evaluate('document.getElementById("jobs-list").textContent')).includes('exportacion')); checks++;
-        assert.ok((await evaluate('document.getElementById("backup-summary").textContent')).includes('Bytes disponibles')); checks++;
+        assert.ok((await evaluate('document.getElementById("audit-list").textContent')).includes('Comprobación de servicios')); checks++;
+        await evaluate('document.getElementById("services-tab-exports").click()'); await waitFor('document.querySelectorAll("#exports-list tr").length > 1');
+        assert.ok((await evaluate('document.getElementById("exports-list").textContent')).includes('Completada')); checks++;
+        assert.ok((await evaluate('document.getElementById("jobs-list").textContent')).includes('Exportación')); checks++;
+        assert.ok((await evaluate('document.getElementById("backup-summary").textContent')).includes('Espacio disponible')); checks++;
+        await evaluate('document.getElementById("services-tab-files").click()'); await waitFor('document.querySelectorAll("#file-form select option").length > 1');
         await evaluate('document.getElementById("file-form").elements.record.value = Array.from(document.getElementById("file-form").elements.record.options).find(option=>option.textContent.includes("Evidencia Fase 4")).value');
         const documentNode=await call('DOM.getDocument'); const fileInput=await call('DOM.querySelector',{nodeId:documentNode.root.nodeId,selector:'#file-form input[type=file]'});
         await call('DOM.setFileInputFiles',{nodeId:fileInput.nodeId,files:[path.join(directory,'test-image.png')]});
@@ -81,6 +87,7 @@ async function main() {
         await navigate('/services/'); await waitFor('document.getElementById("notifications-list").textContent.includes("Aviso Fase 4")'); checks++;
         assert.equal(await evaluate('getComputedStyle(document.getElementById("services-backups")).display'),'none'); checks++;
     }
+    if (process.argv.includes('--ux')) checks += await require('./ux-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     assert.deepEqual(failures,[]); checks++;
     console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
 }

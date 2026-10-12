@@ -23,7 +23,7 @@
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Organización</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Representante</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Activo</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Fecha Registro</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Fecha de registro</th><th scope="col">Acciones</th>
                                                 </tr>
                                             </thead>
 
@@ -60,8 +60,8 @@
                                         </div>
 
                                         <div class="col-span-2 mb-4">
-                                            <label for="field-email" class="inline-block mb-2 font-medium">E-Mail</label>
-                                            <input type="text" id="field-email" class="form-input" placeholder="E-Mail" value="" readonly>
+                                            <label for="field-email" class="inline-block mb-2 font-medium">Correo</label>
+                                            <input type="text" id="field-email" class="form-input" placeholder="Correo" value="" readonly>
                                         </div>
 
                                         <div class="flex items-center gap-2">
@@ -73,7 +73,7 @@
 
                                         <div class="lg:col-span-3 col-span-1">
                                             <div class="flex justify-end gap-2">
-                                                <button id="btn-organization-cancel" type="button" class="btn bg-danger text-white btn-sm hover:bg-danger-hbr hidden">Cancelar</span></button>
+                                                <button id="btn-organization-cancel" type="button" class="btn btn-sm hidden">Cancelar</button>
                                                 <button id="btn-organization-new" type="button" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr">Nueva Organización</button>
                                                 <button id="btn-organization-register" type="submit" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr hidden">Registrar</button>
                                             </div>
@@ -94,14 +94,14 @@
                             <div class="overflow-x-auto">
                                 <div class="min-w-full inline-block align-middle">
                                     <div class="overflow-y-auto min-h-[480px] max-h-[480px]">
-                                        <table id="table-electoral-process" class="min-w-full divide-y divide-default-200 dark:divide-white/14">
+                                        <p class="p-3 ux-help">Selecciona «Ver elecciones» en una organización para consultar sus procesos.</p><table id="table-electoral-process" class="min-w-full divide-y divide-default-200 dark:divide-white/14">
                                             <thead class="bg-default-150">
                                                 <tr class="text-default-600">
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Proceso</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Tipo</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Caracter</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Carácter</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Activo</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Fecha Registro</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Fecha de registro</th>
                                                 </tr>
                                             </thead>
 
@@ -128,7 +128,7 @@
                                         </div>
 
                                         <div class="col-span-3 mb-4">
-                                            <label for="field-electoral-process-type" class="inline-block mb-2 font-medium">Tipo</label>
+                                            <label for="select-electoral-process-type" class="inline-block mb-2 font-medium">Tipo</label>
                                                 <select class="form-input"
                                                     id="select-electoral-process-type"
                                                     name="select-electoral-process-type"
@@ -138,7 +138,7 @@
                                         </div>
 
                                         <div class="col-span-2 mb-4">
-                                            <label for="field-electoral-process-character" class="inline-block mb-2 font-medium">Caracter</label>
+                                            <label for="select-electoral-process-character" class="inline-block mb-2 font-medium">Carácter</label>
                                                 <select class="form-input"
                                                     id="select-electoral-process-character"
                                                     name="select-electoral-process-character"
@@ -156,7 +156,7 @@
 
                                         <div class="lg:col-span-3 col-span-1">
                                             <div class="flex justify-end gap-2">
-                                                <button id="btn-electoral-process-cancel" type="button" class="btn bg-danger text-white btn-sm hover:bg-danger-hbr hidden">Cancelar</span></button>
+                                                <button id="btn-electoral-process-cancel" type="button" class="btn btn-sm hidden">Cancelar</button>
                                                 <button id="btn-electoral-process-new" type="button" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr">Nuevo Proceso</button>
                                                 <button id="btn-electoral-process-register" type="submit" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr hidden">Registrar</button>
                                             </div>

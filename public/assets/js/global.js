@@ -139,7 +139,7 @@ function createPagination(tableSelector, onChange) {
 	previous.type = next.type = 'button';
 	previous.textContent = 'Anterior';
 	next.textContent = 'Siguiente';
-	previous.className = next.className = 'btn bg-primary text-white btn-sm disabled:opacity-50';
+	previous.className = next.className = 'btn btn-sm disabled:opacity-50';
 	container.append(previous, label, next);
 	const table = document.querySelector(tableSelector);
 	const panel = table.closest('.overflow-x-auto') || table.parentElement;

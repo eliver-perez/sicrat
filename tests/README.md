@@ -64,3 +64,17 @@ Los backups se escriben en un directorio privado del ensayo. Se utilizan el clie
 `phase4-migrations.php` prepara datos históricos y conflictos antes del DDL, conserva sus campos/IDs y comprueba reejecución. GD con WebP, EXIF, ZIP, cURL, Sodium y las bibliotecas Composer del proyecto cubren los casos reales. No se instalan paquetes del sistema.
 
 Con `--browser` se conservan los casos de Fase 3 y se añaden auditoría, notificaciones, exportaciones, trabajos, respaldos, upload/miniatura y aislamiento visual del cliente. La captura adicional es `phase4-services.png`. Los resultados y procedimientos operativos están en `FASE4.md`.
+
+
+## Revisión UX/UI de Fases 1–4
+
+```sh
+node tests/ux-frontend.js
+php tests/integration.php --phase4 --browser --ux
+```
+
+`--ux` conserva la regresión completa anterior. Añade verificaciones HTTP de nombres, opciones paginadas de auditoría, aislamiento y origen de permisos. Recorre Dashboard, Organizaciones, Procesos, Secciones, Casillas, Personas, Usuarios, Estructura, Configuración, Servicios, Perfil y Autenticación en Chrome. Comprueba anchos de 1600/1280/820/390 px, selector en header, cambio real de elección, grid 3/2/1, tabs y navegación restringida, foco/teclado, modales y ausencia de errores JavaScript.
+
+Prueba guardado de módulos con un fallo de conexión simulado y reintento, creación de rol, upload y revisión de CSV (sin confirmar esa importación). Todo se ejecuta exclusivamente sobre la base desechable. El diálogo de restauración se inspecciona con datos descriptivos ficticios, sin confirmar o ejecutar restauraciones desde Chrome; la suite Fase 4 conserva sus ensayos reales sobre destinos desechables.
+
+Capturas `ux-*.png`, hojas de contacto y `ux-captures.json` quedan en el directorio temporal privado. No se incorporan imágenes de datos al repositorio, dependencias de navegador ni bibliotecas UI. Detalle y resultados en `UX_UI_FASES_1_4.md`.

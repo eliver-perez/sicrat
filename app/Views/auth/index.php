@@ -1,5 +1,5 @@
 <!doctype html>
-    <html lang="en" dir="ltr">
+    <html lang="es" dir="ltr">
 
     <head>
         <meta charset="UTF-8">
@@ -129,22 +129,18 @@
                     <form id="form-authenticate" action="javascript:Authenticate()" class="text-left w-full mt-10">
                         <div class="mb-4">
                             <label for="field-username" class="block font-medium text-default-900 text-sm mb-2">Usuario</label>
-                            <input type="text" id="field-username" class="form-input" placeholder="Captura tu Usuario" />
+                            <input type="text" id="field-username" autocomplete="username" class="form-input" placeholder="Captura tu Usuario" />
                         </div>
 
                         <div class="mb-4">
                             <!-- <a href="#" class="text-primary font-medium text-sm mb-2 float-end">¿Olvidaste tu Contraseña?</a> -->
                             <label for="field-password" class="block font-medium text-default-900 text-sm mb-2">Contraseña</label>
-                            <input type="password" id="field-password" class="form-input" placeholder="Captura tu Contraseña" />
+                            <input type="password" id="field-password" autocomplete="current-password" class="form-input" placeholder="Captura tu Contraseña" />
                         </div>
 
-                        <div class="flex items-center gap-2 mb-4">
-                            <input id="checkbox-1" type="checkbox" class="form-checkbox">
-                            <label class="text-default-900 text-sm font-medium" for="checkbox-1">Recordarme</label>
-                        </div>
 
                         <div class="mt-10 text-center">
-                            <button type="submit" class="btn bg-primary text-white w-full">Ingresar<button>
+                            <button type="submit" class="btn bg-primary text-white w-full">Ingresar</button>
                         </div>
                     </form>
                 </div>

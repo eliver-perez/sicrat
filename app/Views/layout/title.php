@@ -1,8 +1,8 @@
             <div class="flex items-center md:justify-between flex-wrap gap-2 mb-4 print:hidden">
                   <h4 class="text-default-900 text-lg font-semibold"><?php echo isset($title) ? $title : config('name'); ?></h4>
                
-                  <div class="md:flex hidden items-center gap-2 text-sm font-semibold">
-                     <a href="#" class="text-sm font-medium text-default-700">Dashboard</a>
+                  <div class="ux-breadcrumb items-center gap-2 text-sm font-semibold">
+                     <a href="<?= escape_html(base_url('')); ?>" class="text-sm font-medium text-default-700">Inicio</a>
                
                      <?php
                      if(isset($section) && $section != '') { ?>

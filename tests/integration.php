@@ -227,9 +227,13 @@ try {
     if (in_array('--phase2', $argv, true) || (in_array('--phase3', $argv, true) || in_array('--phase4', $argv, true))) require __DIR__ . '/phase2.php';
     if ((in_array('--phase3', $argv, true) || in_array('--phase4', $argv, true))) require __DIR__ . '/phase3.php';
     if (in_array('--phase4', $argv, true)) require __DIR__ . '/phase4.php';
+    if (in_array('--ux', $argv, true)) {
+        if (!in_array('--phase4',$argv,true)) throw new RuntimeException('--ux requiere --phase4.');
+        require __DIR__ . '/ux.php';
+    }
     if (in_array('--browser', $argv, true)) {
         if (!(in_array('--phase3',$argv,true) || in_array('--phase4',$argv,true))) throw new RuntimeException('--browser requiere --phase3.');
-        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
+        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
         fclose($browserPipes[0]); verify(proc_close($browserProcess)===0,'Validación de las pantallas en navegador real.');
     }
     echo "OK: {$checks} comprobaciones HTTP/BD (" . $connection->query('SELECT VERSION()')->fetchColumn() . ").\n";

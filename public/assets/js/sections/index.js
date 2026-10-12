@@ -134,6 +134,7 @@ function GetSections() {
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.municipality)}</td>
 							</tr>`;
 			});
+			if (!rows) rows = '<tr><td colspan="3" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 			$('#table-sections tbody').append(rows);
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) { 

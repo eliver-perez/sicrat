@@ -183,9 +183,10 @@ function GetUsers() {
 										${v.active == 1 ? 'Activo' : 'Inactivo'}
 									</span>
 								</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.last_active_date)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.last_active_date)}</td><td><button type="button" class="btn">Administrar accesos</button></td>
 							</tr>`;
 			});
+			if (!rows) rows = '<tr><td colspan="7" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 			$('#table-users tbody').append(rows);
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) { 

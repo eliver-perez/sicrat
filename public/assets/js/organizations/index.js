@@ -122,9 +122,10 @@ function GetOrganizations() {
 										${v.active == 1 ? 'Activo' : 'Inactivo'}
 									</span>
 								</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.registered_date)}</td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.registered_date)}</td><td><button type="button" class="btn">Ver elecciones</button></td>
 							</tr>`;
 			});
+			if (!rows) rows = '<tr><td colspan="5" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 			$('#table-organizations tbody').append(rows);
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) { 

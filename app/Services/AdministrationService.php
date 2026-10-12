@@ -184,7 +184,7 @@ class AdministrationService extends Service
             $process = $this->process(); $this->authorize('permisos.administrar',(int) $process['id']);
             $role = $this->repository->rows("SELECT id FROM usuarios_tipos WHERE id=? AND codigo<>'superadmin' AND (organizacion IS NULL OR organizacion=?)",[$roleId,$process['organizacion']]);
             if ($role===[]) throw new HttpError('El rol no está disponible.',404);
-            return $this->repository->rows('SELECT permiso permission,valor value,alcance scope,proceso,f_actualizacion FROM permisos_usuarios_tipo WHERE tipo=? AND (proceso IS NULL OR proceso=?) ORDER BY permiso,proceso',[$roleId,$process['id']]);
+            return $this->repository->rows('SELECT permiso permission,valor value,alcance scope,proceso,contexto,f_actualizacion FROM permisos_usuarios_tipo WHERE tipo=? AND (proceso IS NULL OR proceso=?) ORDER BY permiso,proceso',[$roleId,$process['id']]);
         }
         return $this->transaction(function () use ($roleId,$data) {
             [$process,$code,$scope,$value] = $this->permissionChange($data);

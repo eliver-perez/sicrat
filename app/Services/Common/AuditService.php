@@ -25,7 +25,7 @@ class AuditService
 			$ip && filter_var($ip,FILTER_VALIDATE_IP) ? $ip : null,isset($_SERVER['HTTP_USER_AGENT']) ? mb_substr((string) Sanitizer::clean($_SERVER['HTTP_USER_AGENT']),0,500) : null,
 		]);
 	}
-	public function listing(array $filters): array
+	private function criteria(array $filters): array
 	{
 		$access = new Access($this->repository);
 		$allProcesses=($filters['process'] ?? '')==='all';
@@ -46,9 +46,32 @@ class AuditService
 		foreach (['user'=>'usuario','action'=>'accion','entity'=>'entidad'] as $key=>$column) if (isset($filters[$key]) && $filters[$key]!=='') { $where[]="$column=?"; $parameters[]=$key==='user' ? Values::integer($filters[$key]) : Values::text($filters[$key],$key==='action' ? 50 : 80); }
 		if (!empty($filters['from'])) { $where[]='f_registro>=?'; $parameters[]=Values::date($filters['from']).' 00:00:00'; }
 		if (!empty($filters['to'])) { $where[]='f_registro<?'; $parameters[]=(new \DateTimeImmutable(Values::date($filters['to'])))->modify('+1 day')->format('Y-m-d'); }
+		return [($where ? implode(' AND ',$where) : '1=1'),$parameters];
+	}
+	public function listing(array $filters): array
+	{
+		[$where,$parameters]=$this->criteria($filters);
 		$limit=Pagination::limit($filters['limit'] ?? 25); $offset=Pagination::offset($filters['offset'] ?? 0);
-		$rows=$this->repository->rows('SELECT * FROM auditoria WHERE '.($where ? implode(' AND ',$where) : '1=1').' ORDER BY id DESC LIMIT '.($limit+1).' OFFSET '.$offset,$parameters);
+		$rows=$this->repository->rows('SELECT auditoria.*,(SELECT organizacion FROM organizaciones WHERE id=auditoria.organizacion) organization_name,(SELECT proceso FROM procesos_electorales WHERE id=auditoria.proceso) process_name,(SELECT CONCAT_WS(\' \',nombre,paterno,materno) FROM usuarios WHERE id=auditoria.usuario) user_name,(SELECT usuario FROM usuarios WHERE id=auditoria.usuario) username FROM auditoria WHERE '.$where.' ORDER BY id DESC LIMIT '.($limit+1).' OFFSET '.$offset,$parameters);
 		foreach ($rows as &$row) foreach (['datos_anteriores','datos_nuevos','informacion'] as $column) $row[$column]=$row[$column]===null ? null : Sanitizer::clean(json_decode($row[$column],true));
 		return ['rows'=>array_slice($rows,0,$limit),'pagination'=>Pagination::response($rows,$limit,$offset)];
 	}
+	public function options(array $filters): array
+	{
+		[$where,$parameters]=$this->criteria($filters);
+		$kind=$filters['kind'] ?? 'user';
+		[$column,$label]=match ($kind) {
+			'action'=>['accion','accion'],
+			'entity'=>['entidad','entidad'],
+			'organization'=>['organizacion','(SELECT organizacion FROM organizaciones WHERE id=auditoria.organizacion)'],
+			'process'=>['proceso','(SELECT proceso FROM procesos_electorales WHERE id=auditoria.proceso)'],
+			'user'=>['usuario',"(SELECT CONCAT_WS(' · ',CONCAT_WS(' ',nombre,paterno,materno),usuario) FROM usuarios WHERE id=auditoria.usuario)"],
+			default=>throw new \InvalidArgumentException('Filtro no disponible.'),
+		};
+		$search=Values::text($filters['search'] ?? '',100,true);
+		$limit=Pagination::limit($filters['limit'] ?? 25); $offset=Pagination::offset($filters['offset'] ?? 0);
+		$rows=$this->repository->rows("SELECT DISTINCT $column value,$label label FROM auditoria WHERE $where AND $column IS NOT NULL AND $label LIKE ? ORDER BY label,value LIMIT ".($limit+1).' OFFSET '.$offset,[...$parameters,'%'.$search.'%']);
+		return ['rows'=>array_slice($rows,0,$limit),'pagination'=>Pagination::response($rows,$limit,$offset)];
+	}
+
 }

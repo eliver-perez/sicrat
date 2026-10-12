@@ -6,9 +6,9 @@
 ?>
 
 
-                <div class="flex flex-row lg:flex-col-reverse lg:items-center gap-5 mb-5">
+                <div class="grid lg:grid-cols-12 gap-5 mb-5">
 
-                    <div class="w-2/3 lg:w-full">
+                    <div class="lg:col-span-8">
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="card-title">Personas</h6>
@@ -16,20 +16,20 @@
                                 <div class="flex gap-3 items-center">
                                     <div class="relative">
                                         <select class="form-input form-input-sm"
-                                            id="select-filter-section"
+                                            id="select-filter-section" aria-label="Filtrar por sección"
                                             name="select-filter-section"
                                             data-choices data-choices-search-false data-choices-removeItem>
                                         </select>
                                     </div>
 
                                     <div class="relative">
-                                        <input id="field-filter-search" type="text" class="form-input form-input-sm ps-9" placeholder="Busqueda....">
+                                        <input id="field-filter-search" aria-label="Buscar personas por código o nombre" type="text" class="form-input form-input-sm ps-9" placeholder="Buscar por código o nombre">
                                         <div class="absolute inset-y-0 start-0 flex items-center ps-3">
                                             <i data-lucide="search" class="size-3.5 text-default-500"></i>
                                         </div>
                                     </div>
 
-                                    <button id="btn-filter-search" class="btn btn-sm bg-transparent text-primary border border-dashed border-primary hover:bg-primary/20 hidden lg:flex">
+                                    <button id="btn-filter-search" class="btn btn-sm bg-transparent text-primary border border-dashed border-primary hover:bg-primary/20 ">
                                         <i data-lucide="search" class="size-4 me-1"></i>Buscar
                                     </button>
                                 </div>
@@ -45,10 +45,10 @@
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Nombre</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Fecha de Nacimiento</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Dirección</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Genero</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Género</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Teléfono</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Teléfono Móvil</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">E-Mail</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Correo</th>
                                                 </tr>
                                             </thead>
 
@@ -62,10 +62,10 @@
                     </div>
 
                     
-                    <div class="w-1/3 lg:w-full">
+                    <div class="lg:col-span-4">
                         <div class="card">
                             <div class="card-body">
-                                <h6 class="card-title mb-4">Detalles</h6>
+                                <h6 class="card-title mb-4">Alta rápida</h6>
 
                                 <form id="form-register-persons" no-validate action="javascript:RegisterPerson()">
                                     <div class="grid gap-x-5">
@@ -90,7 +90,7 @@
                                         </div>
 
                                         <div class="col-span-3 mb-4">
-                                            <label for="select-persons-gender" class="inline-block mb-2 font-medium">Genero</label>
+                                            <label for="select-persons-gender" class="inline-block mb-2 font-medium">Género</label>
                                                 <select class="form-input"
                                                     id="select-persons-gender"
                                                     name="select-persons-gender"
@@ -123,7 +123,7 @@
 
                                         <div class="lg:col-span-3 col-span-1">
                                             <div class="flex justify-end gap-2">
-                                                <button id="btn-persons-cancel" type="button" class="btn bg-danger text-white btn-sm hover:bg-danger-hbr hidden">Cancelar</span></button>
+                                                <button id="btn-persons-cancel" type="button" class="btn btn-sm hidden">Cancelar</button>
                                                 <button id="btn-persons-new" type="button" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr">Nueva Persona</button>
                                                 <button id="btn-persons-register" type="submit" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr hidden">Registrar</button>
                                             </div>

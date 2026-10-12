@@ -15,6 +15,8 @@ dialog.card[open] {
 dialog.card::backdrop {
     background: rgba(0, 0, 0, 0.35);
 }
+dialog.card.max-w-xl, #identity-policy, #approval-dialog { max-width: 36rem; }
+dialog.card.max-w-2xl, dialog.card.max-w-3xl, #restore-dialog { max-width: 48rem; }
 
 [id^="services-"][hidden] { display: none; }
 
@@ -24,3 +26,95 @@ dialog.card::backdrop {
 [id^="services-"] .btn, #approval-dialog .btn, #restore-dialog .btn { display: inline-block; border: 1px solid #d1d5db; padding: .5rem .75rem; margin: .25rem; border-radius: .375rem; }
 [id^="services-"] .btn:hover, #approval-dialog .btn:hover, #restore-dialog .btn:hover { background: #eef2ff; }
 @media (min-width: 900px) { #audit-filter { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Extensiones de los componentes Tailwick; no requieren compilar Tailwind. */
+[hidden] { display: none !important; }
+.btn.hidden, main form.hidden, dialog form.hidden { display: none !important; }
+.page-content, main, main .card, main .grid > *, main .flex > * { min-width: 0; }
+main { padding: 0 1.5rem 1.5rem; }
+main .btn:not(.btn-icon), dialog .btn:not(.btn-icon) {
+    display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+    min-height: 2.5rem; border: 1px solid var(--color-default-300, #cbd5e1);
+    border-radius: .375rem; padding: .5rem .85rem; background: var(--color-default-100, #f1f5f9);
+    color: var(--color-default-800, #1e293b); font-weight: 500; line-height: 1.4;
+}
+main .btn:not(.btn-icon):hover, dialog .btn:not(.btn-icon):hover { background: var(--color-default-200, #e2e8f0); }
+main .btn.bg-primary, dialog .btn.bg-primary { background: var(--color-primary, #2563eb); border-color: var(--color-primary, #2563eb); color: white; }
+main .btn.bg-danger, dialog .btn.bg-danger { background: var(--color-danger, #dc2626); border-color: var(--color-danger, #dc2626); color: white; }
+:is(button,input,select,textarea,a,summary):focus-visible { outline: 3px solid var(--color-primary, #2563eb); outline-offset: 3px; }
+:is(button,input,select,textarea):disabled, input[readonly] { opacity: .65; cursor: not-allowed; }
+main .form-input, dialog .form-input { width: 100%; min-height: 2.5rem; border-radius: .375rem; }
+select.form-input[multiple] { height: 11rem; min-height: 9rem; padding: .5rem; }
+textarea.form-input { min-height: 6rem; resize: vertical; }
+main label, dialog label { font-weight: 500; }
+main form > label, dialog form > label { display: block; }
+main label > .form-input, dialog label > .form-input { margin-top: .35rem; }
+.ux-field-label { display: block; margin-bottom: .35rem; }
+main h6, dialog h6 { font-size: 1.05rem; font-weight: 600; }
+main table { width: 100%; border-collapse: collapse; }
+main th, main td { padding: .75rem 1rem; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--color-default-200, #e2e8f0); }
+main th { background: var(--color-default-100, #f1f5f9); font-weight: 600; white-space: nowrap; }
+main td { font-size: .875rem; }
+main tbody tr:hover { background: var(--color-default-50, #f8fafc); }
+main .card-header { gap: 1rem; flex-wrap: wrap; }
+main .card-header > .flex { flex-wrap: wrap; }
+main .min-h-\[480px\] { min-height: 0; }
+main .max-h-\[480px\] { max-height: 28rem; }
+.ux-election-context { display: grid; gap: .1rem; width: clamp(12rem, 30vw, 26rem); min-width: 0; }
+.ux-election-context label { font-size: .7rem; color: var(--color-default-600, #475569); }
+.ux-election-context select { width: 100%; height: 2.2rem; min-height: 0; font-size: .875rem; text-overflow: ellipsis; }
+.app-header > div, .app-header > div > div { min-width: 0; }
+.ux-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ux-breadcrumb, .ux-footer-detail { display: flex; }
+@media (max-width: 767px) { .ux-breadcrumb, .ux-footer-detail { display: none; } }
+.ux-tabs { display: flex; flex-wrap: wrap; gap: .25rem; border-bottom: 1px solid var(--color-default-200, #e2e8f0); margin-bottom: 1.25rem; padding-bottom: .25rem; }
+.ux-tabs [role="tab"] { padding: .7rem 1rem; border-bottom: 2px solid transparent; font-weight: 500; border-radius: .375rem .375rem 0 0; }
+.ux-tabs [role="tab"]:hover { background: var(--color-default-100, #f1f5f9); }
+.ux-tabs [role="tab"].active { border-color: var(--color-primary, #2563eb); color: var(--color-primary, #2563eb); background: var(--color-primary-50, #eff6ff); }
+.ux-form-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+.ux-form-grid .ux-actions, .ux-form-grid .ux-full { grid-column: 1 / -1; }
+.ux-actions { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-top: .75rem; }
+.ux-inline-form { display: flex; align-items: end; gap: .75rem; flex-wrap: wrap; }
+.ux-inline-form > label { flex: 1; min-width: 12rem; }
+.ux-inline-form > .btn { flex-shrink: 0; }
+.ux-help { color: var(--color-default-600, #475569); font-size: .875rem; line-height: 1.6; margin: .5rem 0 1rem; }
+.ux-section { border-top: 1px solid var(--color-default-200, #e2e8f0); padding-top: 1.25rem; margin-top: 1.25rem; }
+.ux-section > h6, .ux-section > legend { margin-bottom: 1rem; font-weight: 600; font-size: 1rem; }
+.ux-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .75rem; font-weight: 600; padding: .25rem .6rem; border-radius: .375rem; }
+.ux-badge-neutral { background: var(--color-default-100, #f1f5f9); color: var(--color-default-700, #334155); }
+.ux-badge-success { background: #dcfce7; color: #166534; }
+.ux-badge-danger { background: #fee2e2; color: #991b1b; }
+.ux-essential { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.ux-module-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.ux-module-card { border: 1px solid var(--color-default-200, #e2e8f0); padding: 1rem; }
+.ux-module-card h6 { margin-bottom: .5rem; }
+.ux-module-card label { display: flex; align-items: center; justify-content: space-between; margin-top: .75rem; gap: .5rem; }
+.ux-module-card input[type="checkbox"] { width: 2.5rem; height: 1.4rem; appearance: none; border-radius: 1rem; background: #94a3b8; position: relative; cursor: pointer; flex-shrink: 0; }
+.ux-module-card input[type="checkbox"]::before { content: ''; position: absolute; width: 1rem; height: 1rem; border-radius: 50%; background: white; top: .2rem; left: .2rem; transition: transform .15s; }
+.ux-module-card input[type="checkbox"]:checked { background: var(--color-primary, #2563eb); }
+.ux-module-card input[type="checkbox"]:checked::before { transform: translateX(1.1rem); }
+.ux-multiselect { border: 1px solid var(--color-default-300, #cbd5e1); border-radius: .375rem; padding: .75rem; }
+.ux-multiselect-list { height: 11rem; overflow-y: auto; margin-top: .75rem; }
+.ux-multiselect-list label { display: flex; align-items: center; gap: .6rem; padding: .5rem; font-weight: 400; }
+.ux-description { display: grid; grid-template-columns: minmax(7rem, 1fr) minmax(0, 2fr); gap: .5rem 1rem; font-size: .875rem; }
+.ux-description dt { font-weight: 600; }
+.ux-description dd { overflow-wrap: anywhere; }
+[data-pager] { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; }
+#level-list { display: flex; flex-wrap: wrap; gap: .75rem; }
+#structure-members td:first-child { min-width: 15rem; }
+@media (max-width: 1279px) { .ux-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 639px) {
+    main { padding: 0 1rem 1rem; }
+    .app-header > div { padding: 0 .75rem; gap: .5rem; }
+    .app-header > div > div { gap: .5rem; }
+    .ux-election-context { width: min(53vw, 21rem); }
+    .ux-election-context select { font-size: .75rem; padding-left: .5rem; padding-right: 1.25rem; }
+    .ux-module-grid, .ux-form-grid { grid-template-columns: minmax(0, 1fr); }
+    .ux-inline-form { flex-direction: column; align-items: stretch; }
+    .ux-inline-form > label { width: 100%; min-width: 0; }
+    main form .grid > [class*="col-span"] { grid-column: 1 / -1; }
+    #person-edit-fields, #person-import-columns { grid-template-columns: minmax(0, 1fr); }
+    main .flex.gap-3:not(.ux-tabs) { flex-wrap: wrap; }
+    .ux-tabs [role="tab"] { padding: .6rem .65rem; font-size: .875rem; }
+    .ux-description { grid-template-columns: minmax(0, 1fr); }
+}

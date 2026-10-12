@@ -4,20 +4,23 @@ const vm = require('node:vm');
 
 let checks = 0;
 class Element {
-	constructor(tag = 'div') { this.tagName = tag; this.children = []; this.listeners = {}; this.elements = {}; this.dataset = {}; this.style = {}; this.hidden = true; this.value = ''; this._text = ''; }
+	constructor(tag = 'div') { this.tagName = tag; this.children = []; this.listeners = {}; this.elements = new Proxy({}, {get: (target,key) => target[key] || (target[key] = new Element())}); this.dataset = {}; this.style = {}; this.hidden = true; this.value = ''; this._text = ''; this.classList = {toggle() {}}; }
 	set textContent(value) { this._text = String(value); this.children = []; }
 	get textContent() { return this._text + this.children.map(child => child.textContent || '').join(''); }
 	append(...children) { this.children.push(...children); }
 	replaceChildren(...children) { this._text = ''; this.children = children; }
+	setAttribute(name, value) { this[name] = value; }
+	querySelectorAll() { return []; }
 	addEventListener(name, callback) { this.listeners[name] = callback; }
 	set innerHTML(value) { throw new Error('No se permite insertar HTML con datos del servicio.'); }
 }
 const nodes = new Map();
-const node = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
+const node = id => { if (!nodes.has(id)) nodes.set(id, new Element()); if (id.startsWith('services-tab-')) nodes.get(id).dataset.service = id.replace('services-tab-',''); return nodes.get(id); };
 const calls = [];
 const pager = new Element();
 const document = {
 	getElementById: node,
+	addEventListener() {},
 	createElement: tag => new Element(tag),
 	querySelectorAll: () => [],
 	querySelector: selector => selector.startsWith('[data-pager=') ? pager : null
@@ -34,6 +37,7 @@ const context = vm.createContext({
 		}, pages: async () => []
 	} }
 });
+vm.runInContext(fs.readFileSync('public/assets/js/ux.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('public/assets/js/services/index.js', 'utf8'), context);
 assert.equal(calls.length, 0); checks++;
 assert.equal(typeof context.InitializeValues, 'function'); checks++;

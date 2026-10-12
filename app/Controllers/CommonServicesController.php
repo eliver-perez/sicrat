@@ -35,6 +35,7 @@ class CommonServicesController extends Controller
 		return [Values::integer($organization),$process];
 	}
 	public function audit(Request $request,Response $response): void { $response->success((new AuditService($this->repository))->listing($request->query())); }
+	public function auditOptions(Request $request,Response $response): void { $response->success((new AuditService($this->repository))->options($request->query())); }
 	public function approvals(Request $request,Response $response): void { $response->success((new ApprovalService($this->repository))->listing($request->query())); }
 	public function approval(Request $request,Response $response): void
 	{

@@ -1,8 +1,8 @@
 <div class="card mb-5 p-4">
-    <div class="flex gap-3 mb-4">
+    <div class="ux-actions mb-4">
         <button type="button" id="person-import-open" class="btn bg-primary text-white">Importar personas</button>
         <?php if (\App\Auth\Authorization::canAny(['superadmin','admin'])): ?>
-        <button type="button" id="identity-policy-open" class="btn bg-primary text-white">Reglas de identidad</button>
+        <button type="button" id="identity-policy-open" class="btn">Reglas de identidad</button>
         <?php endif; ?>
     </div>
     <p>El padrón pertenece a la organización. Registrar o importar una persona no la incorpora a una elección.</p>
@@ -12,13 +12,13 @@
     <div class="flex justify-between mb-4"><h6 class="card-title" id="person-detail-title">Persona</h6><button type="button" class="btn" onclick="document.getElementById('person-detail').close()">Cerrar</button></div>
     <form id="person-edit-form">
         <div id="person-neighborhood-picker" class="hidden mb-4"></div>
-        <div id="person-edit-fields" class="grid grid-cols-2 gap-3"></div>
+        <div id="person-edit-fields"></div>
         <button class="btn bg-primary text-white mt-4" type="submit">Guardar información</button>
     </form>
-    <h6 class="card-title mt-4">Participación electoral</h6>
-    <div id="person-participations" class="mb-4"></div>
-    <label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple></select></label>
-    <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button>
+    <section class="ux-section"><h6 class="card-title">Participación electoral</h6>
+    <div id="person-participations" class="mb-4 overflow-x-auto"></div>
+    <label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
+    <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button></section>
 </dialog>
 <dialog id="identity-policy" class="card p-5" aria-label="Reglas de identidad">
     <h6 class="card-title mb-4">Reglas de identidad de la organización seleccionada</h6>
@@ -34,7 +34,7 @@
     <div class="flex justify-between mb-4"><h6 class="card-title">Importar al padrón de la organización seleccionada</h6><button type="button" class="btn" onclick="document.getElementById('person-import').close()">Cerrar</button></div>
     <p>CSV en UTF-8 o XLSX (primera hoja). Hasta 10 MB y 20 000 filas. Las fechas usan AAAA-MM-DD. Puedes importar el número de sección cuando sea único en el catálogo. Las columnas sin asignación se omiten.</p>
     <form id="person-import-upload" class="my-4">
-        <input type="file" name="file" accept=".csv,.xlsx" required class="form-input">
+        <label>Archivo de personas<input type="file" name="file" accept=".csv,.xlsx" required class="form-input"></label>
         <label>Separador CSV <select name="delimiter" class="form-input"><option value=",">Coma</option><option value=";">Punto y coma</option><option value="&#9;">Tabulación</option></select></label>
         <button class="btn bg-primary text-white mt-3" type="submit">Cargar para revisar</button>
     </form>

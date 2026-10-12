@@ -11,8 +11,6 @@ function InitializeValues(home) {
 	$('#btn-electoral-process-new').on('click', NewElectoralProcess);
 	$('#btn-electoral-process-cancel').on('click', CancelElectoralProcess);
 	GetElectoralProcess();
-	GetProcessTypes();
-	GetProcessCharacters();
 }
 
 function EnableElectoralProcessFields(v) {
@@ -125,6 +123,7 @@ function GetElectoralProcess() {
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.registered_date)}</td>
 							</tr>`;
 			});
+			if (!rows) rows = '<tr><td colspan="6" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 			$('#table-electoral-process tbody').append(rows);
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) { 

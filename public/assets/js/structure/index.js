@@ -29,8 +29,9 @@ function InitializeValues(url) {
         data.members.forEach(member => {
             const row = document.createElement('tr'); const name = document.createElement('td'); const button = ui.text('button',`${member.code} · ${member.name}`,'btn text-primary'); button.type = 'button'; button.addEventListener('click',() => ui.run(() => openMember(member.id))); name.append(button); row.append(name);
             const boss = data.members.find(candidate => candidate.id === member.responsible);
-            [member.level_name || 'Sin nivel', boss?.name || (member.responsible ? 'Consultar línea de coordinación' : 'Sin responsable'), `${member.direct_count} / ${member.team_count}`, `${member.has_account ? 'Con cuenta' : 'Sin cuenta'} · ${member.active ? 'Activo' : 'Inactivo'}`].forEach(value => row.append(ui.text('td',value,'p-3'))); body.append(row);
+            [member.level_name || 'Sin nivel', boss?.name || (member.responsible ? 'Consultar superiores' : 'Sin responsable'), `${member.direct_count} / ${member.team_count}`, `${member.has_account ? 'Con cuenta' : 'Sin cuenta'} · ${member.active ? 'Activo' : 'Inactivo'}`].forEach(value => row.append(ui.text('td',value,'p-3'))); body.append(row);
         });
+        if (!data.members.length) { const row = document.createElement('tr'); const cell = ui.text('td','Esta estructura todavía no tiene integrantes.'); cell.colSpan = 5; row.append(cell); body.append(row); }
         element('structure-previous').disabled = structureState.offset === 0; element('structure-next').disabled = !response.pagination.has_more;
         structureState.levels = {};
         for (const election of data.elections) {
@@ -59,13 +60,14 @@ function InitializeValues(url) {
     async function containerDialog(mode) {
         structureState.mode = mode; element('structure-container-form').reset(); element('structure-container-title').textContent = mode === 'clone' ? 'Clonar estructura completa' : mode === 'associate' ? 'Asociar elección' : 'Nueva estructura';
         element('structure-container-form').elements.name.hidden = mode === 'associate'; element('structure-container-form').elements.name.required = mode !== 'associate';
+        element('structure-name-field').hidden = mode === 'associate';
         const options = element('structure-election-options'); options.replaceChildren(); structureState.available.forEach(election => ui.checkbox(options,election.id,`${election.organization} · ${election.process}`,mode === 'create' && election.selected));
         element('structure-container-dialog').showModal();
     }
     async function openMember(id) {
         await allMembers(); const member = (await ui.request(`structures/${structureState.id}/members/${id}`)).data; structureState.member = member;
         element('structure-member-name').textContent = `${member.code} · ${member.name}`; element('structure-member-summary').textContent = `${member.level_name || 'Sin nivel'} · ${member.has_account ? 'Con cuenta' : 'Sin cuenta'} · Equipo directo: ${member.direct_count} · Total: ${member.team_count}`;
-        element('structure-line').textContent = `Línea de coordinación: ${member.superiors.map(person => person.name).join(' → ') || 'Sin superiores visibles'}`;
+        element('structure-line').textContent = `Superiores: ${member.superiors.map(person => person.name).join(' → ') || 'Sin superiores visibles'}`;
         element('structure-team').textContent = `Equipo a cargo: ${member.team.map(person => person.name).join(', ') || 'Sin integrantes visibles'}`;
         structureState.coordinationOffset = 25;
         element('structure-coordination-more').hidden = !member.team_pagination.has_more && !member.superiors_pagination.has_more;
@@ -132,9 +134,25 @@ function InitializeValues(url) {
     async function listRecords(reset = false) {
         if (reset) { structureState.listOffset = 0; element('structure-list-content').replaceChildren(); }
         const response = await ui.request(`structures/${structureState.id}/${structureState.listMode}?limit=25&offset=${structureState.listOffset}`);
+        element('structure-list-title').textContent = structureState.listMode === 'history' ? 'Historial de la estructura' : 'Solicitudes de transferencia';
+        const target = element('structure-list-content');
+        let body = target.querySelector('tbody');
+        if (!body && response.data.length) {
+            const table = document.createElement('table'); const header = document.createElement('tr');
+            ['Fecha','Actividad','Estado','Motivo','Acciones'].forEach(label => header.append(ui.text('th',label)));
+            body = document.createElement('tbody'); table.append(header,body); target.append(table);
+        }
+        if (!response.data.length && reset) target.append(ui.text('p','No hay movimientos visibles.','ux-help'));
         response.data.forEach(row => {
-            const card = ui.text('div',structureState.listMode === 'history' ? `${row.fecha} · ${row.accion.replaceAll('_',' ')} · ${row.motivo || ''}` : `${row.date} · ${row.mode} · ${row.state} · ${row.reason}`,'card p-3 mb-3');
-            if (row.state === 'pendiente' && row.can_resolve) [1,0].forEach(approved => { const button = ui.text('button',approved ? 'Aprobar' : 'Rechazar','btn'); button.type='button'; button.addEventListener('click',() => ui.run(async () => { const reason = window.prompt('Motivo de la resolución'); if (!reason) return; await ui.request(`structures/${structureState.id}/transfers/${row.id}`,'PUT',{approved,reason}); await listRecords(true); await loadMembers(); })); card.append(button); }); element('structure-list-content').append(card);
+            const line = document.createElement('tr'); const history = structureState.listMode === 'history';
+            line.append(ui.text('td',history ? row.fecha : row.date),ui.text('td',history ? window.SicratUI.label(row.accion) : row.mode === 'equipo' ? 'Transferir integrante y equipo' : 'Transferir integrante'));
+            const status = document.createElement('td'); if (!history) status.append(window.SicratUI.badge(window.SicratUI.label(row.state),row.state === 'aprobada'));
+            line.append(status,ui.text('td',(history ? row.motivo : row.reason) || '—'));
+            const actions = document.createElement('td');
+            if (row.state === 'pendiente' && row.can_resolve) [1,0].forEach(approved => {
+                const button = ui.text('button',approved ? 'Aprobar' : 'Rechazar',approved ? 'btn bg-primary text-white' : 'btn bg-danger text-white'); button.type='button';
+                button.addEventListener('click',() => ui.run(async () => { const reason=window.prompt('Motivo de la resolución'); if (!reason) return; await ui.request(`structures/${structureState.id}/transfers/${row.id}`,'PUT',{approved,reason}); await listRecords(true); await loadMembers(); })); actions.append(button);
+            }); line.append(actions); body.append(line);
         });
         element('structure-list-more').hidden = !response.pagination.has_more; structureState.listOffset += 25;
     }

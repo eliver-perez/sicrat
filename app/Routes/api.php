@@ -142,6 +142,7 @@ $router->put('/api/organizations/{id}/modules/{module}', [\App\Controllers\Admin
 
 
 // Servicios esenciales de Fase 4: independientes de los módulos opcionales.
+$router->get('/api/audit/options', [\App\Controllers\CommonServicesController::class,'auditOptions'], 'audit.read');
 $router->get('/api/audit', [\App\Controllers\CommonServicesController::class,'audit'], 'audit.read');
 $router->get('/api/approvals', [\App\Controllers\CommonServicesController::class,'approvals'], 'approvals.read');
 $router->get('/api/approvals/{id}', [\App\Controllers\CommonServicesController::class,'approval'], 'approvals.read');

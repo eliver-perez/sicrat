@@ -6,7 +6,7 @@
                         <div>
                             <script>document.write(new Date().getFullYear())</script> © SICRAT
                         </div>
-                        <div class="md:flex hidden gap-2 item-center md:justify-end">
+                        <div class="ux-footer-detail gap-2 item-center md:justify-end">
                         <a href="#" target="_blank" class="text-primary">Sistema de Control de Red y Administración Territorial</a>
                         </div>
                     </div>

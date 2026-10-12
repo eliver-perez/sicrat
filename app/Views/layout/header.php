@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="csrf-token" content="<?= escape_html(\App\Core\Security\Csrf::token()); ?>">
@@ -110,6 +110,7 @@
     <link rel="stylesheet" crossorigin href="<?= escape_html(base_url('/template/assets/app-tw.css')); ?>">
     <link rel="stylesheet" href="<?= escape_html(asset('css/platform.css')); ?>">
     <script src="<?= escape_html(asset('js/global.js')); ?>"></script>
+    <script src="<?= escape_html(asset('js/ux.js')); ?>"></script>
 </head>
 
 <body>
@@ -131,7 +132,7 @@
             </a>
         
             <div class="absolute top-0 end-5 flex h-topbar items-center justify">
-                <button id="button-hover-toggle">
+                <button id="button-hover-toggle" aria-label="Cambiar tamaño del menú" type="button">
                     <i class="iconify tabler--circle size-5"></i>
                 </button>
             </div>
@@ -144,22 +145,27 @@
             <div class="app-header min-h-topbar-height flex items-center sticky top-0 z-30 bg-(--topbar-background) border-b border-default-200">
                 <div class="w-full flex items-center justify-between px-6">
                     <div class="flex items-center gap-5">
-                        <button id="button-toggle-menu" class="btn btn-icon size-9 bg-default-400/10 hover:bg-default-150 rounded">
+                        <button id="button-toggle-menu" aria-label="Mostrar u ocultar menú" type="button" class="btn btn-icon size-9 bg-default-400/10 hover:bg-default-150 rounded">
                             <i class="iconify lucide--align-left text-xl"></i>
                         </button>
+                        <div id="electoral-context" class="ux-election-context">
+                            <label for="electoral-context-select">Elección de trabajo</label>
+                            <select id="electoral-context-select" class="form-input" aria-describedby="electoral-context-status"><option value="">Selecciona una elección</option></select>
+                            <span id="electoral-context-status" class="ux-sr-only" role="status"></span>
+                        </div>
                     </div>
             
                     <div class="flex items-center gap-3">
             
                         <div class="topbar-item">
-                            <button class="btn btn-icon size-8 hover:bg-default-150 transition-[scale] rounded-full" id="light-dark-mode" type="button">
+                            <button class="btn btn-icon size-8 hover:bg-default-150 transition-[scale] rounded-full" id="light-dark-mode" aria-label="Cambiar tema claro u oscuro" type="button">
                                 <i class="iconify tabler--moon text-xl absolute dark:scale-0 dark:-rotate-90 scale-100 rotate-0 transition-all duration-200"></i>
                                 <i class="iconify tabler--sun text-xl absolute dark:scale-100 dark:rotate-0 scale-0 rotate-90 transition-all duration-200"></i>
                             </button>
                         </div>
             
                         <div class="topbar-item hs-dropdown relative inline-flex">
-                            <button class="cursor-pointer bg-white-100 rounded-full" aria-haspopup="menu" aria-expanded="false" aria-label="Dropdown">
+                            <button class="cursor-pointer bg-white-100 rounded-full" aria-haspopup="menu" aria-expanded="false" aria-label="Mi cuenta">
                                 <img src="<?= escape_html(asset('/images/logos/logo_fold.png')); ?>" alt="user-image" class="hs-dropdown-toggle rounded-full size-9.5">
                             </button>
             

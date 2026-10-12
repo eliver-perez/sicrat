@@ -20,8 +20,8 @@
                                             <thead class="bg-default-150">
                                                 <tr class="text-default-600">
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Sección</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Estado</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Municipio</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Localidad</th>
                                                 </tr>
                                             </thead>
 
@@ -69,7 +69,7 @@
 
                                         <div class="lg:col-span-3 col-span-1">
                                             <div class="flex justify-end gap-2">
-                                                <button id="btn-sections-cancel" type="button" class="btn bg-danger text-white btn-sm hover:bg-danger-hbr hidden">Cancelar</span></button>
+                                                <button id="btn-sections-cancel" type="button" class="btn btn-sm hidden">Cancelar</button>
                                                 <button id="btn-sections-new" type="button" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr">Nueva Sección</button>
                                                 <button id="btn-sections-register" type="submit" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr hidden">Registrar</button>
                                             </div>

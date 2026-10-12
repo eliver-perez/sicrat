@@ -7,10 +7,14 @@ function loadUserAccesses(uuid) {
     selectedAccessUser = uuid;
     userAccessRequest(`users/${uuid}/accesses`, 'get').done(function (response) {
         const list = $('#user-access-list').empty();
+        const table = $('<table>'); table.append($('<thead>').append($('<tr>').append($('<th>').text('Elección'),$('<th>').text('Rol'),$('<th>').text('Estado'),$('<th>').text('Acción')))); const rows = $('<tbody>'); table.append(rows);
+        if (response.data.accesses.length) list.append(table); else list.text('Esta cuenta no tiene accesos electorales.');
         response.data.accesses.forEach(function (access) {
-            list.append($('<button>', {class: 'btn block text-primary', type: 'button'}).text(`${access.name} · ${access.type_name} · ${access.active ? 'Activo' : 'Inactivo'}`).on('click', function () {
+            const line = $('<tr>').append($('<td>').text(access.name),$('<td>').text(access.type_name),$('<td>').append($('<span>', {class:'ux-badge ' + (access.active ? 'ux-badge-success' : 'ux-badge-neutral')}).text(access.active ? 'Activo' : 'Inactivo')));
+            line.append($('<td>').append($('<button>', {class: 'btn', type: 'button'}).text('Editar acceso').on('click', function () {
+                $('#user-access-editor').prop('open',true);
                 $('#user-access-process').val(access.process); $('#user-access-type').val(String(access.type)); $('#user-access-active').prop('checked', Boolean(access.active));
-            }));
+            }))); rows.append(line);
         });
         $('#user-person-current').text(response.data.person_code ? `Persona vinculada: ${response.data.person_code}` : 'La cuenta no tiene una persona vinculada.');
         const selector = $('#user-person-select').empty().append($('<option>', {value: '', text: 'Sin persona vinculada'}));

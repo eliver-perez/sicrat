@@ -207,7 +207,7 @@ function GetPersons(force = false) {
 				$.each(response.data.persons, function(k, v) {
 					rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.section)}</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"><button type="button" class="text-primary person-open" data-id="${escapeHTML(v.id)}">${escapeHTML(v.code)} · ${escapeHTML(v.name)}</button></td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"><button type="button" class="btn person-open" data-id="${escapeHTML(v.id)}">${escapeHTML(v.code)} · ${escapeHTML(v.name)}</button></td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.birth_date)}</td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.gender)}</td>
@@ -216,6 +216,7 @@ function GetPersons(force = false) {
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.email)}</td>
 								</tr>`;
 				});
+				if (!rows) rows = '<tr><td colspan="8" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 				$('#table-persons tbody').append(rows);
 			},
 			error: function(XMLHttpRequest, textStatus, errorThrown) { 

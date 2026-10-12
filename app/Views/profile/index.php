@@ -5,7 +5,7 @@
     require_once __DIR__.'/../layout/title.php';
 ?>
 
-                <div class="container-fluid">
+                <div class="ux-profile">
                     <div class="mb-5">
                         <div class="card !rounded-none">
                             <div class="card-body !px-2.5">
@@ -37,7 +37,7 @@
 
                             <div class="!px-2.5">
                                 <div>
-                                    <nav class="flex gap-1 flex-wrap" aria-label="Tabs" role="tablist" aria-orientation="horizontal">
+                                    <nav class="flex gap-1 flex-wrap" aria-label="Seguridad de mi cuenta" role="tablist" aria-orientation="horizontal">
                                         <button type="button"
                                             class="hs-tab-active:font-semibold hs-tab-active:border-primary hs-tab-active:text-primary py-2 px-4 inline-flex items-center gap-2 border-b border-transparent text-sm whitespace-nowrap text-default-500 hover:text-primary focus:outline-hidden focus:text-primary disabled:opacity-50 disabled:pointer-events-none active"
                                             id="changePasswordTab"
@@ -71,9 +71,9 @@
                                                     placeholder="Captura tu contraseña actual"
                                                     required>
                                                 <button type="button"
-                                                    data-hs-toggle-password='{"target": "#field-old-password" }'
+                                                    aria-label="Mostrar u ocultar contraseña" data-hs-toggle-password='{"target": "#field-old-password" }'
                                                     class="absolute inset-y-0 end-0 flex items-center z-20 px-3 cursor-pointer"
-                                                    tabindex="-1">
+                                                    tabindex="0">
                                                     <i data-lucide="eye-off" class="hs-password-active:block hidden size-3.5"></i>
                                                     <i data-lucide="eye" class="hs-password-active:hidden block size-3.5"></i>
                                                 </button>
@@ -90,9 +90,9 @@
                                                     placeholder="Captura tu nueva contraseña"
                                                     required>
                                                 <button type="button"
-                                                    data-hs-toggle-password='{"target": "#field-new-password" }'
+                                                    aria-label="Mostrar u ocultar contraseña" data-hs-toggle-password='{"target": "#field-new-password" }'
                                                     class="absolute inset-y-0 end-0 flex items-center z-20 px-3 cursor-pointer"
-                                                    tabindex="-1">
+                                                    tabindex="0">
                                                     <i data-lucide="eye-off" class="hs-password-active:block hidden size-3.5"></i>
                                                     <i data-lucide="eye" class="hs-password-active:hidden block size-3.5"></i>
                                                 </button>
@@ -109,9 +109,9 @@
                                                     placeholder="Confirma tu nueva contraseña"
                                                     required>
                                                 <button type="button"
-                                                    data-hs-toggle-password='{"target": "#field-confirm-password" }'
+                                                    aria-label="Mostrar u ocultar contraseña" data-hs-toggle-password='{"target": "#field-confirm-password" }'
                                                     class="absolute inset-y-0 end-0 flex items-center z-20 px-3 cursor-pointer"
-                                                    tabindex="-1">
+                                                    tabindex="0">
                                                     <i data-lucide="eye-off" class="hs-password-active:block hidden size-3.5"></i>
                                                     <i data-lucide="eye" class="hs-password-active:hidden block size-3.5"></i>
                                                 </button>

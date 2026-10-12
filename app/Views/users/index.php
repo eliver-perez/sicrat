@@ -21,10 +21,10 @@
                                                 <tr class="text-default-600">
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Nombre</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Usuario</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">E-Mail</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Tipo de Usuario</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Estatus</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Última Conexión</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Correo</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Rol</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Estado</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Última Conexión</th><th scope="col">Acciones</th>
                                                 </tr>
                                             </thead>
 
@@ -51,12 +51,12 @@
                                         </div>
 
                                         <div class="lg:col-span-2 mb-4">
-                                            <label for="field-users-password" class="inline-block mb-2 font-medium">Password</label>
-                                            <input type="text" id="field-users-password" class="form-input" placeholder="Password" value="" readonly required>
+                                            <label for="field-users-password" class="inline-block mb-2 font-medium">Contraseña</label>
+                                            <input type="password" autocomplete="new-password" id="field-users-password" class="form-input" placeholder="Contraseña" value="" readonly required>
                                         </div>
 
                                         <div class="lg:col-span-4 md:col-span-2 mb-4">
-                                            <label for="select-users-type" class="inline-block mb-2 font-medium">Tipo de Usuario</label>
+                                            <label for="select-users-type" class="inline-block mb-2 font-medium">Rol</label>
                                                 <select class="form-input"
                                                     id="select-users-type"
                                                     name="select-users-type"
@@ -88,8 +88,8 @@
                                         </div>
 
                                         <div class="lg:col-span-3 mb-4">
-                                            <label for="field-users-email" class="inline-block mb-2 font-medium">E-Mail</label>
-                                            <input type="text" id="field-users-email" class="form-input" placeholder="E-Mail" value="" readonly>
+                                            <label for="field-users-email" class="inline-block mb-2 font-medium">Correo</label>
+                                            <input type="text" id="field-users-email" class="form-input" placeholder="Correo" value="" readonly>
                                         </div>
 
                                         <div class="flex items-center gap-2">
@@ -116,7 +116,7 @@
 
                                         <div class="lg:col-span-4 md:col-span-2 col-span-1">
                                             <div class="flex justify-end gap-2">
-                                                <button id="btn-users-cancel" type="button" class="btn bg-danger text-white btn-sm hover:bg-danger-hbr hidden">Cancelar</span></button>
+                                                <button id="btn-users-cancel" type="button" class="btn btn-sm hidden">Cancelar</button>
                                                 <button id="btn-users-new" type="button" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr">Nuevo Usuario</button>
                                                 <button id="btn-users-register" type="submit" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr hidden">Registrar</button>
                                             </div>

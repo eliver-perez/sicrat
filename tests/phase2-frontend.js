@@ -85,8 +85,7 @@ verify(decisions[0].action === 'fill' && decisions[0].person === 'uuid', 'Comple
 
 response = () => ({data: {electoral_processes: [{id: 'election', process: payload, organization: payload, type: 'Captura', selected: true}]}});
 ready.at(-1)();
-const contextContainer = elements.get('main').children[0];
-const selector = contextContainer.children.find(element => element.tag === 'select');
+const selector = elements.get('#electoral-context-select');
 verify(selector.children.some(option => option.attributes.text?.includes(payload)), 'Selector electoral presenta nombres como texto de opciones.');
 selector.val('election');
 selector.events.change();
