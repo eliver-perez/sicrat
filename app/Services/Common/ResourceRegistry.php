@@ -31,6 +31,7 @@ class ResourceRegistry
 			(new ExportService($this->repository))->authorizeResult($record,$actor);
 		});
 		\App\Services\Operations\Resources::register($this,$repository);
+		\App\Services\Resources\Resources::register($this,$repository);
 	}
 	public function register(string $entity, callable $authorize,?callable $listingPredicate = null): void
 	{

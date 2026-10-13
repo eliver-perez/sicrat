@@ -54,6 +54,8 @@ class EventService extends BaseService
 		$visible=$this->context->broad($context,'eventos.ver') ? '1=1' : "(($scope) OR (a.persona_proceso IS NULL AND ?=1))";
 		$params=$this->context->broad($context,'eventos.ver') ? [] : [...$params,(int) $row['creado_por']===$context['actor'] ? 1 : 0];
 		$row['attendance_summary']=$row['control_participantes']==='individual' ? $this->repository->rows("SELECT a.estado,COUNT(*) cantidad FROM eventos_participantes a LEFT JOIN personas_procesos pp ON pp.id=a.persona_proceso LEFT JOIN personas p ON p.id=pp.persona WHERE a.evento=? AND ($visible) GROUP BY a.estado",[$row['id'],...$params]) : ['cantidad'=>$row['cantidad_asistentes']];
+		$row['inventory_summary']=(new \App\Services\Resources\Related($this->repository))->eventInventory((int) $row['id'],(int) $row['proceso']);
+		$row['financial_references']=(new \App\Services\Resources\Related($this->repository))->financial('eventos',(int) $row['id'],(int) $row['proceso']);
 		return $row;
 	}
 	public function update(string $uuid,array $data): void

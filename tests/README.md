@@ -78,3 +78,20 @@ php tests/integration.php --phase4 --browser --ux
 Prueba guardado de módulos con un fallo de conexión simulado y reintento, creación de rol, upload y revisión de CSV (sin confirmar esa importación). Todo se ejecuta exclusivamente sobre la base desechable. El diálogo de restauración se inspecciona con datos descriptivos ficticios, sin confirmar o ejecutar restauraciones desde Chrome; la suite Fase 4 conserva sus ensayos reales sobre destinos desechables.
 
 Capturas `ux-*.png`, hojas de contacto y `ux-captures.json` quedan en el directorio temporal privado. No se incorporan imágenes de datos al repositorio, dependencias de navegador ni bibliotecas UI. Detalle y resultados en `UX_UI_FASES_1_4.md`.
+
+
+## Fase 6 — Finanzas e inventario
+
+```sh
+node tests/phase6-frontend.js
+php tests/phase6-migrations.php
+php tests/integration.php --phase6 --browser
+```
+
+`--phase6` incluye toda la regresión de Fases 1–5 y UX. Añade presupuestos y revisiones, compromisos, pagos separados/parciales/reversiones, autorización por usuario/rol/permiso con snapshot y orden, anticipos, apoyos, reembolsos, ingresos, aportaciones, donaciones, transferencias, inventario, valoración, mínimos y módulos deshabilitados. Prueba los servicios comunes mediante archivos privados reales, MIME, PDF/XLSX/CSV, permisos revocados, scheduler/worker e idempotencia de avisos. No envía comunicaciones externas.
+
+`resources-writer.php` exige el mismo patrón desechable de base y usa conexiones independientes para pagos, presupuestos, comprobaciones, stock, folios y autorización simultánea con edición. Una colisión preparada en la segunda mitad de transferencia comprueba rollback; otra conexión consume inventario después de abrir un snapshot para comprobar lectura actual al aprobar una merma.
+
+Chrome recorre Finanzas e Inventario a 1440/820/390 px, comprueba header/selector, tabs, filtros, formularios, modales y desbordamiento. Registra un gasto, pago y anticipo, comprueba rechazo por saldo, selecciona roles por nombre, resuelve una autorización con la cuenta asignada y consulta historial con el módulo deshabilitado. Conserva `phase6-*.png` en el directorio privado de la ejecución. `--phase6-browser-only` permite aislar el navegador nuevo para diagnóstico; la validación final utiliza la suite completa.
+
+`phase6-migrations.php` prepara estado post-Fase 5 y datos históricos, comprueba tablas coincidentes incompatibles, FKs/UUID únicos faltantes, integridad de contexto, preservación completa y reejecución. Los resultados, respaldo de la base local y límites del entorno objetivo figuran en `FASE6.md`.

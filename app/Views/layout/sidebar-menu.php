@@ -133,6 +133,34 @@
                         <?php } ?>
                         <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/services')); ?>"><span class="menu-icon"><i data-lucide="bell"></i></span><div class="menu-text">Servicios y notificaciones</div></a></li>
                         <?php
+                            $resourceNavigation=[];
+                            if (\App\Core\Auth::processId()) {
+                                $resourceDb=(new \App\Core\Database())->getConnection();
+                                $resourceOrganization=(int) $resourceDb->query('SELECT organizacion FROM procesos_electorales WHERE id='.(int) \App\Core\Auth::processId())->fetchColumn();
+                                $resourceCatalog=(new \App\Repositories\ModuleRepository($resourceDb))->catalog($resourceOrganization,\App\Core\Auth::processId());
+                                foreach (['finanzas'=>['Finanzas','wallet',['finanzas.ver','finanzas.presupuestos.ver','finanzas.ingresos.ver'],['gastos','presupuestos','anticipos','reembolsos','ingresos','aportaciones','pagos','cuentas','politicas']],'inventario'=>['Inventario','boxes',['inventario.ver'],['articulos','almacenes','movimientos']]] as $code=>[$name,$icon,$permissions,$entities]) {
+                                    if (!$session->verifyUserRights($permissions)) continue;
+                                    $module=array_values(array_filter($resourceCatalog,static fn($row)=>$row['codigo']===$code))[0] ?? null;
+                                    if (!$module || !(int) $module['implementado']) continue;
+                                    $historical=false;
+                                    if (!$module['habilitado']) {
+                                        $context=new \App\Services\Resources\Context(new \App\Repositories\ResourcesRepository($resourceDb));
+                                        foreach ($entities as $entity) {
+                                            $definition=\App\Services\Resources\Catalog::entity($entity);
+                                            try {
+                                                [$where,$params]=$context->predicate($entity,$definition['read'],\App\Core\Auth::processId());
+                                                $check=$resourceDb->prepare('SELECT r.id FROM '.$definition['table'].' r WHERE '.$where.' LIMIT 1');
+                                                $check->execute($params);
+                                                if ($check->fetchColumn()!==false) { $historical=true; break; }
+                                            } catch (\App\Core\HttpError) { }
+                                        }
+                                    }
+                                    if ($module['habilitado'] || $historical) $resourceNavigation[]=[$code,$name.($historical ? ' · Historial' : ''),$icon];
+                                }
+                            }
+                            foreach ($resourceNavigation as [$code,$name,$icon]) { ?>
+                        <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/resources/?module='.$code)); ?>"><span class="menu-icon"><i data-lucide="<?= escape_html($icon); ?>"></i></span><div class="menu-text"><?= escape_html($name); ?></div></a></li>
+                        <?php }
                             $operationNavigation=[];
                             if (\App\Core\Auth::processId()) {
                                 $moduleRepository=new \App\Repositories\ModuleRepository((new \App\Core\Database())->getConnection());

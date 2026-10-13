@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/app/Support/helpers.php';
 loadEnv(dirname(__DIR__) . '/.env');
 date_default_timezone_set('America/Mexico_City');
+if (in_array('--phase6',$argv,true) && !in_array('--phase5',$argv,true)) $argv[]='--phase5';
 if (in_array('--phase5',$argv,true)) {
     if (!in_array('--phase4',$argv,true)) $argv[]='--phase4';
     if (!in_array('--ux',$argv,true)) $argv[]='--ux';
@@ -236,9 +237,10 @@ try {
         require __DIR__ . '/ux.php';
     }
     if (in_array('--phase5',$argv,true)) require __DIR__.'/phase5.php';
+    if (in_array('--phase6',$argv,true)) require __DIR__.'/phase6.php';
     if (in_array('--browser', $argv, true)) {
         if (!(in_array('--phase3',$argv,true) || in_array('--phase4',$argv,true))) throw new RuntimeException('--browser requiere --phase3.');
-        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
+        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : []),...(in_array('--phase6',$argv,true) ? ['--phase6'] : []),...(in_array('--phase6-browser-only',$argv,true) ? ['--only-phase6'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
         fclose($browserPipes[0]); verify(proc_close($browserProcess)===0,'Validación de las pantallas en navegador real.');
     }
     echo "OK: {$checks} comprobaciones HTTP/BD (" . $connection->query('SELECT VERSION()')->fetchColumn() . ").\n";

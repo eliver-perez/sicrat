@@ -36,6 +36,7 @@
 		if(app.can('metas.crear'))actions.append(app.button('Distribuir esta meta',()=>app.create(row)));
 	};
 	definitions.eventos.detail=async(app,row,summary,actions)=>{
+		if(row.inventory_summary?.length){const inventory=app.text('div');summary.append(app.text('h6','Materiales del evento','mt-4'),inventory);app.table(inventory,[['Artículo','articulo'],['Movimiento',item=>app.label(item.tipo)],['Cantidad','cantidad'],['Unidad','unidad']],row.inventory_summary);}
 		app.description(summary,{'Evento':row.evento,'Tipo':row.type_name,'Inicio':row.fecha_inicio,'Fin':row.fecha_fin,'Lugar':row.lugar,'Descripción':row.descripcion,'Estado':app.label(row.estado),'Control de participantes':app.label(row.control_participantes),'Notas':row.notas});
 		if(row.control_participantes==='individual') {
 			const participants=app.text('div','','ux-section');summary.append(participants);await app.pager(participants,'operations/eventos/'+row.uuid+'/participants',[['Participante','nombre'],['Estado',participant=>app.label(participant.estado)],['Asistencia','asistencia_en']],(cell,participant)=>{
@@ -68,6 +69,7 @@
 		if(app.can(entity+'.cancelar') && !['cerrada','cancelada','validacion'].includes(row.estado))app.form(actions,'Cancelar conservando historial',form=>app.field(form,'reason','Motivo','textarea','',true),async data=>{await app.api('operations/'+entity+'/'+row.uuid+'/cancel','POST',{...data,version:row.version});await app.open(row.uuid);},'Cancelar registro');
 	});
 	definitions.transporte.detail=async(app,row,summary,actions)=>{
+		if(row.financial_references?.length){const finance=app.text('div');summary.append(app.text('h6','Referencias financieras opcionales','mt-4'),finance);app.table(finance,[['Folio','folio'],['Concepto','concepto'],['Estado',item=>app.label(item.estado)]],row.financial_references,(cell,item)=>{const link=app.text('a','Consultar registro','btn');link.href=window.SicratPhase3.base+'/resources/?module=finanzas&tab='+item.tipo+'&record='+item.uuid;cell.append(link);});}
 		app.description(summary,{'Persona':row.persona_nombre,'Necesidad':app.label(row.necesidad),'Coordinador':row.coordinador_nombre,'Proveedor':row.proveedor_nombre || row.proveedor_externo,'Observaciones logísticas':row.observaciones_logisticas,'Confirmación voluntaria':row.confirmado_en || 'Sin registro voluntario'});
 		if(app.can('transporte.editar')) {
 			let coordinator=null,provider=null;const form=app.form(actions,'Necesidad y coordinación',fields=>{app.field(fields,'need','Necesidad de transporte','select',row.necesidad,true,{no_definido:'No definido',requiere:'Requiere transporte',propio:'Se trasladará por cuenta propia'});app.field(fields,'external_provider','Proveedor externo opcional','text',row.proveedor_externo);app.field(fields,'notes','Observaciones logísticas','textarea',row.observaciones_logisticas);},async data=>{await app.api('operations/transporte/'+row.uuid,'PUT',{...data,coordinator:coordinator.values(),provider:provider.values(),version:row.version});await app.open(row.uuid);});

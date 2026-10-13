@@ -43,7 +43,7 @@ class ApprovalService
 		$row=$this->repository->one('SELECT * FROM aprobaciones WHERE uuid=?',[Values::binary($uuid)]) ?? throw new HttpError('Solicitud no disponible.',404);
 		$this->view($row,(new Access($this->repository))->actor());
 		$row['uuid']=$uuid; $row['regla']=json_decode($row['regla'],true); $row['informacion']=json_decode($row['informacion'] ?? 'null',true);
-		$row['steps']=$this->repository->rows('SELECT orden,aprobador,estado,resuelto_por,motivo,fecha FROM aprobaciones_pasos WHERE aprobacion=? ORDER BY orden',[$row['id']]);
+		$row['steps']=$this->repository->rows('SELECT s.orden,s.aprobador,u.nombre aprobador_nombre,s.estado,s.resuelto_por,s.motivo,s.fecha FROM aprobaciones_pasos s JOIN usuarios u ON u.id=s.aprobador WHERE s.aprobacion=? ORDER BY s.orden',[$row['id']]);
 		return $row;
 	}
 	// Todos los consumidores bloquean primero el recurso, luego la solicitud y sus pasos.
@@ -94,10 +94,10 @@ class ApprovalService
 		$this->repository->transaction(function() use($id,$entity,$record,$permission,$reason,$actor) {
 			$row=$this->repository->one('SELECT * FROM aprobaciones WHERE id=? AND entidad=? AND entidad_id=? FOR UPDATE',[$id,$entity,$record]) ?? throw new HttpError('Solicitud no disponible.',404);
 			ApprovalState::pending($row['estado']);
-			$this->owners->authorize($entity,$record,(int) $row['organizacion'],(int) $row['proceso'],'write',$actor,$permission);
+			$this->owners->authorize($entity,$record,(int) $row['organizacion'],$row['proceso']===null ? null : (int) $row['proceso'],'write',$actor,$permission);
 			$this->repository->execute("UPDATE aprobaciones SET estado='cancelada',resuelta_en=NOW() WHERE id=?",[$id]);
 			$this->owners->decision($row,'cancelada',$actor);
-			(new AuditService($this->repository))->record((int) $row['organizacion'],(int) $row['proceso'],'cancelar','aprobaciones',$id,null,['motivo'=>Values::text($reason,500),'origen'=>'reasignacion']);
+			(new AuditService($this->repository))->record((int) $row['organizacion'],$row['proceso']===null ? null : (int) $row['proceso'],'cancelar','aprobaciones',$id,null,['motivo'=>Values::text($reason,500),'origen'=>'reasignacion']);
 		});
 	}
 	public function expire(): int

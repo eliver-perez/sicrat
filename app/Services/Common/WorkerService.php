@@ -25,6 +25,10 @@ class WorkerService
 		$this->register('tarea_recurrente',function ($payload,$job) use ($repository) {
 			(new ActorContext($repository))->run((int) $job['usuario'],(int) $job['proceso'],fn()=>(new \App\Services\Operations\TaskService($repository))->recur((int) $payload['task'],$payload['day']));
 		});
+		$this->register('recursos_alertas',function ($payload,$job) use ($repository) {
+			(new Access($repository))->super((int) $job['usuario']);
+			(new ActorContext($repository))->run((int) $job['usuario'],null,fn()=>(new \App\Services\Resources\Alerts($repository))->check($payload['dia']));
+		});
 		$this->register('mensaje_notificar',function ($payload,$job) use ($repository) {
 			(new ActorContext($repository))->run((int) $job['usuario'],(int) $job['proceso'],fn()=>(new \App\Services\Operations\MessagingService($repository))->notify((int) $payload['message']));
 		});

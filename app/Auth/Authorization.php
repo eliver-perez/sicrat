@@ -12,6 +12,7 @@ class Authorization
     // Las operaciones identifican permisos; los servicios comprueban el contexto objetivo.
     private const OPERATIONS = [
         'authenticated' => [],
+        'resources.access' => [], // Finanzas e inventario validan permiso, módulo y alcance en sus servicios.
         'operations.access' => [], // Cada servicio valida el permiso granular en el contexto del registro.
         'organizations.read' => [],
         'organizations.create' => ['superadmin'],

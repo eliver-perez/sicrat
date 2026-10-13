@@ -34,6 +34,7 @@ async function main() {
     }
     async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate(expression)) return; await pause(100); } throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if (process.argv.includes('--only-phase6')) { checks+=await require('./phase6-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 6 sin excepciones JavaScript.');return; }
     if (process.argv.includes('--only-phase5')) { checks+=await require('./phase5-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 5 sin excepciones JavaScript.');return; }
     await navigate('/autenticacion/');
     const login=await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const result=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({username:'administrador',password:' nueva contraseña '})}); return result.status; })()`);
@@ -91,6 +92,7 @@ async function main() {
     }
     if (process.argv.includes('--ux')) checks += await require('./ux-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     if (process.argv.includes('--phase5')) checks += await require('./phase5-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
+    if (process.argv.includes('--phase6')) checks += await require('./phase6-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     assert.deepEqual(failures,[]); checks++;
     console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
 }

@@ -199,3 +199,18 @@ $router->get('/api/operations/{entity}/{id}',[$operations,'detail'],'operations.
 $router->put('/api/operations/{entity}/{id}',[$operations,'detail'],'operations.access');
 $router->get('/api/operations/{entity}',[$operations,'index'],'operations.access');
 $router->post('/api/operations/{entity}',[$operations,'index'],'operations.access');
+
+// Finanzas e inventario: autorización de negocio y modo histórico en cada servicio.
+$resources=\App\Controllers\ResourcesController::class;
+$router->get('/api/resources/options',[$resources,'options'],'resources.access');
+$router->get('/api/resources/summary',[$resources,'summary'],'resources.access');
+$router->get('/api/resources/cash-flow',[$resources,'flow'],'resources.access');
+$router->get('/api/resources/stocks',[$resources,'stocks'],'resources.access');
+$router->post('/api/resources/stock-transfers',[$resources,'transferStock'],'resources.access');
+$router->put('/api/resources/stock-minimum',[$resources,'minimum'],'resources.access');
+$router->get('/api/resources/{entity}/{id}/{action}',[$resources,'related'],'resources.access');
+$router->post('/api/resources/{entity}/{id}/{action}',[$resources,'action'],'resources.access');
+$router->get('/api/resources/{entity}/{id}',[$resources,'detail'],'resources.access');
+$router->put('/api/resources/{entity}/{id}',[$resources,'detail'],'resources.access');
+$router->get('/api/resources/{entity}',[$resources,'index'],'resources.access');
+$router->post('/api/resources/{entity}',[$resources,'index'],'resources.access');

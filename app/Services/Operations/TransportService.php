@@ -53,6 +53,7 @@ class TransportService extends BaseService
 			$related=$this->repository->one("SELECT uuid,CONCAT_WS(' ',nombre,paterno,materno) nombre FROM personas WHERE id=?",[$row[$field]]);
 			$row[$field.'_uuid']=Values::uuidText($related['uuid']); $row[$field.'_nombre']=$related['nombre'];
 		}
+		$row['financial_references']=isset($row['id']) ? (new \App\Services\Resources\Related($this->repository))->financial('transporte',(int) $row['id'],$process) : [];
 		return [...$row,'uuid'=>$uuid,'persona_nombre'=>trim($person['nombre'].' '.$person['paterno'].' '.$person['materno']),'necesidad'=>$participation['necesidad_transporte']];
 	}
 	public function update(string $uuid,array $data): array

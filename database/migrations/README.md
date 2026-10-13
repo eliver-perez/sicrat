@@ -54,3 +54,16 @@ El preflight rechaza auditoría electoral con organización incompatible y archi
 Añade aprobaciones/pasos, trabajos, notificaciones/configuración/envíos, exportaciones, respaldos/política y restauraciones. Las tablas de transferencias de Fase 3 permanecen intactas. Se añaden permisos granulares, con plantilla electoral del administrador, sin conceder privilegios de backup a clientes. Valores iniciales: BD diaria, archivos full semanal, incremental diario, retención 14 días.
 
 Se ensayó en bases desechables, con datos/conflictos históricos y mediante restauración del respaldo real local. La aplicación local preservó los registros originales de 76 tablas y la reejecución no dejó migraciones pendientes. El SQL original, las cuatro migraciones anteriores y los informes previos conservaron sus hashes. El procedimiento y respaldo están documentados en `FASE4.md`; no existe un `down` destructivo.
+
+
+## 20261012_007_finanzas_inventario.php
+
+Añade 28 tablas de finanzas, inventario y control de recursos. No altera columnas de tablas anteriores ni genera saldos/movimientos durante backfill. Reutiliza personas, organización/elección, roles, módulos y los motores comunes de auditoría, aprobación, archivos, notificaciones, exportación y cola.
+
+El preflight de tablas coincidentes comprueba InnoDB, columnas/tipos/longitudes/escala DECIMAL, claves foráneas e identificadores únicos requeridos. Rechaza contextos y relaciones históricas incompatibles antes del DDL; no borra ni corrige registros automáticamente. `CREATE TABLE IF NOT EXISTS` permite reanudar las tablas completas creadas antes de una interrupción, sujeto a esas comprobaciones.
+
+Añade 23 permisos granulares y su plantilla electoral del administrador con alcance de organización. Marca Finanzas e Inventario como implementados; conserva autorizaciones y selecciones de clientes. La disponibilidad requiere autorización del Super Administrador y selección administrativa dentro de los límites existentes. No habilita Jornada Electoral.
+
+Dinero MXN `DECIMAL(14,2)`, cantidades `DECIMAL(14,3)`, folios por organización/tipo/año. Pagos, caja, revisiones y movimientos conservan su historia; las cancelaciones/reversiones generan trazabilidad en vez de borrar operaciones. El código serializa escrituras por organización y revalida saldos bajo bloqueo.
+
+Antes de aplicar en otra instalación, respaldar y ensayar restauración con el procedimiento general de este documento. El DDL no es una transacción reversible completa; no existe `down` destructivo. Validación y resultado de la aplicación local en `FASE6.md`. Los SQL originales y las migraciones 001–006 permanecen intactos.

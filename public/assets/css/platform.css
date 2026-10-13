@@ -128,3 +128,9 @@ main .max-h-\[480px\] { max-height: 28rem; }
     .ux-tabs [role="tab"] { padding: .6rem .65rem; font-size: .875rem; }
     .ux-description { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Formularios de recursos: grupos completos y acciones sin estirarse entre campos. */
+#resources-dialog .op-form-fields, #resources-detail .op-form-fields { align-items: start; }
+#resources-dialog .op-form-fields > .ux-full, #resources-detail .op-form-fields > .ux-full { grid-column: 1 / -1; }
+#resources-dialog .op-form-fields > button, #resources-detail .op-form-fields > button { align-self: start; justify-self: start; }
+#resources-dialog .ux-actions, #resources-detail .ux-actions { grid-column: 1 / -1; }

@@ -52,6 +52,9 @@ class CommonServicesController extends Controller
 		elseif (is_string($record) && !ctype_digit($record) && (isset(\App\Services\Operations\Catalog::ENTITIES[$entity]) || $entity==='mensajes')) {
 			$record=$this->repository->one("SELECT id FROM $entity WHERE uuid=?",[Values::binary($record)])['id'] ?? throw new HttpError('Recurso no disponible.',404);
 		}
+		elseif (is_string($record) && !ctype_digit($record) && in_array($entity,array_column(\App\Services\Resources\Catalog::ENTITIES,0),true)) {
+			$record=$this->repository->one("SELECT id FROM $entity WHERE uuid=?",[Values::binary($record)])['id'] ?? throw new HttpError('Recurso no disponible.',404);
+		}
 		$response->success((new FileService($this->repository))->upload($request->file('file') ?? [],$organization,$process,$entity,Values::integer($record)),'Archivo procesado.');
 	}
 	public function deleteFile(Request $request,Response $response): void { (new FileService($this->repository))->delete($request->route('id')); $response->success(); }
