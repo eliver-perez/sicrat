@@ -14,12 +14,14 @@ window.SicratOperations = {
 		if (response.pagination && response.data && typeof response.data==='object') return {...response.data,pagination:response.pagination};
 		return response.data;
 	},
-	notice(message) {
+	notice(message, type = 'success') {
+		if (window.SicratFeedback) { window.SicratFeedback.toast(message,/exportación|en cola|programad/i.test(message) ? 'info' : type); return; }
 		this.node('operations-message').textContent=message;
 		const dialog=document.activeElement?.closest('dialog[open]') || Array.from(document.querySelectorAll('dialog[open]')).at(-1);
 		if (dialog) { let status=dialog.querySelector('[data-operation-message]'); if (!status) { status=this.text('p','','mb-4 text-primary'); status.dataset.operationMessage='1'; status.setAttribute('role','status'); dialog.prepend(status); } status.textContent=message; }
 	},
 	guard(work) {
+		if (window.SicratFeedback) return window.SicratFeedback.guard(work);
 		return async event => {
 			event?.preventDefault(); const form=event?.currentTarget?.tagName==='FORM' ? event.currentTarget : null;
 			const buttons=form ? Array.from(form.querySelectorAll('button[type=submit],button:not([type])')).filter(button=>!button.disabled) : [];
@@ -59,7 +61,7 @@ window.SicratOperations = {
 			const result=await this.api(path+(path.includes('?') ? '&' : '?')+new URLSearchParams({search:search.value,limit:25,offset})); if (request!==nonce) return;
 			if (!append) { select.replaceChildren(); if (!multiple) window.SicratPhase3.option(select,'','Selecciona una opción'); chosen.forEach((name,uuid)=>window.SicratPhase3.option(select,uuid,name,true)); }
 			const rows=result.rows || result.members || result;
-			rows.forEach(item=>{const uuid=item.uuid || item.id; const name=item.codigo_persona ? item.codigo_persona+' · '+item.nombre : item.nombre || item.titulo || item.name; if (!Array.from(select.options).some(option=>option.value===uuid)) window.SicratPhase3.option(select,uuid,name,chosen.has(uuid));});
+			rows.forEach(item=>{const uuid=item.uuid || item.id; const name=item.label || (item.codigo_persona ? item.codigo_persona+' · '+item.nombre : item.nombre || item.titulo || item.name); if (!Array.from(select.options).some(option=>option.value===uuid)) window.SicratPhase3.option(select,uuid,name,chosen.has(uuid));});
 			hasMore=!!result.pagination?.has_more; more.hidden=!hasMore; if (hasMore) offset+=25;
 		};
 		searchRow.append(this.button('Buscar',()=>load(false))); box.append(searchRow,select,chips,more); this.place(target,box);
@@ -76,7 +78,7 @@ window.SicratOperations = {
 	pager(target,path,columns,actions = null) {
 		const content=this.text('div'); const controls=this.text('div','','ux-pagination mt-4'); let offset=0,hasMore=false,nonce=0;
 		const previous=this.button('Anterior',()=>{offset=Math.max(0,offset-25);return load();}); const next=this.button('Siguiente',()=>{if(hasMore) offset+=25;return load();}); const status=this.text('span'); status.setAttribute('aria-live','polite'); controls.append(previous,status,next); target.replaceChildren(content,controls);
-		const load=async()=>{const request=++nonce; const url=typeof path==='function' ? path() : path; const result=await this.api(url+(url.includes('?') ? '&' : '?')+'limit=25&offset='+offset); if (request!==nonce) return; this.table(content,columns,result.rows,actions); hasMore=!!result.pagination?.has_more; previous.disabled=offset===0;next.disabled=!hasMore;status.textContent='Página '+(Math.floor(offset/25)+1);};
+		const load=async()=>{const request=++nonce; const url=typeof path==='function' ? path() : path; const result=await this.api(url+(url.includes('?') ? '&' : '?')+'limit=25&offset='+offset); if (request!==nonce) return; this.table(content,columns,result.rows,actions); hasMore=!!result.pagination?.has_more; if(window.SicratFeedback){window.SicratFeedback.setDisabled(previous,offset===0);window.SicratFeedback.setDisabled(next,!hasMore);}else{previous.disabled=offset===0;next.disabled=!hasMore;}status.textContent='Página '+(Math.floor(offset/25)+1);};
 		return {load,reset:()=>{offset=0;return load();}};
 	},
 	async approval(uuid) {
@@ -84,7 +86,7 @@ window.SicratOperations = {
 		this.description(target,{'Estado':this.label(approval.estado),'Solicitada':approval.fecha,'Actividad':approval.informacion?.operacion,'Registro':approval.informacion?.titulo,'Versión':approval.informacion?.version});
 		const step=approval.steps.find(step=>step.estado==='pendiente');
 		if (approval.estado==='pendiente' && this.can('aprobaciones.resolver') && (this.me.is_superadmin || Number(step?.aprobador)===Number(this.me.id))) {
-			this.form(target,'Resolver validación',form=> { this.field(form,'reason','Motivo','textarea','',true); this.field(form,'approved','Decisión','select','1',true,{'1':'Aprobar','0':'Devolver para corrección'}); },async values=>{await this.api('approvals/'+uuid,'PUT',{reason:values.reason,approved:Number(values.approved)});this.node('operation-approval-dialog').close();await this.open(this.selected);this.notice('Validación resuelta.');},'Resolver');
+			this.form(target,'Resolver validación',form=> { this.field(form,'reason','Motivo','textarea','',true); this.field(form,'approved','Decisión','select','1',true,{'1':'Aprobar','0':'Devolver para corrección'}); },async values=>{if(values.approved==='0' && !await window.SicratFeedback.confirm('¿Devolver esta validación para corrección?',{confirm:'Devolver para corrección'}))return;await this.api('approvals/'+uuid,'PUT',{reason:values.reason,approved:Number(values.approved)});this.node('operation-approval-dialog').close();await this.open(this.selected);this.notice('Validación resuelta.');},'Resolver');
 		}
 		this.node('operation-approval-dialog').showModal();
 	},
@@ -118,7 +120,7 @@ window.SicratOperations = {
 			if (key==='history') { const target=this.node('operation-panel-history'); const pager=this.pager(target,'operations/'+this.entity+'/'+this.selected+'/history',[['Fecha','fecha'],['Actividad',row=>this.label(row.accion)],['Usuario','usuario'],['Seguimiento','nota']]);await pager.load(); }
 			if (key==='evidence') await this.evidence(this.node('operation-panel-evidence'),this.current);
 			this.detailLoaded.add(key);
-			} catch(error) { this.notice(error.message); }
+			} catch(error) { if(window.SicratFeedback)window.SicratFeedback.error(error);else this.notice(error.message,'error'); }
 		});
 		// El callback usa el estado actual; la carga se reinicia también al consultar otra ficha.
 		await this.detailTabs(this.node('operation-tab-summary')); const dialog=this.node('operation-detail-dialog'); if (!dialog.open) dialog.showModal();

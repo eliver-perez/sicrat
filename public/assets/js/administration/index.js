@@ -1,12 +1,14 @@
 let homeURL;
+window.SicratModuleVisibility = (module, superadmin, election) => superadmin || Boolean(Number(module.esencial))
+    || Boolean(Number(module.autorizacion_organizacion) && (!election || Number(module.autorizacion_eleccion)));
 function InitializeValues(url) {
     homeURL = url; const ui = window.SicratPhase3; ui.base = url;
     const element = id => document.getElementById(id); const form = id => element(id).elements;
     const state = {me: null, election: null, organizations: [], permissions: [], modules: [], changes: new Map(), territories: new Map(), sectionOffset: 0, sectionRequest: 0, territoryRequest: 0};
     const visual = window.SicratUI;
     const scopes = {propio:'Información propia',directos:'Equipo directo',descendientes:'Equipo a cargo completo',territorio:'Territorio autorizado',eleccion:'Esta elección',organizacion:'Toda la organización'};
-    const submit = (id, work) => element(id).addEventListener('submit', event => { event.preventDefault(); ui.run(() => work(new FormData(event.target))); });
-    const action = (id, work) => element(id).addEventListener('click',() => ui.run(work));
+    const submit = (id, work) => element(id).addEventListener('submit', event => { event.preventDefault(); const values = new FormData(event.target); ui.run(() => work(values),event.currentTarget); });
+    const action = (id, work) => element(id).addEventListener('click',event => ui.run(work,id === 'module-save' ? null : event.currentTarget));
     async function modules() {
         const organization = element('module-organization').value; if (!organization) return;
         const sameOrganization = state.election && state.organizations.find(item => item.id === organization)?.organization === state.election.organization;
@@ -19,6 +21,7 @@ function InitializeValues(url) {
         element('module-save').disabled = true; element('module-save-status').textContent = 'Sin cambios pendientes';
         rows.forEach(module => {
             if (Number(module.esencial)) { element('module-essential').append(visual.badge(module.nombre + ' ✓', true)); return; }
+            if (!window.SicratModuleVisibility(module,state.me.is_superadmin,election)) return;
             const row = ui.text('div','','card ux-module-card'); row.append(ui.text('h6',module.nombre));
             const implemented = Boolean(Number(module.implementado));
             const parentAuthorized = !election || Boolean(Number(module.autorizacion_organizacion));
@@ -32,7 +35,9 @@ function InitializeValues(url) {
                 badge.className = 'ux-badge ' + (implemented && authorized.checked && selected.checked ? 'ux-badge-success' : 'ux-badge-neutral');
             };
             const authorizationLabel = ui.text('label','Autorizado'); authorizationLabel.append(authorized);
-            const selectionLabel = ui.text('label','Utilizar'); selectionLabel.append(selected); row.append(authorizationLabel,selectionLabel); update();
+            const selectionLabel = ui.text('label',election ? 'Utilizar en esta elección' : 'Utilizar en la organización'); selectionLabel.append(selected);
+            if (state.me.is_superadmin) row.append(authorizationLabel);
+            row.append(selectionLabel); update();
             const changed = () => {
                 update(); const data = {selected:selected.checked ? 1 : 0}; if (election) data.election = election;
                 if (state.me.is_superadmin) data.authorized = authorized.checked ? 1 : 0;
@@ -43,6 +48,7 @@ function InitializeValues(url) {
         });
     }
     action('module-save',async () => {
+        if (element('module-save').disabled) return;
         const button = element('module-save'); button.disabled = true;
         element('module-save-status').textContent = 'Guardando…';
         const controls = Array.from(element('administration-modules').querySelectorAll('input,select'));
@@ -51,7 +57,7 @@ function InitializeValues(url) {
             for (const [code,data] of state.changes) {
                 await ui.request(`organizations/${element('module-organization').value}/modules/${code}`,'PUT',data); state.changes.delete(code);
             }
-            await modules(); element('module-save-status').textContent = 'Cambios guardados'; ui.message('Módulos actualizados.');
+            await modules(); ui.message('Módulos actualizados correctamente.');
         } catch (error) {
             button.disabled = !state.changes.size; element('module-save-status').textContent = 'Error: quedan ' + state.changes.size + ' cambios sin guardar. ' + error.message; throw error;
         } finally { controls.forEach((control,index) => control.disabled = disabled[index]); }
@@ -66,7 +72,13 @@ function InitializeValues(url) {
     }
     async function initialize() {
         state.me=(await ui.request('auth/me')).data; state.election=(await ui.pages('auth/elections','electoral_processes')).find(election => election.selected);
+        element('module-description').textContent = state.me.is_superadmin
+            ? 'Autoriza los módulos disponibles para cada organización y elección.'
+            : 'Selecciona los módulos que deseas utilizar en esta elección.';
+        element('module-heading').textContent = state.me.is_superadmin ? 'Módulos de la organización o elección' : 'Módulos disponibles para esta elección';
+        if (!state.me.is_superadmin) { element('module-organization-field').hidden = true; element('module-context-field').hidden = true; }
         element('administration-modules').hidden=!ui.allowed(state.me,'modulos.seleccionar'); element('administration-levels').hidden=!ui.allowed(state.me,'niveles.administrar'); element('administration-permissions').hidden=!ui.allowed(state.me,'permisos.administrar');
+        if (!state.me.is_superadmin && !state.election) element('administration-modules').hidden = true;
         if (!element('administration-modules').hidden) {
             state.organizations=await ui.pages('organizations','organizations'); state.organizations.forEach(organization => ui.option(element('module-organization'),organization.id,organization.organization,organization.organization === state.election?.organization)); await modules(); previousOrganization = element('module-organization').value;
         }
@@ -76,7 +88,7 @@ function InitializeValues(url) {
         const activate = visual.tabs(element('administration-tabs'));
         ['modules','levels','permissions'].forEach(key => element('administration-tab-' + key).hidden = !ui.allowed(state.me,{modules:'modulos.seleccionar',levels:'niveles.administrar',permissions:'permisos.administrar'}[key]));
         const initial = element('administration-tabs').querySelector('button:not([hidden])'); if (initial) activate(initial);
-        if (!state.election) { ui.message('Selecciona una elección de trabajo para configurar niveles y permisos electorales.'); return; }
+        if (!state.election) { ui.state('Selecciona una elección de trabajo para configurar niveles y permisos electorales.'); return; }
         if (ui.allowed(state.me,'niveles.administrar')) await ui.run(levels);
         if (ui.allowed(state.me,'permisos.administrar')) {
             await roles(); const catalog=(await ui.request('permissions')).data; state.permissions = catalog.permissions; permissionOptions();
@@ -86,8 +98,8 @@ function InitializeValues(url) {
         }
     }
     let previousOrganization; let previousContext = 'election';
-    function switchModules() {
-        if (state.changes.size && !window.confirm('Hay cambios sin guardar. ¿Quieres descartarlos y cambiar de ámbito?')) { element('module-organization').value = previousOrganization; element('module-context').value = previousContext; return; }
+    async function switchModules() {
+        if (state.changes.size && !await window.SicratFeedback.confirm('Hay cambios sin guardar. ¿Quieres descartarlos y cambiar de ámbito?',{confirm:'Descartar cambios'})) { element('module-organization').value = previousOrganization; element('module-context').value = previousContext; return; }
         previousOrganization = element('module-organization').value; previousContext = element('module-context').value; ui.run(modules);
     }
     element('module-organization').addEventListener('change',switchModules); element('module-context').addEventListener('change',switchModules);
@@ -96,7 +108,7 @@ function InitializeValues(url) {
     submit('structure-config-form',async values => { await ui.request('structure-config','PUT',{auto_promote:values.has('auto_promote') ? 1 : 0,approval_required:values.has('approval_required') ? 1 : 0,approver:values.get('approver') || null}); ui.message('Reglas guardadas.'); });
     submit('role-form',async values => { await ui.request('roles','POST',Object.fromEntries(values)); await roles(); ui.message('Rol creado.'); });
     function permissionPath(values) { return values.get('target') === 'role' ? `roles/${values.get('role')}/permissions` : `users/${values.get('user')}/permissions`; }
-    submit('permission-form',async values => { const data=Object.fromEntries(values); if (data.context !== 'global') data.election=state.election.id; await ui.request(permissionPath(values),'PUT',data); ui.message('Permiso guardado. Las revocaciones individuales prevalecen.'); await inspectPermissions(); });
+    submit('permission-form',async values => { const data=Object.fromEntries(values); if (data.value === '0' && !await window.SicratFeedback.confirm('¿Revocar este permiso en el ámbito seleccionado?',{confirm:'Revocar permiso'})) return; if (data.context !== 'global') data.election=state.election.id; await ui.request(permissionPath(values),'PUT',data); ui.message(data.value === '0' ? 'Permiso revocado correctamente.' : 'Permiso agregado correctamente.'); await inspectPermissions(); });
     let configured = [];
     function permissionOptions() {
         const fields = form('permission-form'); const previous = fields.permission.value; fields.permission.replaceChildren();

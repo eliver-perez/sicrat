@@ -58,6 +58,6 @@ function Authenticate() {
 			});
 		}
 	} catch(E) {
-		alert(E.message);
+		ShowToastMessage(E.message || 'No fue posible iniciar sesión.', 'error');
 	}
 }

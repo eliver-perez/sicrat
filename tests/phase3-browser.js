@@ -32,8 +32,9 @@ async function main() {
         if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
         return result.result.value;
     }
-    async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate(expression)) return; await pause(100); } throw new Error('La interfaz no completó: ' + expression); }
+    async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if (process.argv.includes('--only-phase7')) { checks+=await require('./phase7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 7 sin excepciones JavaScript.');return; }
     if (process.argv.includes('--only-phase6')) { checks+=await require('./phase6-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 6 sin excepciones JavaScript.');return; }
     if (process.argv.includes('--only-phase5')) { checks+=await require('./phase5-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 5 sin excepciones JavaScript.');return; }
     await navigate('/autenticacion/');
@@ -84,7 +85,8 @@ async function main() {
         await evaluate('document.getElementById("file-form").requestSubmit()');
         await waitFor('document.querySelector("#file-result img")?.complete && document.querySelector("#file-result img")?.naturalWidth > 0'); checks++;
         assert.equal(await evaluate('document.querySelector("#file-result img").naturalWidth'),320); checks++;
-        assert.equal(await evaluate('document.getElementById("services-message").textContent'),'Archivo procesado y guardado.'); checks++;
+        assert.equal(await evaluate('document.querySelector(".swal2-title")?.textContent'),'Archivo procesado y guardado.'); checks++;
+        assert.equal(await evaluate('document.getElementById("services-message").textContent'),''); checks++;
         const servicesScreenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}); fs.writeFileSync(path.join(directory,'phase4-services.png'),Buffer.from(servicesScreenshot.data,'base64'),{mode:0o600});
         await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const result=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({username:'fase4-admin-cliente',password:'Fase4 cliente seguro'})}); if (result.status!==200) throw new Error('Login cliente Fase 4 falló'); })()`);
         await navigate('/services/'); await waitFor('document.getElementById("notifications-list").textContent.includes("Aviso Fase 4")'); checks++;
@@ -93,6 +95,7 @@ async function main() {
     if (process.argv.includes('--ux')) checks += await require('./ux-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     if (process.argv.includes('--phase5')) checks += await require('./phase5-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     if (process.argv.includes('--phase6')) checks += await require('./phase6-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
+    if(process.argv.includes('--phase7')) checks+=await require('./phase7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     assert.deepEqual(failures,[]); checks++;
     console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
 }

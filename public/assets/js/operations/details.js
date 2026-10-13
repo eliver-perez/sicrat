@@ -26,7 +26,7 @@
 			}));
 		});await pager.load();
 		if(app.can('tareas.editar'))app.form(actions,'Editar tarea',form=>{app.field(form,'title','Título','text',row.titulo,true);app.field(form,'description','Descripción','textarea',row.descripcion);app.field(form,'deadline','Fecha límite','datetime-local',row.fecha_limite?.replace(' ','T') || '');},async data=>{await app.api('operations/tareas/'+row.uuid,'PUT',{...data,version:row.version});await app.open(row.uuid);});
-		if(app.can('tareas.editar') && row.estado!=='cancelada')actions.append(app.button('Cancelar tarea',async()=>{if(!confirm('¿Cancelar esta tarea conservando su historial?'))return;await app.api('operations/tareas/'+row.uuid,'PUT',{state:'cancelada',version:row.version});await app.open(row.uuid);}));
+		if(app.can('tareas.editar') && row.estado!=='cancelada')actions.append(app.button('Cancelar tarea',async()=>{if(!await window.SicratFeedback.confirm('¿Cancelar esta tarea conservando su historial?',{confirm:'Cancelar tarea'}))return;await app.api('operations/tareas/'+row.uuid,'PUT',{state:'cancelada',version:row.version});await app.open(row.uuid);app.notice('Tarea cancelada.');}));
 	};
 	definitions.metas.detail=async(app,row,summary,actions)=>{
 		app.description(summary,{'Meta':row.titulo,'Indicador':row.indicator_label,'Origen':row.origin_label,'Inicio':row.fecha_inicio,'Fin':row.fecha_fin,'Progreso':row.progress+' / '+row.cantidad,'Estado':app.label(row.estado)});

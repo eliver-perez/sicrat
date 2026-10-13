@@ -48,6 +48,7 @@ class CommonServicesController extends Controller
 	{
 		[$organization,$process]=$this->context($request);
 		$entity=Values::text($request->input('entity'),80); $record=$request->input('record');
+		if(in_array($entity,['jornada_borradores','jornada_partidos','jornada_candidaturas'],true) && is_string($record) && !ctype_digit($record)) $record=$this->repository->one("SELECT id FROM $entity WHERE uuid=?",[Values::binary($record)])['id'] ?? throw new HttpError('Recurso electoral no disponible.',404);
 		if ($entity==='personas' && is_string($record) && !ctype_digit($record)) $record=$this->repository->one('SELECT id FROM personas WHERE uuid=?',[Values::binary($record)])['id'] ?? throw new HttpError('Persona no disponible.',404);
 		elseif (is_string($record) && !ctype_digit($record) && (isset(\App\Services\Operations\Catalog::ENTITIES[$entity]) || $entity==='mensajes')) {
 			$record=$this->repository->one("SELECT id FROM $entity WHERE uuid=?",[Values::binary($record)])['id'] ?? throw new HttpError('Recurso no disponible.',404);

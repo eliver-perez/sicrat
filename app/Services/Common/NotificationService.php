@@ -112,6 +112,7 @@ class NotificationService
 				if (!$config || !(int) $config[$delivery['canal'].'_habilitado'] || $this->contact((int) $delivery['persona'],$delivery['canal'],(int) $delivery['organizacion'])!==$delivery['destinatario']) throw new ServiceFailure('El canal o consentimiento cambió antes del envío.',false);
 				if ($delivery['canal']==='whatsapp' && !in_array($delivery['plantilla'],explode(',',(string) env('WHATSAPP_OPERATIONAL_TEMPLATES','')),true)) throw new ServiceFailure('La plantilla operativa dejó de estar autorizada.',false);
 				$delivery['contenido']=json_decode($delivery['contenido'],true,512,JSON_THROW_ON_ERROR);
+				(new \App\Services\Jornada\Notifications($this->repository))->authorizeDelivery($id);
 				$actualProvider=$provider ?? ($delivery['canal']==='email' ? new SmtpProvider() : new WhatsAppProvider());
 				$actualProvider->assertReady();
 				$this->repository->execute("UPDATE notificaciones_envios SET estado='enviando',intentos=intentos+1,error=NULL WHERE id=?",[$id]);

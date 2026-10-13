@@ -122,7 +122,12 @@ class FileService
 		$this->owners->authorize($row['entidad'],(int) $row['entidad_id'],(int) $row['organizacion'],$process,'write',$actor);
 		$this->owners->authorize($row['entidad'],(int) $row['entidad_id'],(int) $row['organizacion'],$process,'write',$actor,'archivos.eliminar');
 		if ($row['entidad']==='personas') (new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson((int) $row['entidad_id'],'archivos.eliminar',$process);
-		$this->repository->transaction(function () use ($row,$process) {
+		$this->repository->transaction(function () use ($row,$process,$actor) {
+			$this->owners->lock($row['entidad'],(int)$row['entidad_id']);
+			$current=$this->repository->one('SELECT estado FROM archivos WHERE id=? FOR UPDATE',[$row['id']]);
+			if(($current['estado'] ?? null)!=='activo') throw new HttpError('El archivo ya fue retirado.',409);
+			(new Access($this->repository))->context((int)$row['organizacion'],$process,'archivos.eliminar',$actor);
+			$this->owners->authorize($row['entidad'],(int)$row['entidad_id'],(int)$row['organizacion'],$process,'write',$actor,'archivos.eliminar');
 			$this->repository->execute("UPDATE archivos SET estado='eliminado' WHERE id=?",[$row['id']]);
 			(new AuditService($this->repository))->record((int) $row['organizacion'],$process,'baja','archivos',(int) $row['id'],['estado'=>'activo'],['estado'=>'eliminado']);
 		});

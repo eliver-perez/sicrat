@@ -3,7 +3,8 @@
 window.SicratResources=Object.create(window.SicratOperations);
 Object.assign(window.SicratResources,{
 	module:'finanzas',entity:'resumen',enabled:false,filters:{},
-	notice(message) {
+	notice(message, type = 'success') {
+		if (window.SicratFeedback) { window.SicratFeedback.toast(message,/exportación|en cola|programad/i.test(message) ? 'info' : type); return; }
 		this.node('resources-message').textContent=message;
 		const dialog=document.activeElement?.closest('dialog[open]') || Array.from(document.querySelectorAll('dialog[open]')).at(-1);
 		if(dialog) { let status=dialog.querySelector('[data-resource-message]');
@@ -59,10 +60,11 @@ Object.assign(window.SicratResources,{
 			}
 		const key=crypto.randomUUID();
 		form.addEventListener('submit',this.guard(async()=>{const values={...this.values(form),idempotencia:key,...(dto ? dto(form) : {})};
+			if ((/cancelar|revertir|rechazar|eliminar|revocar|restaurar/i.test(submitLabel) || String(values.approved)==='0') && !await window.SicratFeedback.confirm(title,{confirm:String(values.approved)==='0' ? 'Rechazar' : submitLabel})) return;
 			await submit(values);
 			dialog.close();
 			await this.refresh();
-			this.notice('Operación registrada.');
+			if (!/export/i.test(submitLabel)) this.notice('Operación registrada.');
 			}));
 	},
 	async refresh() { if(this.list)await this.list.reset();

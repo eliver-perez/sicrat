@@ -9,9 +9,9 @@
     <?php endforeach; ?>
 </nav>
 <section id="administration-modules" role="tabpanel" aria-labelledby="administration-tab-modules" class="card p-5 mb-5">
-    <h6>Módulos de la organización</h6>
-    <p class="ux-help">El Super Administrador autoriza los módulos. Cada administrador elige cuáles utilizar dentro de esa autorización.</p>
-    <div class="ux-form-grid mb-4"><label>Organización<select id="module-organization" class="form-input"></select></label><label>Aplicar a<select id="module-context" class="form-input"><option value="election">Elección de trabajo</option><option value="organization">Toda la organización</option></select></label></div>
+    <h6 id="module-heading">Módulos</h6>
+    <p id="module-description" class="ux-help"></p>
+    <div class="ux-form-grid mb-4"><label id="module-organization-field">Organización<select id="module-organization" class="form-input"></select></label><label id="module-context-field">Aplicar a<select id="module-context" class="form-input"><option value="election">Elección de trabajo</option><option value="organization">Toda la organización</option></select></label></div>
     <h6>Funciones esenciales</h6><div id="module-essential" class="ux-essential"></div>
     <h6>Módulos opcionales</h6><div id="module-list" class="ux-module-grid my-3"></div>
     <div class="ux-actions"><button id="module-save" type="button" class="btn bg-primary text-white" disabled>Guardar cambios</button><span id="module-save-status" role="status">Sin cambios pendientes</span></div>

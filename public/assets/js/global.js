@@ -24,7 +24,7 @@ function CerrarSesion(base_url = null) {
                 console.log('ERROR:', errorThrown);
                 console.log('RESPONSE TEXT:', XMLHttpRequest.responseText);
 
-                alert(XMLHttpRequest.responseText);
+                ShowToastMessage(XMLHttpRequest.responseJSON?.message || 'No fue posible cerrar la sesión.', XMLHttpRequest.status === 403 ? 'warning' : 'error');
             }  
     });
 }

@@ -75,10 +75,10 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
     await waitFor('document.getElementById("module-save-status").textContent.includes("Error:")');
     verify(await evaluate('!document.getElementById("module-save").disabled'),'Guardar módulos permite reintentar un fallo visible');
     await evaluate('window.SicratPhase3.request=window.uxOriginalRequest; document.getElementById("module-save").click()');
-    await waitFor('document.getElementById("module-save-status").textContent==="Cambios guardados"');
+    await waitFor('document.getElementById("module-save-status").textContent==="Sin cambios pendientes" && document.querySelector(".swal2-title")?.textContent==="Módulos actualizados correctamente."');
     verify(await evaluate(`Array.from(document.querySelectorAll('#module-list > div')).find(item=>item.querySelector('h6').textContent==='Estructura organizacional').querySelectorAll('input')[1].checked !== window.uxInitialModule`),'Módulo guardado y leído desde API con CSRF');
     await evaluate(`(() => { const row=Array.from(document.querySelectorAll('#module-list > div')).find(item=>item.querySelector('h6').textContent==='Estructura organizacional'); row.querySelectorAll('input')[1].click(); document.getElementById('module-save').click(); })()`);
-    await waitFor('document.getElementById("module-save-status").textContent==="Cambios guardados"');
+    await waitFor('document.getElementById("module-save-status").textContent==="Sin cambios pendientes" && document.querySelector(".swal2-title")?.textContent==="Módulos actualizados correctamente."');
     verify(await evaluate(`Array.from(document.querySelectorAll('#module-list > div')).find(item=>item.querySelector('h6').textContent==='Estructura organizacional').querySelectorAll('input')[1].checked === window.uxInitialModule`),'Estado inicial del módulo recuperado en el ensayo');
     await tab('administration','permissions');
     await waitFor('document.getElementById("permission-form").elements.permission.options.length > 1');
@@ -190,6 +190,33 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
     await waitFor('document.getElementById("notifications-list").textContent.includes("Aviso Fase 4")');
     verify(await evaluate('!document.getElementById("services-tab-audit").hidden && document.getElementById("services-tab-backups").hidden'),'Navegación según permisos del administrador cliente');
     await capture('client-services-mobile');
+    await navigate('/administration/');
+    await waitFor('document.getElementById("module-description")?.textContent.includes("Selecciona los módulos")');
+    verify(await evaluate(`(async()=>{const me=(await SicratPhase3.request('auth/me')).data; const election=(await SicratPhase3.pages('auth/elections','electoral_processes')).find(row=>row.selected);const org=(await SicratPhase3.pages('organizations','organizations'))[0];const modules=(await SicratPhase3.request('organizations/'+org.id+'/modules?election='+election.id)).data;return document.querySelectorAll('#module-list > div').length===modules.filter(row=>!Number(row.esencial)&&Number(row.autorizacion_organizacion)&&Number(row.autorizacion_eleccion)).length;})()`),'Administrador cliente sólo ve tarjetas autorizadas');
+    verify(await evaluate(`!document.getElementById('module-list').textContent.includes('Autorizado') && Array.from(document.querySelectorAll('#module-list label')).every(label=>label.textContent==='Utilizar en esta elección')`),'Cliente sólo decide utilizar los módulos');
+    for (const [width,height] of [[1600,1000],[390,844]]) {
+        await size(width,height);
+        for (const type of ['success','warning','error','info']) {
+            await evaluate(`ShowToastMessage('Prueba visual ${type}',${JSON.stringify(type)}); void 0`);
+            await waitFor(`document.querySelector('.swal2-toast .swal2-icon')?.classList.contains('swal2-${type}')`);
+            verify(await evaluate(`document.querySelector('.swal2-title')?.textContent==='Prueba visual ${type}'`),'Toast '+type+' en '+width);
+            verify(await evaluate('!document.getElementById("phase3-message").textContent'),'Resultado breve no ocupa la pantalla');
+        }
+        await evaluate(`Swal.close(); window.uxDecision=null; SicratFeedback.confirm('¿Cerrar Jornada Electoral?',{confirm:'Cerrar jornada'}).then(result=>window.uxDecision=result);void 0`);
+        await waitFor('document.querySelector(".swal2-cancel")');
+        await evaluate('document.querySelector(".swal2-cancel").click()');
+        await waitFor('window.uxDecision===false'); verify(true,'Cancelar confirmación conserva operación');
+        await evaluate(`SicratFeedback.confirm('¿Cerrar Jornada Electoral?',{confirm:'Cerrar jornada'}).then(result=>window.uxDecision=result);void 0`);
+        await waitFor('document.querySelector(".swal2-confirm")');
+        await evaluate('document.querySelector(".swal2-confirm").click()');
+        await waitFor('window.uxDecision===true'); verify(true,'Aceptar confirmación explícita');
+    }
+    await evaluate(`(()=>{window.uxCalls=0; const form=document.createElement('form');form.id='ux-busy-test';const button=document.createElement('button');button.textContent='Guardar';form.append(button);document.querySelector('main').append(form);form.addEventListener('submit',SicratFeedback.guard(async()=>{window.uxCalls++;await new Promise(resolve=>window.uxRelease=resolve);}));form.requestSubmit();form.requestSubmit();})()`);
+    verify(await evaluate(`window.uxCalls===1 && document.querySelector('#ux-busy-test button').disabled && document.querySelector('#ux-busy-test button').textContent==='Guardando…'`),'Formulario bloquea doble envío en Chrome');
+    await evaluate('window.uxRelease()');
+    await waitFor('!document.querySelector("#ux-busy-test button").disabled');
+    verify(await evaluate(`document.querySelector('#ux-busy-test button').textContent==='Guardar'`),'Formulario recupera control al terminar');
+    await evaluate('document.getElementById("ux-busy-test").remove()');
     await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:'{}'}); })()`);
     await navigate('/autenticacion/'); await capture('login-mobile'); await size(1600,1000); await capture('login-wide');
     verify(await evaluate('document.documentElement.lang==="es" && !!document.querySelector("label[for=field-password]")'),'Autenticación conserva controles con etiqueta y español');

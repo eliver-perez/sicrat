@@ -161,6 +161,21 @@
                             foreach ($resourceNavigation as [$code,$name,$icon]) { ?>
                         <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/resources/?module='.$code)); ?>"><span class="menu-icon"><i data-lucide="<?= escape_html($icon); ?>"></i></span><div class="menu-text"><?= escape_html($name); ?></div></a></li>
                         <?php }
+                            $jornadaVisible=false;$jornadaHistorical=false;
+                            if (\App\Core\Auth::processId() && $session->verifyUserRights(['resultados.ver','resultados.capturar','resultados.validar','jornada.configurar','jornada.asignar_capturistas'])) {
+                                try {
+                                    $jornadaQuery=new \App\Services\Jornada\Queries(new \App\Repositories\CommonRepository($resourceDb));
+                                    $jornadaVisible=$jornadaQuery->context->enabled();
+                                    if (!$jornadaVisible) {
+                                        [$where,$params]=$jornadaQuery->context->predicate($jornadaQuery->permission());
+                                        $statement=$resourceDb->prepare('SELECT jc.id FROM jornada_casillas jc JOIN jornada_resultados r ON r.casilla=jc.id WHERE ('.$where.') AND r.consecutivo>0 LIMIT 1');$statement->execute($params);
+                                        $jornadaVisible=$jornadaHistorical=$statement->fetchColumn()!==false;
+                                    }
+                                } catch (\App\Core\HttpError) { }
+                            }
+                            if ($jornadaVisible) { ?>
+                        <li class="menu-item"><a class="menu-link" href="<?= escape_html(base_url('/jornada')); ?>"><span class="menu-icon"><i data-lucide="vote"></i></span><div class="menu-text">Jornada Electoral<?= $jornadaHistorical ? ' · Historial' : ''; ?></div></a></li>
+                        <?php }
                             $operationNavigation=[];
                             if (\App\Core\Auth::processId()) {
                                 $moduleRepository=new \App\Repositories\ModuleRepository((new \App\Core\Database())->getConnection());

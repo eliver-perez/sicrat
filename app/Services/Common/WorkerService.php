@@ -13,6 +13,7 @@ class WorkerService
 	{
 		$this->register('notificacion',fn ($payload)=>(new NotificationService($repository))->deliver($payload['envio_id']));
 		$this->register('exportacion',fn ($payload)=>(new ExportService($repository))->generate((int) $payload['exportacion_id']));
+		$this->register('jornada_resumen',fn($payload)=>(new \App\Services\Jornada\Notifications($repository))->prepare((int)$payload['aviso'],(int)$payload['slot']));
 		$this->register('respaldo',fn ($payload)=>(new BackupService($repository))->perform($payload['respaldo_id']));
 		$this->register('restauracion',fn ($payload)=>(new RestoreService($repository))->perform($payload['restauracion_id']));
 		$this->register('verificar_respaldo',fn ($payload,$job)=>(new BackupService($repository))->verify($payload['respaldo_id'],(int) $job['usuario']));

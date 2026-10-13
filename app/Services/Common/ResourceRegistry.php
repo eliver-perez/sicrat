@@ -32,6 +32,7 @@ class ResourceRegistry
 		});
 		\App\Services\Operations\Resources::register($this,$repository);
 		\App\Services\Resources\Resources::register($this,$repository);
+		\App\Services\Jornada\Resources::register($this,$repository);
 	}
 	public function register(string $entity, callable $authorize,?callable $listingPredicate = null): void
 	{

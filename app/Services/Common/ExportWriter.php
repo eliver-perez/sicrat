@@ -16,6 +16,7 @@ class ExportWriter
 	}
 	public function write(string $format,string $path,array $descriptor,iterable $rows,array $context): void
 	{
+		if(isset($descriptor['writer'])) { ($descriptor['writer'])($format,$path,$descriptor,$rows,$context); return; }
 		if ($format==='pdf') { (new PdfService())->table($path,$descriptor['title'],$descriptor['columns'],$rows,$context); return; }
 		if ($format==='xlsx') {
 			$writer=new Writer(); $writer->openToFile($path);

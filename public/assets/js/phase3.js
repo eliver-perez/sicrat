@@ -1,6 +1,10 @@
 window.SicratPhase3 = {
     base: '',
-    message(text) {
+    message(text, type = 'success') {
+        if (window.SicratFeedback) { window.SicratFeedback.toast(text,type); return; }
+        this.state(text);
+    },
+    state(text) {
         const element = document.getElementById('phase3-message'); if (element) element.textContent = text;
         const dialog = document.querySelector('dialog[open]');
         if (dialog) {
@@ -16,7 +20,7 @@ window.SicratPhase3 = {
         if (method !== 'GET') { headers['Content-Type'] = 'application/json'; headers['X-CSRF-Token'] = document.querySelector('meta[name="csrf-token"]').content; }
         const response = await fetch(target.href, {method, headers, credentials: 'same-origin', body: data === null ? undefined : JSON.stringify(data)});
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || 'No se pudo completar la operación.');
+        if (!response.ok) { const error = new Error(result.message || 'No se pudo completar la operación.'); error.status = response.status; throw error; }
         return result;
     },
     async pages(path, key = null) {
@@ -35,7 +39,10 @@ window.SicratPhase3 = {
         wrapper.append(field,document.createTextNode(` ${label}`)); container.append(wrapper);
     },
     selected(container) { return Array.from(container.querySelectorAll('input:checked')).map(input => input.value); },
-    async run(work) { try { await work(); } catch (error) { this.message(error.message); } },
+    async run(work, control = null) {
+        try { return window.SicratFeedback ? await window.SicratFeedback.execute(control,work) : await work(); }
+        catch (error) { if (window.SicratFeedback) window.SicratFeedback.error(error); else this.message(error.message,'error'); }
+    },
     closeButtons() {
         document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
         document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close',() => dialog.querySelector('[data-phase3-message]')?.remove()));

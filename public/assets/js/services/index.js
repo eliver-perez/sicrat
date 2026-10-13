@@ -11,8 +11,8 @@ function InitializeValues(url) {
 	let context = {};
 	const node = id => document.getElementById(id);
 	const text = (tag, value) => { const element = document.createElement(tag); element.textContent = value == null ? '' : String(value); return element; };
-	const notice = value => { node('services-message').textContent = value; shared.message(value); };
-	const guarded = work => async event => { if (event) event.preventDefault(); try { await work(event); } catch (error) { notice(error.message); } };
+	const notice = value => shared.message(value,/exportación|en cola|programad|puesta en cola/i.test(value) ? 'info' : 'success');
+	const guarded = work => window.SicratFeedback ? window.SicratFeedback.guard(work) : async event => { if (event) event.preventDefault(); try { await work(event); } catch (error) { notice(error.message); } };
 	const fields = form => Object.fromEntries(new FormData(form).entries());
 	const action = (label, work) => { const button = text('button', label); button.type = 'button'; button.className = 'btn'; button.addEventListener('click', guarded(work)); return button; };
 	const table = (target, columns, rows, decorate) => {
@@ -56,7 +56,7 @@ function InitializeValues(url) {
 			if (name === 'approvals') cell.append(action('Consultar', async () => { const detail = await api.request('/api/approvals/' + row.uuid); visual.details(node('approval-detail'), {estado:visual.label(detail.estado),tipo:visual.label(detail.entidad),fecha:detail.fecha,pasos:detail.steps.map(step => ({paso:step.orden,estado:visual.label(step.estado),motivo:step.motivo,fecha:step.fecha}))}); const pending = detail.steps.find(step => step.estado === 'pendiente'); Array.from(node('approval-form').querySelectorAll('button[name=decision]')).forEach(button => button.disabled = detail.estado !== 'pendiente' || !(context.is_superadmin || (context.rights.includes('aprobaciones.resolver') && Number(pending?.aprobador) === Number(context.id)))); node('approval-form').elements.uuid.value = row.uuid; node('approval-dialog').showModal(); }));
 			if (name === 'exports' && row.estado === 'completada') { const link = text('a', 'Descargar'); link.href = applicationBase + '/api/exports/' + row.uuid + '/download'; link.className = 'btn'; cell.append(link); }
 			if (name === 'jobs' && (context.is_superadmin || (Number(row.own_job) && context.rights.includes('trabajos.administrar')))) {
-				if (['pendiente', 'reintento'].includes(row.estado)) cell.append(action('Cancelar', async () => { await api.request('/api/jobs/' + row.id + '/cancel', 'POST', {}); await refresh(name); }));
+				if (['pendiente', 'reintento'].includes(row.estado)) cell.append(action('Cancelar', async () => { if (!await window.SicratFeedback.confirm('¿Cancelar este trabajo pendiente?',{confirm:'Cancelar trabajo'})) return; await api.request('/api/jobs/' + row.id + '/cancel', 'POST', {}); await refresh(name); notice('Trabajo cancelado.'); }));
 				if (row.estado === 'fallido' && row.tipo !== 'restauracion') cell.append(action('Reintentar', async () => { await api.request('/api/jobs/' + row.id + '/retry', 'POST', {}); await refresh(name); }));
 			}
 			if (name === 'backups' && row.estado === 'completado') {
@@ -87,11 +87,11 @@ function InitializeValues(url) {
 		if (file.mime.startsWith('image/')) { const image = document.createElement('img'); image.src = applicationBase + '/media/' + file.uuid + '?size=thumb'; image.alt = 'Miniatura de la imagen procesada'; image.style.maxWidth = '320px'; target.append(image); }
 		notice('Archivo procesado y guardado.');
 	}));
-	node('approval-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); await api.request('/api/approvals/' + data.uuid, 'PUT', { reason: data.reason, approved: event.submitter.value }); node('approval-dialog').close(); await refresh('approvals'); }));
+	node('approval-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); if(event.submitter.value==='0' && !await window.SicratFeedback.confirm('¿Rechazar esta solicitud?',{confirm:'Rechazar solicitud'}))return; await api.request('/api/approvals/' + data.uuid, 'PUT', { reason: data.reason, approved: event.submitter.value }); node('approval-dialog').close(); await refresh('approvals'); }));
 	node('notification-config-form').addEventListener('submit', guarded(async event => { await api.request('/api/notification-config', 'PUT', { email: Number(event.target.elements.email.checked), whatsapp: Number(event.target.elements.whatsapp.checked) }); notice('Canales actualizados.'); }));
 	node('backup-form').addEventListener('submit', guarded(async event => { await api.request('/api/backups', 'POST', fields(event.target)); notice('Respaldo en cola.'); await refresh('backups'); }));
 	node('backup-policy-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); data.database_daily = Number(event.target.elements.database_daily.checked); data.incremental_daily = Number(event.target.elements.incremental_daily.checked); await api.request('/api/backup-policy', 'PUT', data); notice('Política guardada.'); }));
-	node('restore-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); await api.request('/api/backups/' + data.uuid + '/restore', 'POST', data); node('restore-dialog').close(); notice('Restauración confirmada y puesta en cola.'); await refresh('backups'); }));
+	node('restore-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); if (!await window.SicratFeedback.confirm('¿Programar la restauración en el destino revisado? Revisa la confirmación escrita antes de continuar.',{confirm:'Programar restauración'})) return; await api.request('/api/backups/' + data.uuid + '/restore', 'POST', data); node('restore-dialog').close(); notice('Restauración confirmada y puesta en cola. Puedes continuar trabajando.'); await refresh('backups'); }));
 	const optionOffsets = {user:0,organization:0,process:0,action:0,entity:0}; let auditSearchTimer; let auditRequest = 0;
 	async function auditOptions(kind, append = false) {
 		const form = node('audit-filter'); const selected = form.elements[kind].value;
@@ -150,5 +150,5 @@ function InitializeValues(url) {
 		Object.entries(permitted).forEach(([name,allowed]) => { node('services-tab-' + name).hidden = !allowed; });
 		const activate = visual.tabs(node('services-tabs'),button => guarded(() => load(button.dataset.service))());
 		await activate(node('services-tab-notifications'));
-	})().catch(error => notice(error.message));
+	})().catch(error => { node('services-message').textContent = error.message; if (window.SicratFeedback) window.SicratFeedback.error(error); });
 }

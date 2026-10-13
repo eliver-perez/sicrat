@@ -214,3 +214,27 @@ $router->get('/api/resources/{entity}/{id}',[$resources,'detail'],'resources.acc
 $router->put('/api/resources/{entity}/{id}',[$resources,'detail'],'resources.access');
 $router->get('/api/resources/{entity}',[$resources,'index'],'resources.access');
 $router->post('/api/resources/{entity}',[$resources,'index'],'resources.access');
+
+// Jornada Electoral: contexto de sesión, CSRF común y permisos/alcances específicos en los servicios.
+$jornada=\App\Controllers\JornadaController::class;
+$router->get('/api/jornada/capabilities',[$jornada,'capabilities']);
+$router->get('/api/jornada/accounts',[$jornada,'accounts']);
+$router->get('/api/jornada/territories',[$jornada,'territories']);
+$router->get('/api/jornada/configuration',[$jornada,'configuration']);
+$router->put('/api/jornada/configuration',[$jornada,'configuration']);
+$router->post('/api/jornada/catalogs/{entity}',[$jornada,'catalog']);
+$router->put('/api/jornada/catalogs/{entity}/{id}',[$jornada,'catalog']);
+$router->get('/api/jornada/physical-booths',[$jornada,'physical']);
+$router->get('/api/jornada/booths',[$jornada,'booths']);
+$router->post('/api/jornada/booths',[$jornada,'booths']);
+$router->get('/api/jornada/booths/{id}/history',[$jornada,'history']);
+$router->get('/api/jornada/booths/{id}',[$jornada,'booth']);
+$router->put('/api/jornada/assignments',[$jornada,'assignments']);
+$router->post('/api/jornada/state/{action}',[$jornada,'state']);
+$router->post('/api/jornada/drafts',[$jornada,'draft']);
+$router->post('/api/jornada/{action}',[$jornada,'capture']);
+$router->get('/api/jornada/versions/{id}',[$jornada,'version']);
+$router->put('/api/jornada/versions/{id}',[$jornada,'decide']);
+$router->get('/api/jornada/summary',[$jornada,'summary']);
+$router->get('/api/jornada/notifications',[$jornada,'notifications']);
+$router->put('/api/jornada/notifications',[$jornada,'notifications']);

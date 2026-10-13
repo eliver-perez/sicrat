@@ -1,4 +1,4 @@
-# Pruebas de Fases 1, 2, 3 y 4
+# Pruebas de SICRAT
 
 No requiere dependencias de desarrollo ni un framework de pruebas.
 
@@ -95,3 +95,20 @@ php tests/integration.php --phase6 --browser
 Chrome recorre Finanzas e Inventario a 1440/820/390 px, comprueba header/selector, tabs, filtros, formularios, modales y desbordamiento. Registra un gasto, pago y anticipo, comprueba rechazo por saldo, selecciona roles por nombre, resuelve una autorización con la cuenta asignada y consulta historial con el módulo deshabilitado. Conserva `phase6-*.png` en el directorio privado de la ejecución. `--phase6-browser-only` permite aislar el navegador nuevo para diagnóstico; la validación final utiliza la suite completa.
 
 `phase6-migrations.php` prepara estado post-Fase 5 y datos históricos, comprueba tablas coincidentes incompatibles, FKs/UUID únicos faltantes, integridad de contexto, preservación completa y reejecución. Los resultados, respaldo de la base local y límites del entorno objetivo figuran en `FASE6.md`.
+
+## Fase 7 — Jornada Electoral y resultados
+
+```sh
+node tests/feedback-frontend.js
+php tests/phase7-unit.php
+php tests/phase7-migrations.php
+php tests/integration.php --phase7 --browser
+```
+
+`--phase7` incluye completas las Fases 1–6 y UX. Verifica configuración, catálogos sin combinaciones automáticas, casillas físicas reutilizadas, asignaciones múltiples, ambas políticas iniciales, hora de captura, votos enteros estrictos, fotografías privadas, versiones inmutables, correcciones, decisiones obsoletas, cierre/reapertura, concentrados sin doble conteo, filtros, permisos y módulos. Genera los nueve informes en PDF/XLSX/CSV mediante servicios existentes. Los avisos externos usan exclusivamente un proveedor falso; no se envía correo ni WhatsApp real.
+
+`jornada-writer.php` exige una base desechable con el patrón de la suite. Varios procesos con conexiones independientes y barrera READY/GO prueban primeras capturas, validaciones, propuestas rivales, captura/corrección, correcciones pendientes y validadas, cierre, retiro de asignación, borrado de fotografía e idempotencia simultánea. Comprueba el único puntero vigente y la conservación de cada versión.
+
+`phase7-migrations.php` prepara estado post-Fase 6, tablas parciales, datos históricos y conflictos de columnas/FKs/unicidad/contextos/votos. Comprueba preservación y reejecución. `phase7-unit.php` no requiere BD: valida votos tipados y horarios IANA, incluidos intervalos inexistentes o ambiguos por cambios de horario.
+
+Chrome conserva toda la regresión anterior y añade Jornada a 1600/820/390 px: configuración protegida y preview, asignaciones, captura real, comparación de versiones, imagen privada, gráficos, filtros, nueve reportes, confirmación de cierre/reapertura y feedback de cola. Verifica Super Administrador/administrador de elección, tarjetas disponibles, cuatro tipos de toast y prevención de doble envío en la regresión UX. Las capturas `phase7-*.png` permanecen en el directorio privado temporal. `--phase7-browser-only` aísla el navegador nuevo para diagnóstico; la validación final usa la suite completa. Ver `FASE7.md` para resultados y límites de QA/producción.

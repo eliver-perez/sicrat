@@ -15,6 +15,7 @@ class SchedulerService
 		$now ??= new \DateTimeImmutable();
 		(new \App\Services\Operations\TaskService($this->repository))->schedule($now);
 		(new \App\Services\Resources\Alerts($this->repository))->schedule($now);
+		(new \App\Services\Jornada\Notifications($this->repository))->schedule($now);
 		$actor=$this->repository->one("SELECT u.id FROM usuarios u JOIN usuarios_tipos t ON t.id=u.tipo_usuario WHERE t.codigo='superadmin' AND u.activo=1 ORDER BY u.id LIMIT 1")['id'] ?? throw new ServiceFailure('No existe Super Administrador activo para programar respaldos.',false);
 		$policy=$this->repository->one('SELECT * FROM respaldos_politica WHERE id=1'); $day=$now->format('Y-m-d'); $scheduled=[];
 		(new QueueService($this->repository))->enqueue('mantenimiento',[],null,null,(int) $actor,'mantenimiento:'.$day,-10,10);

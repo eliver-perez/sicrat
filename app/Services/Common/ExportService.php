@@ -26,7 +26,7 @@ class ExportService
 		if (!in_array($format,['pdf','xlsx','csv'],true) && !($type==='paquete' && $format==='zip')) throw new \InvalidArgumentException('Formato de exportación no permitido.');
 		$actor=(new Access($this->repository))->actor();
 		$clean=['search'=>isset($filters['search']) ? Values::text($filters['search'],150,true) : '', 'section'=>empty($filters['section']) ? null : Values::integer($filters['section'])];
-		$clean=[...$clean,...\App\Services\Operations\Exports::filters($type,$filters),...\App\Services\Resources\Exports::filters($type,$filters)];
+		$clean=[...$clean,...\App\Services\Operations\Exports::filters($type,$filters),...\App\Services\Resources\Exports::filters($type,$filters),...\App\Services\Jornada\Exports::filters($type,$filters)];
 		$context=['organization'=>$organization,'process'=>$process,'actor'=>$actor,'filters'=>$clean];
 		$this->registry->authorize($context,'exportaciones.generar');
 		$types=$type==='paquete' ? $this->registry->packageTypes() : [$type];
@@ -52,7 +52,7 @@ class ExportService
 		$rows=(function () use ($type,$context,$hash) {
 			foreach ($this->registry->rows($type,$context) as $row) { hash_update($hash,(string) $row['source_id']."\n"); unset($row['source_id']); yield array_values($row); }
 		})();
-		(new ExportWriter())->write($format,$path,$this->registry->descriptor($type),$rows,['generator'=>$generator,'filters'=>array_filter($context['filters'],fn ($value,$key)=>!str_starts_with($key,'_'),ARRAY_FILTER_USE_BOTH)]);
+		(new ExportWriter())->write($format,$path,$this->registry->descriptor($type),$rows,[...$context,'generator'=>$generator,'filters'=>array_filter($context['filters'],fn ($value,$key)=>!str_starts_with($key,'_'),ARRAY_FILTER_USE_BOTH)]);
 		$signature=hash_final($hash);
 		if (!hash_equals($signature,$this->signature($type,$context))) throw new ServiceFailure('El alcance cambió durante la exportación.',false);
 		return $signature;
@@ -123,7 +123,7 @@ class ExportService
 	}
 	public function download(string $uuid): array
 	{
-		$row=$this->repository->one('SELECT id,archivo FROM exportaciones WHERE uuid=?',[Values::binary($uuid)]) ?? throw new HttpError('Exportación no disponible.',404);
+		$row=$this->repository->one("SELECT id,archivo FROM exportaciones WHERE uuid=? AND solicitante=? AND estado='completada' AND archivo IS NOT NULL AND expira_en>NOW()",[Values::binary($uuid),(new Access($this->repository))->actor()]) ?? throw new HttpError('Exportación no disponible.',404);
 		$file=$this->repository->one('SELECT uuid FROM archivos WHERE id=?',[$row['archivo']]);
 		return (new FileService($this->repository,$this->storage))->authorized(Values::uuidText($file['uuid']));
 	}
