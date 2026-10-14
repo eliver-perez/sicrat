@@ -197,7 +197,11 @@ class MessagingService extends BaseService
 			$where.=' AND (cu.activo=1 OR (r.creado_por=? AND ?=1))'; $params[]=$context['actor']; $params[]=$owner ? 1 : 0;
 		}
 		if (($filters['search'] ?? '')!=='') { $where.=' AND r.titulo LIKE ?'; $params[]='%'.Values::text($filters['search'],150).'%'; }
-		$result=$this->repository->page("SELECT r.id,r.uuid,r.titulo,r.estado,r.f_registro fecha,r.version,r.anuncios,r.estructura,cu.silenciada,cu.silenciada_hasta FROM conversaciones r LEFT JOIN conversaciones_usuarios cu ON cu.conversacion=r.id AND cu.usuario=? WHERE $where ORDER BY r.id DESC",[$context['actor'],...$params],$filters);
+		$result=$this->repository->page("SELECT r.id,r.uuid,r.titulo,r.estado,r.f_registro fecha,r.version,r.anuncios,r.estructura,cu.silenciada,cu.silenciada_hasta,
+            (SELECT IF(m.eliminado=1,'Mensaje moderado',m.mensaje) FROM mensajes m WHERE m.conversacion=r.id AND m.id>=COALESCE(cu.visible_desde_id,0) ORDER BY m.id DESC LIMIT 1) ultimo_mensaje,
+            (SELECT m.f_envio FROM mensajes m WHERE m.conversacion=r.id AND m.id>=COALESCE(cu.visible_desde_id,0) ORDER BY m.id DESC LIMIT 1) ultimo_envio,
+            (SELECT COUNT(*) FROM mensajes m JOIN mensajes_destinatarios d ON d.mensaje=m.id AND d.usuario=cu.usuario LEFT JOIN mensajes_lecturas l ON l.mensaje=m.id AND l.usuario=cu.usuario WHERE m.conversacion=r.id AND m.id>=COALESCE(cu.visible_desde_id,0) AND m.usuario<>cu.usuario AND l.mensaje IS NULL) no_leidos
+            FROM conversaciones r LEFT JOIN conversaciones_usuarios cu ON cu.conversacion=r.id AND cu.usuario=? WHERE $where ORDER BY r.id DESC",[$context['actor'],...$params],$filters);
 		foreach ($result['rows'] as &$row) $row['uuid']=Values::uuidText($row['uuid']); return $result;
 	}
 	public function members(string $uuid,array $filters): array

@@ -111,6 +111,7 @@
     <link rel="stylesheet" href="<?= escape_html(asset('css/platform.css')); ?>">
     <script src="<?= escape_html(asset('js/global.js')); ?>"></script>
     <script src="<?= escape_html(asset('js/ux.js')); ?>"></script>
+    <script src="<?= escape_html(asset('js/lucide-components.js')); ?>"></script>
 </head>
 
 <body>
@@ -164,6 +165,14 @@
                             </button>
                         </div>
             
+                        <div class="topbar-item hs-dropdown relative inline-flex" id="header-notifications">
+                            <button id="header-notification-toggle" type="button" class="hs-dropdown-toggle btn btn-icon size-8 hover:bg-default-150 rounded-full relative" aria-label="Notificaciones" aria-haspopup="menu" aria-expanded="false"><i data-lucide="bell-ring" class="size-4"></i><span id="header-notification-count" class="ux-header-count" hidden></span></button>
+                            <div class="hs-dropdown-menu ux-notification-dropdown p-0" role="menu"><div class="p-3 border-b border-default-200"><strong>Notificaciones</strong></div><div id="header-notification-list" class="ux-notification-list"><p class="p-3">Cargando notificaciones…</p></div><div class="p-3 border-t border-default-200"><a class="btn" href="<?= escape_html(base_url('/services/?tab=notifications')) ?>">Ver todas</a></div></div>
+                        </div>
+                        <?php
+                        $headerChat=false;
+                        if(\App\Core\Auth::processId() && $session->verifyUserRights(['mensajes.ver'])){try{(new \App\Repositories\ModuleRepository((new \App\Core\Database())->getConnection()))->require('mensajeria',\App\Core\Auth::processId());$headerChat=true;}catch(\App\Core\HttpError){}}
+                        if($headerChat){ ?><a id="header-chat" class="btn btn-icon size-8 hover:bg-default-150 rounded-full" aria-label="Mensajería" title="Mensajería" href="<?= escape_html(base_url('/operations/?module=conversaciones')) ?>"><i data-lucide="messages-square" class="size-4"></i></a><?php } ?>
                         <div class="topbar-item hs-dropdown relative inline-flex">
                             <button class="cursor-pointer bg-white-100 rounded-full" aria-haspopup="menu" aria-expanded="false" aria-label="Mi cuenta">
                                 <img src="<?= escape_html(asset('/images/logos/logo_fold.png')); ?>" alt="user-image" class="hs-dropdown-toggle rounded-full size-9.5">
@@ -191,10 +200,14 @@
                                 <div class="border-t border-t-default-200 -mx-2 my-2"></div>
             
                                 <div class="flex flex-col gap-y-1">
+                                    <a class="flex items-center gap-x-3 py-1.5 px-3 hover:bg-default-150 rounded" href="<?= escape_html(base_url('/profile/'.$_SESSION['SICRAT_UUID'])) ?>"><i data-lucide="user-round" class="size-4"></i>Mi perfil</a>
+                                    <a class="flex items-center gap-x-3 py-1.5 px-3 hover:bg-default-150 rounded" href="<?= escape_html(base_url('/services/?tab=notifications')) ?>"><i data-lucide="bell" class="size-4"></i>Notificaciones</a>
+                                    <?php if($headerChat){ ?><a class="flex items-center gap-x-3 py-1.5 px-3 hover:bg-default-150 rounded" href="<?= escape_html(base_url('/operations/?module=conversaciones')) ?>"><i data-lucide="messages-square" class="size-4"></i>Mensajería</a><?php } ?>
+                                    <a class="flex items-center gap-x-3 py-1.5 px-3 hover:bg-default-150 rounded" href="<?= escape_html(base_url('/profile/'.$_SESSION['SICRAT_UUID'].'#password')) ?>"><i data-lucide="key-round" class="size-4"></i>Cambiar contraseña</a>
             
                                     <a class="flex items-center gap-x-3.5 py-1.5 font-medium px-3 text-default-600 hover:bg-default-150 rounded" href="javascript:CerrarSesion();">
                                         <i data-lucide="log-out" class="size-4"></i>
-                                        Salir
+                                        Cerrar sesión
                                     </a>
                                 </div>
                             </div>

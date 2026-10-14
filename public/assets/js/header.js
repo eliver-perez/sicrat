@@ -1,0 +1,12 @@
+'use strict';
+
+window.SicratHeader={
+    initialize(base) {
+        const button=document.getElementById('header-notification-toggle');if(!button)return;
+        base=base.replace(/\/$/,'');const list=document.getElementById('header-notification-list'),badge=document.getElementById('header-notification-count');
+        const request=async(path,method='GET',data=null)=>{const response=await fetch(base+'/api/'+path,{method,credentials:'same-origin',headers:{Accept:'application/json',...(method==='GET' ? {} : {'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content})},body:data===null ? undefined : JSON.stringify(data)});const result=await response.json();if(!response.ok){const error=new Error(result.message || 'No fue posible cargar las notificaciones.');error.status=response.status;throw error;}return result.data;};
+        const refresh=async()=>{try{const [summary,recent]=await Promise.all([request('notifications/summary'),request('notifications?limit=6')]);badge.textContent=summary.unread>99 ? '99+' : String(summary.unread);badge.hidden=!summary.unread;button.setAttribute('aria-label','Notificaciones: '+summary.unread+' sin leer');list.replaceChildren();if(!recent.rows.length){const empty=document.createElement('p');empty.className='p-3';empty.textContent='No hay notificaciones recientes.';list.append(empty);}recent.rows.forEach(row=>{const item=document.createElement('button');item.type='button';item.className='ux-notification-item';const title=document.createElement('strong');title.textContent=row.titulo;const text=document.createElement('p');text.textContent=row.resumen;const status=document.createElement('p');status.textContent=(row.leida_en ? 'Leída' : 'Sin leer')+' · '+row.fecha;item.append(title,text,status);item.addEventListener('click',window.SicratFeedback.guard(async()=>{await request('notifications/read','POST',{ids:[row.uuid]});if(row.enlace){if(row.proceso_uuid && document.getElementById('electoral-context-select')?.value!==row.proceso_uuid)await request('auth/election','POST',{process:row.proceso_uuid});location.assign(base+row.enlace);}else await refresh();}));list.append(item);});}catch(error){badge.hidden=true;list.textContent='No fue posible cargar las notificaciones. Puedes consultarlas desde Servicios del sistema.';}};
+        button.addEventListener('click',refresh);refresh();
+        setInterval(()=>{if(!document.hidden)refresh();},60000);
+    }
+};

@@ -138,7 +138,9 @@ class PersonImportService extends Service
                 $normalized[$field]=$position;
             }
             if (!isset($normalized['name'])) throw new InvalidArgumentException('Asigna una columna al nombre.');
-            $this->repository->updateImport($id,['mapeo'=>json_encode($normalized,JSON_THROW_ON_ERROR),'detectar_duplicados'=>$this->normalizeStatus($data['detect_duplicates'] ?? 1),'estado'=>'revision']);
+            $mode=$data['mode'] ?? 'batches';
+            if (!in_array($mode,['batches','automatic'],true)) throw new InvalidArgumentException('Selecciona una modalidad de importación.');
+            $this->repository->updateImport($id,['mapeo'=>json_encode($normalized,JSON_THROW_ON_ERROR),'detectar_duplicados'=>$mode==='automatic' ? 1 : $this->normalizeStatus($data['detect_duplicates'] ?? 1),'modo'=>$mode,'estado'=>'revision']);
             return ['total'=>(int) $import['total']];
         } finally { $this->repository->release($id); }
     }
@@ -150,12 +152,18 @@ class PersonImportService extends Service
         try {
             $import = $this->repository->get($id);
             if (!in_array($import['estado'],['revision','revisado'],true)) throw new HttpError('Primero asigna las columnas.',409);
+            return $this->reviewBatch($id,$import,$after);
+        } finally { $this->repository->release($id); }
+    }
+
+    private function reviewBatch(string $id,array $import,int $after): array
+    {
             // La revisión secuencial permite encontrar coincidencias dentro del propio archivo.
             $next = $this->repository->firstPending($id);
             if ($next !== null && $after >= $next) throw new InvalidArgumentException('Revisa los lotes en orden.');
             $mapping = json_decode($import['mapeo'],true,512,JSON_THROW_ON_ERROR);
             $result = [];
-            foreach ($this->repository->rows($id,max(0,$after)) as $row) {
+            foreach ($this->repository->reviewRows($id,max(0,$after)) as $row) {
                 if ($row['estado'] !== 'pendiente') { $result[]=$this->previewRow($row); continue; }
                 $values = json_decode($row['datos'],true,512,JSON_THROW_ON_ERROR);
                 $data=[];
@@ -163,9 +171,17 @@ class PersonImportService extends Service
                 try {
                     $fields = $this->identity->normalize($data);
                     $inspection = $this->identity->inspect((int) $import['organizacion'],$fields,(bool) $import['detectar_duplicados']);
-                    $normalizedName = trim(implode(' ',array_filter([$fields['nombre'],$fields['paterno'],$fields['materno']])));
+                    $normalizedName = trim(implode(' ',array_filter([$fields['nombre'],$fields['paterno'],$fields['materno']],static fn($value)=>$value!==null && $value!=='')));
                     $fileMatches = $this->repository->fileMatches($id,(int) $row['fila'],[...$fields,'nombre_completo'=>$normalizedName],(bool) $import['detectar_duplicados']);
                     $inspection['file_matches']=$fileMatches;
+                    if ($import['modo']==='automatic') foreach ($fileMatches as $match) {
+                        $previous=$this->repository->rows($id,(int)$match['fila']-1,1)[0];
+                        if ($previous['estado']==='listo' && !$previous['decision']) {
+                            $review=json_decode($previous['revision'],true,512,JSON_THROW_ON_ERROR);
+                            $review['note']='Coincide con la fila '.(int)$row['fila'].' del mismo archivo. Revisa antes de crear.';
+                            $this->repository->updateRow($id,(int)$match['fila'],['estado'=>'decision','revision'=>json_encode($review,JSON_THROW_ON_ERROR)]);
+                        }
+                    }
                     foreach ($fileMatches as $match) {
                         foreach (['curp','clave_elector'] as $column) {
                             if (isset($fields[$column]) && $fields[$column] !== '' && mb_strtoupper((string) $match[$column]) === $fields[$column] && (int) $inspection['policy'][$column.'_unica'] === 1) $inspection['blocked']=true;
@@ -176,7 +192,8 @@ class PersonImportService extends Service
                         'revision'=>json_encode($inspection,JSON_THROW_ON_ERROR),'estado'=>$needsDecision ? 'decision' : 'listo'];
                     $this->repository->updateRow($id,(int) $row['fila'],$update);
                     $row=[...$row,...$update];
-                } catch (InvalidArgumentException $exception) {
+                } catch (InvalidArgumentException|HttpError $exception) {
+                    if ($exception instanceof HttpError && $exception->statusCode===403) throw $exception;
                     $update=['revision'=>json_encode(['error'=>$exception->getMessage()],JSON_THROW_ON_ERROR),'estado'=>'invalido'];
                     $this->repository->updateRow($id,(int) $row['fila'],$update); $row=[...$row,...$update];
                 }
@@ -184,8 +201,7 @@ class PersonImportService extends Service
             }
             $summary=$this->repository->summary($id);
             if ($summary['pendiente']===0) $this->repository->updateImport($id,['estado'=>'revisado']);
-            return ['rows'=>$result,'summary'=>$summary,'next_after'=>$result === [] ? $after : $result[array_key_last($result)]['row'],'review_complete'=>$summary['pendiente']===0,'planned'=>$this->repository->plannedSummary($id)];
-        } finally { $this->repository->release($id); }
+            return ['rows'=>$result,'summary'=>$summary,'next_after'=>$result === [] ? $after : $result[array_key_last($result)]['row'],'review_complete'=>$summary['pendiente']===0,'has_more_review'=>$result!==[] && $this->repository->reviewRows($id,$result[array_key_last($result)]['row'])!==[],'planned'=>$this->repository->plannedSummary($id)];
     }
 
     private function previewRow(array $row): array
@@ -280,6 +296,7 @@ class PersonImportService extends Service
                     $db->commit();
                 } catch (InvalidArgumentException|HttpError $exception) {
                     if ($db->inTransaction()) $db->rollBack();
+                    if ($exception instanceof HttpError && $exception->statusCode===403) throw $exception;
                     $state='rechazado'; $result=['message'=>$exception->getMessage()];
                     $this->repository->updateRow($id,(int) $row['fila'],['estado'=>$state,'resultado'=>json_encode($result,JSON_THROW_ON_ERROR)]);
                 } catch (\Throwable $exception) {
@@ -295,6 +312,52 @@ class PersonImportService extends Service
             if ($complete) $this->repository->updateImport($id,['estado'=>'terminado']);
             return ['rows'=>$results,'summary'=>$summary,'complete'=>$complete];
         } finally { if ($db->inTransaction()) $db->rollBack(); $this->repository->release($id); }
+    }
+
+    public function automatic(string $id): array
+    {
+        Authorization::requireOperation('persons.import');
+        $this->repository->acquire($id);
+        $db=$this->repository->connection();
+        try {
+            $import=$this->repository->get($id);
+            if ($import['modo']!=='automatic' || !in_array($import['estado'],['revision','revisado'],true)) throw new HttpError('La importación no está disponible para altas automáticas.',409);
+            $permissions=new \App\Repositories\PermissionRepository($db);
+            $permissions->require(\App\Core\Auth::id() ?? 0,'personas.crear',\App\Core\Auth::processId());
+            $view=$permissions->require(\App\Core\Auth::id() ?? 0,'personas.ver',\App\Core\Auth::processId());
+            if (!$view['super'] && !in_array('organizacion',$view['scopes']['personas.ver'],true)) throw new HttpError('Las altas automáticas requieren consultar el padrón de la organización para separar todas las coincidencias.',403);
+            $pending=$this->repository->firstPending($id);
+            if ($pending!==null) {
+                $review=$this->reviewBatch($id,$import,$pending-1);
+                return ['phase'=>'review','complete'=>false,'total'=>(int)$import['total'],'summary'=>$review['summary']];
+            }
+            // El archivo completo se revisa antes de crear: también se aparta la primera de las filas coincidentes.
+            $organization=$this->uuidBinaryToString($this->repository->organizationUuid((int)$import['organizacion']));
+            foreach ($this->repository->automaticRows($id) as $row) {
+                $db->beginTransaction();
+                try {
+                    $this->repository->get($id); // Revalida permiso efectivo y alcance, incluso entre lotes.
+                    $data=json_decode($row['normalizados'],true,512,JSON_THROW_ON_ERROR);
+                    // Reinspección bajo el bloqueo de identidad: una coincidencia sobrevenida jamás se confirma sola.
+                    $created=$this->identity->create([...$data,'organization'=>$organization],true);
+                    $changes=$created['created']
+                        ? ['estado'=>'nuevo','resultado'=>json_encode(['person'=>$created['uuid'],'code'=>$created['code']],JSON_THROW_ON_ERROR)]
+                        : ['estado'=>'decision','revision'=>json_encode([...$created,'file_matches'=>[]],JSON_THROW_ON_ERROR)];
+                    $this->repository->updateRow($id,(int)$row['fila'],$changes);
+                    $db->commit();
+                } catch (InvalidArgumentException|HttpError $error) {
+                    if ($db->inTransaction()) $db->rollBack();
+                    if ($error instanceof HttpError && $error->statusCode===403) throw $error;
+                    $this->repository->updateRow($id,(int)$row['fila'],['estado'=>'invalido','revision'=>json_encode(['error'=>$error->getMessage()],JSON_THROW_ON_ERROR)]);
+                } catch (\Throwable $error) {
+                    if ($db->inTransaction()) $db->rollBack();error_log((string)$error);
+                    $this->repository->updateRow($id,(int)$row['fila'],['estado'=>'error','revision'=>json_encode(['error'=>'No se pudo procesar esta fila. Revisa el resultado.'],JSON_THROW_ON_ERROR)]);
+                }
+            }
+            $summary=$this->repository->summary($id);
+            $complete=$summary['listo']===0;
+            return ['phase'=>'create','complete'=>$complete,'total'=>(int)$import['total'],'summary'=>$summary];
+        } finally {if($db->inTransaction())$db->rollBack();$this->repository->release($id);}
     }
 
     public function results(string $id, int $after): array
@@ -313,6 +376,6 @@ class PersonImportService extends Service
     {
         Authorization::requireOperation('persons.import');
         $import=$this->repository->get($id);
-        return ['id'=>$id,'state'=>$import['estado'],'total'=>(int) $import['total'],'summary'=>$this->repository->summary($id),'planned'=>$this->repository->plannedSummary($id)];
+        return ['id'=>$id,'state'=>$import['estado'],'total'=>(int) $import['total'],'mode'=>$import['modo'],'summary'=>$this->repository->summary($id),'planned'=>$this->repository->plannedSummary($id)];
     }
 }

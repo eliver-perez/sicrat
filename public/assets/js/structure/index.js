@@ -3,8 +3,8 @@ const structureState = {id: null, member: null, offset: 0, members: [], election
 function InitializeValues(url) {
     homeURL = url; const ui = window.SicratPhase3; ui.base = url; ui.closeButtons();
     const element = id => document.getElementById(id);
-    const action = (id, work) => element(id).addEventListener('click', () => ui.run(work));
-    const submit = (id, work) => element(id).addEventListener('submit', event => { event.preventDefault(); ui.run(() => work(new FormData(event.target))); });
+    const action = (id, work) => element(id).addEventListener('click', event => ui.run(work,event.currentTarget));
+    const submit = (id, work) => element(id).addEventListener('submit', event => { event.preventDefault();const values=new FormData(event.target); ui.run(() => work(values),event.currentTarget); });
     async function initialize() {
         structureState.me = (await ui.request('auth/me')).data;
         structureState.available = await ui.pages('auth/elections','electoral_processes');
@@ -61,7 +61,7 @@ function InitializeValues(url) {
         structureState.mode = mode; element('structure-container-form').reset(); element('structure-container-title').textContent = mode === 'clone' ? 'Clonar estructura completa' : mode === 'associate' ? 'Asociar elección' : 'Nueva estructura';
         element('structure-container-form').elements.name.hidden = mode === 'associate'; element('structure-container-form').elements.name.required = mode !== 'associate';
         element('structure-name-field').hidden = mode === 'associate';
-        const options = element('structure-election-options'); options.replaceChildren(); structureState.available.forEach(election => ui.checkbox(options,election.id,`${election.organization} · ${election.process}`,mode === 'create' && election.selected));
+        const options = element('structure-election-options');window.SicratUI.electionChoices(options,structureState.available.map(election=>({...election,name:election.organization+' · '+election.process})),mode==='create' ? structureState.available.filter(election=>election.selected).map(election=>election.id) : []);
         element('structure-container-dialog').showModal();
     }
     async function openMember(id) {
@@ -101,16 +101,19 @@ function InitializeValues(url) {
     });
     action('structure-add',async () => {
         if (!structureState.id) return; await allMembers(); element('structure-add-form').reset(); element('structure-person').replaceChildren(); ui.option(element('structure-person'),'','Selecciona persona existente o realiza alta rápida'); element('structure-duplicates').replaceChildren(); memberOptions(element('structure-add-form').elements.responsible); levelFields('structure-add-levels');
-        const choices = element('structure-participations'); choices.replaceChildren(); structureState.elections.forEach(election => ui.checkbox(choices,election.id,election.name)); element('structure-add-dialog').showModal();
+        const choices = element('structure-participations');window.SicratUI.electionChoices(choices,structureState.elections);element('structure-quick-person').open=false;personSelection();element('structure-add-dialog').showModal();
     });
-    action('structure-person-find',async () => { const data = (await ui.request(`persons?limit=100&search=${encodeURIComponent(element('structure-person-search').value)}`)).data; const select = element('structure-person'); select.replaceChildren(); ui.option(select,'','Alta rápida'); data.persons.forEach(person => ui.option(select,person.id,`${person.code} · ${person.name}`)); });
+    function personSelection() {const select=element('structure-person');const selected=Boolean(select.value);element('structure-person-search-box').hidden=selected;element('structure-person-selected').hidden=!selected;element('structure-quick-person').hidden=selected;element('structure-person-selected').querySelector('span').textContent=selected ? select.selectedOptions[0].textContent : '';}
+    element('structure-person').addEventListener('change',personSelection);
+    action('structure-person-change',()=>{element('structure-person').value='';personSelection();element('structure-person-search').focus();});
+    action('structure-person-find',async () => { const response=await ui.request(`persons?limit=25&search=${encodeURIComponent(element('structure-person-search').value)}`);const select=element('structure-person');select.replaceChildren();ui.option(select,'','Selecciona una persona');response.data.persons.forEach(person=>ui.option(select,person.id,`${person.code} · ${person.name}`));if(response.pagination.has_more)await window.SicratUI.entitySelector({title:'Seleccionar persona',selected:select.value,load:async(search,offset)=>{const result=await ui.request('persons?'+new URLSearchParams({search:search || element('structure-person-search').value,limit:25,offset}));return {rows:result.data.persons.map(person=>({value:person.id,label:person.code+' · '+person.name})),pagination:result.pagination};},choose:person=>{ui.option(select,person.value,person.label,true);select.dispatchEvent(new Event('change'));}}); });
     submit('structure-add-form',async form => {
         const newPerson = {name:form.get('new_name'),last_name:form.get('new_last_name'),phone:form.get('new_phone'),confirm_duplicate:form.get('confirm_duplicate') ? 1 : 0};
         if (!element('structure-person').value) {
             const organizations = await ui.pages('organizations','organizations'); const selected = organizations.find(organization => organization.organization === structureState.selected?.organization) || organizations[0];
             newPerson.organization = selected.id; const inspection = (await ui.request('persons/duplicates','POST',newPerson)).data;
             if (inspection.blocked || (inspection.matches.length && !newPerson.confirm_duplicate)) {
-                const matches = element('structure-duplicates'); matches.replaceChildren(ui.text('p','Revisa estas coincidencias antes de continuar:')); inspection.matches.forEach(person => { const button = ui.text('button',`${person.code} · ${person.name}`,'btn text-primary'); button.type='button'; button.addEventListener('click',() => { ui.option(element('structure-person'),person.id,person.name,true); }); matches.append(button); }); return;
+                const matches = element('structure-duplicates'); matches.replaceChildren(ui.text('p','Revisa estas coincidencias antes de continuar:')); inspection.matches.forEach(person => { const button = ui.text('button',`${person.code} · ${person.name}`,'btn text-primary'); button.type='button'; button.addEventListener('click',() => { ui.option(element('structure-person'),person.id,person.name,true);personSelection(); }); matches.append(button); }); return;
             }
         }
         await ui.request(`structures/${structureState.id}/members`,'POST',{person:element('structure-person').value || null,new_person:newPerson,responsible:form.get('responsible') || null,levels:selectedLevels('structure-add-levels'),participations:ui.selected(element('structure-participations'))});

@@ -65,7 +65,7 @@ function InitializeValues(url) {
     async function levels() {
         const rows = (await ui.request('structure-levels')).data; element('level-list').replaceChildren();
         rows.forEach(level => { const button = ui.text('button',`${level.order}. ${level.name} · ${level.active ? 'Activo' : 'Inactivo'}`,'btn block text-primary'); button.type='button'; button.addEventListener('click',() => { const fields=form('level-form'); fields.id.value=level.id; fields.name.value=level.name; fields.order.value=level.order; ['active','can_recruit','same_level'].forEach(key => fields[key].checked=Boolean(level[key])); }); element('level-list').append(button); });
-        const config=(await ui.request('structure-config')).data; ['auto_promote','approval_required'].forEach(key => form('structure-config-form')[key].checked=Boolean(config[key])); form('structure-config-form').approver.value=config.approver || '';
+        const config=(await ui.request('structure-config')).data; ['auto_promote','approval_required'].forEach(key => form('structure-config-form')[key].checked=Boolean(config[key])); const approver=form('structure-config-form').approver;if(config.approver && !Array.from(approver.options).some(option=>option.value===config.approver))ui.option(approver,config.approver,config.approver_name || 'Cuenta que autoriza las transferencias');approver.value=config.approver || '';
     }
     async function roles() {
         const rows=(await ui.request('roles')).data; form('permission-form').role.replaceChildren(); element('role-list').replaceChildren(); rows.forEach(role => { ui.option(form('permission-form').role,role.id,role.name); element('role-list').append(visual.badge(role.name)); });
@@ -83,13 +83,20 @@ function InitializeValues(url) {
             state.organizations=await ui.pages('organizations','organizations'); state.organizations.forEach(organization => ui.option(element('module-organization'),organization.id,organization.organization,organization.organization === state.election?.organization)); await modules(); previousOrganization = element('module-organization').value;
         }
         const canManageUsers=ui.allowed(state.me,'usuarios.administrar'); let users=[];
-        if (canManageUsers) users=await ui.pages('users','users');
-        [form('permission-form').user,form('territory-form').user,form('structure-config-form').approver].forEach(select => users.forEach(user => ui.option(select,user.id,`${user.username} · ${user.name}`)));
+        if (canManageUsers) users=(await ui.request('users?limit=25')).data.users;
+        [form('permission-form').user,form('territory-form').user,form('structure-config-form').approver].forEach(select => {
+            users.forEach(user => ui.option(select,user.id,`${user.username} · ${user.name}`));
+            if(!canManageUsers)return;const find=ui.text('button','Buscar cuenta','btn');find.type='button';find.className='btn ux-account-find';select.after(find);find.addEventListener('click',()=>ui.run(()=>visual.entitySelector({title:'Seleccionar cuenta',selected:select.value,load:async(search,offset)=>{const response=await ui.request('users?'+new URLSearchParams({search,offset,limit:25}));return {rows:response.data.users.map(user=>({value:user.id,label:user.username+' · '+user.name})),pagination:response.pagination};},choose:user=>{if(!Array.from(select.options).some(option=>option.value===user.value))ui.option(select,user.value,user.label);select.value=user.value;select.dispatchEvent(new Event('change'));}}),find));
+        });
         const activate = visual.tabs(element('administration-tabs'));
         ['modules','levels','permissions'].forEach(key => element('administration-tab-' + key).hidden = !ui.allowed(state.me,{modules:'modulos.seleccionar',levels:'niveles.administrar',permissions:'permisos.administrar'}[key]));
         const initial = element('administration-tabs').querySelector('button:not([hidden])'); if (initial) activate(initial);
         if (!state.election) { ui.state('Selecciona una elección de trabajo para configurar niveles y permisos electorales.'); return; }
-        if (ui.allowed(state.me,'niveles.administrar')) await ui.run(levels);
+        if (ui.allowed(state.me,'niveles.administrar')) {
+            const capabilities=(await ui.request('operations/capabilities')).data;
+            if(capabilities.modules.some(module=>module.code==='estructura' && module.enabled))await levels();
+            else {element('level-list').textContent='Habilita Estructura organizacional para configurar sus niveles y reglas.';element('level-form').hidden=true;element('structure-config-form').hidden=true;}
+        }
         if (ui.allowed(state.me,'permisos.administrar')) {
             await roles(); const catalog=(await ui.request('permissions')).data; state.permissions = catalog.permissions; permissionOptions();
             const names={propio:'Información propia',directos:'Equipo directo',descendientes:'Equipo a cargo completo',territorio:'Territorio autorizado',eleccion:'Toda la elección',organizacion:'Toda la organización'}; catalog.scopes.forEach(scope => ui.option(form('permission-form').scope,scope,names[scope]));
@@ -142,10 +149,17 @@ function InitializeValues(url) {
         }); target.append(table);
     }
     async function inspectPermissions() {
-        const values = new FormData(element('permission-form'));
-        if (!(values.get('target') === 'role' ? values.get('role') : values.get('user'))) { ui.message('Selecciona primero un rol o usuario.'); return; }
-        configured = (await ui.request(permissionPath(values))).data; renderPermissions();
+        const request=state.permissionRequest=(state.permissionRequest || 0)+1;
+        configured=[];renderPermissions();element('permission-list').textContent='Cargando permisos…';
+        const values = new FormData(element('permission-form'));const context=values.get('context');
+        if (!(values.get('target') === 'role' ? values.get('role') : values.get('user'))) { element('permission-list').textContent='Selecciona un rol o usuario para consultar sus permisos.';return; }
+        const result=(await ui.request(permissionPath(values))).data;
+        if(request!==state.permissionRequest)return;
+        configured=context==='global' ? result.filter(row=>values.get('target')==='role' ? row.contexto==='global' : row.proceso===null) : result;renderPermissions();
     }
+    function clearPermissions() {state.permissionRequest=(state.permissionRequest || 0)+1;configured=[];renderPermissions();}
+    [form('permission-form').role,form('permission-form').user,form('permission-form').context].forEach(control=>control.addEventListener('change',clearPermissions));
+    element('electoral-context-select')?.addEventListener('change',clearPermissions);
     action('permission-inspect',inspectPermissions);
     element('permission-search').addEventListener('input',renderPermissions); element('permission-state-filter').addEventListener('change',renderPermissions);
     form('permission-form').context.addEventListener('change',permissionOptions); form('permission-form').value.addEventListener('change',decisionHelp);
@@ -155,7 +169,7 @@ function InitializeValues(url) {
             element('permission-panel-' + target).append(editor); form('permission-form').target.value = target;
             element('permission-role-field').hidden = target !== 'role'; element('permission-user-field').hidden = target !== 'user';
             form('permission-form').role.disabled = target !== 'role'; form('permission-form').user.disabled = target !== 'user';
-            configured = []; renderPermissions(); decisionHelp();
+            clearPermissions(); decisionHelp();
         }
     })(element('permission-tab-roles'));
     let sectionTimer;

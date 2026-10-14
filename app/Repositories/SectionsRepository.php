@@ -52,6 +52,10 @@ class SectionsRepository
 
         $sql .= " AND (" . implode(' OR ', $conditions) . ")";
 
+        [$scope,$scopeParameters]=(new \App\Services\GeographyService(new CommonRepository($this->db)))->sectionsScope();
+        $sql.=' AND ('.str_replace('?',':scope_process',$scope).')';
+        if($scopeParameters)$params['scope_process']=$scopeParameters[0];
+
         $sql .= "
             ORDER BY se.seccion, se.id ASC
             LIMIT :limit OFFSET :offset

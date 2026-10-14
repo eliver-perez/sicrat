@@ -22,12 +22,14 @@
     <script src="<?= escape_html(base_url('template/')); ?>assets/js/jquery-3.7.1.min.js"></script>
     <script src="<?= escape_html(asset('js/security.js')); ?>"></script>
     <script src="<?= escape_html(asset('js/sweetalert.js')); ?>"></script>
+    <script src="<?= escape_html(asset('js/header.js')); ?>"></script>
     <script src="<?= escape_html(asset('js/sha512.js')); ?>"></script>
     <script src="<?= escape_html(asset('js/forms.js')); ?>"></script>
 
     <script>
         $(document).ready(function (e) {
             InitializeValues(<?= json_script(base_url('')); ?>);
+            window.SicratHeader.initialize(<?= json_script(base_url('')); ?>);
 
             if(currentLink != undefined && currentLink != '')
                 $(`a.menu-link[href="${currentLink}"]`).addClass('active');

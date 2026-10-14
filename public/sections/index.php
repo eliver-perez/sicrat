@@ -1,7 +1,7 @@
 <?php
 	require_once __DIR__.'/../../app/Core/init.php';
 
-	if(!$session->verifyUserRights(['superadmin'])) {
+	if(!$session->verifyUserRights(['secciones.ver','secciones.administrar'])) {
 		$session->denyAccess();
 	}
 

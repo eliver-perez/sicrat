@@ -131,6 +131,8 @@ class ElectoralProcessService extends Service
                 ]);
 
             (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($conn)))->record($organizationId,$processId,'alta','procesos_electorales',$processId,null,['nombre'=>$process,'estatus'=>$status]);
+            $category=$conn->prepare('INSERT IGNORE INTO casos_categorias(uuid,organizacion,proceso,tipo,nombre,fecha) VALUES(?,?,?,?,?,NOW())');
+            foreach(['peticiones','incidencias'] as $kind)$category->execute([random_bytes(16),$organizationId,$processId,$kind,'General']);
             $conn->commit();
 
             return [

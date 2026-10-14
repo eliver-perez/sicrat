@@ -35,5 +35,6 @@
 <script src="<?= escape_html(asset('js/operations/core.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/operations/forms.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/operations/details.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/messaging.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/operations/index.js')); ?>"></script>
 <script>var currentLink=<?= json_script(base_url('/operations/?module='.$operationEntity)); ?>;</script>

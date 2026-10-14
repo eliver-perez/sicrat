@@ -34,10 +34,11 @@ class NotificationService
 		[$where,$params]=$this->ownCondition();
 		if (($filters['unread'] ?? '')==='1') $where.=' AND leida_en IS NULL';
 		$limit=Pagination::limit($filters['limit'] ?? 25); $offset=Pagination::offset($filters['offset'] ?? 0);
-		$rows=$this->repository->rows("SELECT uuid,tipo,titulo,resumen,entidad,referencia,enlace,fecha,leida_en FROM notificaciones WHERE $where ORDER BY id DESC LIMIT ".($limit+1).' OFFSET '.$offset,$params);
-		foreach ($rows as &$row) $row['uuid']=Values::uuidText($row['uuid']);
+		$rows=$this->repository->rows("SELECT uuid,tipo,titulo,resumen,entidad,referencia,enlace,fecha,leida_en,(SELECT pe.uuid FROM procesos_electorales pe WHERE pe.id=notificaciones.proceso) proceso_uuid FROM notificaciones WHERE $where ORDER BY id DESC LIMIT ".($limit+1).' OFFSET '.$offset,$params);
+		foreach ($rows as &$row) {$row['uuid']=Values::uuidText($row['uuid']);$row['proceso_uuid']=$row['proceso_uuid']===null ? null : Values::uuidText($row['proceso_uuid']);}
 		return ['rows'=>array_slice($rows,0,$limit),'pagination'=>Pagination::response($rows,$limit,$offset)];
 	}
+	public function summary(): array {[$where,$params]=$this->ownCondition();return ['unread'=>(int)$this->repository->one("SELECT COUNT(*) n FROM notificaciones WHERE $where AND leida_en IS NULL",$params)['n']];}
 	public function read(array $uuids,bool $all = false): int
 	{
 		[$where,$params]=$this->ownCondition();

@@ -115,6 +115,10 @@ class OperationsController extends Controller
 	public function approvers(Request $request,Response $response): void { $response->success((new OptionsService($this->repository))->approvers($request->route('entity'),$request->query())); }
 	public function timeline(Request $request,Response $response): void { $response->success((new TimelineService($this->repository))->activity($request->route('id'),$request->query())); }
 	public function types(Request $request,Response $response): void { $response->success((new EventService($this->repository))->types($request->query(),$request->method()==='POST' ? $request->input() : null)); }
+	public function categories(Request $request,Response $response): void {
+		$service=new \App\Services\Operations\CaseCategories($this->repository);$kind=$request->route('kind');
+		$response->success($request->method()==='GET' ? $service->categories($kind,$request->query()) : $service->save($kind,$request->route('id'),$request->input()));
+	}
 	public function indicators(Request $request,Response $response): void { $response->success((new GoalService($this->repository))->indicators()); }
 	public function transportSummary(Request $request,Response $response): void { $response->success((new TransportService($this->repository))->summary($request->query())); }
 	public function contacts(Request $request,Response $response): void { $response->success((new MessagingService($this->repository))->contacts($request->query())); }

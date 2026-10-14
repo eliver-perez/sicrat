@@ -16,19 +16,19 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) 
         verify(await evaluate(`document.documentElement.scrollWidth<=innerWidth+2`),label+': página sin desbordamiento horizontal');
         verify(await evaluate('parseFloat(getComputedStyle(document.querySelector("main")).paddingTop)>=12'),label+': separación uniforme');
         verify(await evaluate('document.getElementById("electoral-context-select").value==='+JSON.stringify(fixtures.election)),label+': selector preserva elección');
-        if(dialog)verify(await evaluate(`(()=>{const node=document.getElementById(${JSON.stringify(dialog)});const r=node.getBoundingClientRect();return node.open && !!node.getAttribute('aria-labelledby') && r.left>=-1 && r.right<=innerWidth+1 && r.top>=-1 && r.bottom<=innerHeight+1;})()`),label+': diálogo visible y accesible dentro de pantalla');
+        if(dialog)verify(await evaluate(`(()=>{const node=document.getElementById(${JSON.stringify(dialog)});const r=node.getBoundingClientRect();return node.open && !!node.getAttribute('aria-labelledby') && r.left>=-1 && r.right<=innerWidth+1 && (node.classList.contains('ux-chat-conversation') || r.top>=-1 && r.bottom<=innerHeight+1);})()`),label+': diálogo o conversación visible y accesible sin desbordamiento');
     }
     for(const [width,height,size] of [[1600,1000,'desktop'],[820,1024,'tablet'],[390,844,'mobile']]){
         await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
         for(const entity of entities){
             await navigate('/operations/?module='+entity);
-            await waitFor('window.SicratOperations?.entity==='+JSON.stringify(entity)+' && !!window.SicratOperations.list && document.querySelectorAll("#operation-list table tbody tr").length>0');
+            await waitFor('window.SicratOperations?.entity==='+JSON.stringify(entity)+' && !!window.SicratOperations.list && document.querySelectorAll("#operation-list table tbody tr, #operation-list [data-open-chat]").length>0');
             verify(await evaluate('!document.getElementById("operations-message").textContent'),entity+'/'+size+': carga sin errores');
             try { await waitFor('document.getElementById("electoral-context-select").value==='+JSON.stringify(fixtures.election)); }
             catch(error) { await capture('selection-failure'); console.error('Contexto de navegador:',await evaluate(`(async()=>({me:window.SicratOperations.me.process_id,options:Array.from(document.getElementById('electoral-context-select').options).map(option=>({value:option.value,label:option.textContent,selected:option.selected})),choices:(await(await fetch('/api/auth/elections')).json()).data}))()`));throw error; }
             await bounds(entity+'/'+size);
             verify(await evaluate('document.querySelectorAll("aside a[href*=operations]").length===7'),entity+'/'+size+': navegación operacional compacta');
-            await evaluate('document.querySelector("#operation-list tbody button").click()');
+            await evaluate('document.querySelector("#operation-list tbody button, #operation-list [data-open-chat]").click()');
             await waitFor('document.getElementById("operation-detail-dialog").open');
             await bounds(entity+'/'+size+' detalle','operation-detail-dialog');
             verify(await evaluate('!document.getElementById("operation-panel-summary").hidden && document.getElementById("operation-panel-summary").textContent.length>0'),entity+': ficha descriptiva');

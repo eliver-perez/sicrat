@@ -53,7 +53,7 @@ class PersonIdentityService extends Service
                 $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
                 if (!$date || $date->format('Y-m-d') !== $value || (int) $date->format('Y') < 1000) throw new InvalidArgumentException('La fecha debe ser válida y tener formato AAAA-MM-DD.');
             }
-            if ($key === 'section' && $value !== null) $value = $this->repository->sectionId($value);
+            if ($key === 'section' && $value !== null) {$value = $this->repository->sectionId($value);if(\App\Core\Auth::processId())(new GeographyService(new \App\Repositories\CommonRepository($this->repository->connection())))->assertSection($value);}
             if ($key === 'gender' && $value !== null && !$this->repository->genderExists($value)) {
                 throw new InvalidArgumentException('El género no es válido.');
             }
@@ -148,8 +148,18 @@ class PersonIdentityService extends Service
         foreach (self::FIELDS as $key => [$column]) $data[$key] = $key === 'section' ? ($person['seccion_uuid'] ? $this->uuidBinaryToString($person['seccion_uuid']) : null) : $person[$column];
         $address = $this->repository->address((int) $person['id']);
         foreach (self::ADDRESS_FIELDS as $key => [$column]) $data[$key] = $address[$column] ?? null;
-        $data['participations'] = array_map(fn ($row) => ['id' => $this->uuidBinaryToString($row['uuid']), 'process' => $row['proceso'], 'active' => (int) $row['activo'], 'process_active' => (int) $row['estatus']], $this->repository->participations((int) $person['id']));
+        $data['editable']=$this->personAction((int)$person['id'],'personas.editar',Auth::processId());
+        $data['participations'] = array_map(fn ($row) => ['id' => $this->uuidBinaryToString($row['uuid']), 'process' => $row['proceso'], 'active' => (int) $row['activo'], 'process_active' => (int) $row['estatus'], 'can_participate'=>$this->personAction((int)$person['id'],'personas.participar',(int)$row['id'])], $this->repository->participations((int) $person['id']));
+        $data['participation_choices']=[];
+        $context=new ElectoralContextRepository($this->repository->connection());
+        for($offset=0;;$offset+=100){$choices=$context->available(100,$offset);foreach($choices as $row)if((int)$row['organizacion']===(int)$person['organizacion'] && $this->personAction((int)$person['id'],'personas.participar',(int)$row['id']))$data['participation_choices'][]=['id'=>$this->uuidBinaryToString($row['uuid']),'process'=>$row['proceso']];if(count($choices)<100)break;}
         return $data;
+    }
+
+    private function personAction(int $person,string $permission,?int $process): bool
+    {
+        try {(new \App\Repositories\PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,$permission,$process);(new \App\Repositories\ScopeRepository($this->repository->connection()))->assertPerson($person,$permission,$process);return true;}
+        catch(HttpError $error){if(!in_array($error->statusCode,[403,404],true))throw $error;return false;}
     }
 
     public function update(string $uuid, array $data, bool $missingOnly = false): array

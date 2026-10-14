@@ -162,7 +162,8 @@ class Configuration
         $this->context->broad('jornada.configurar');
         $limit=Pagination::limit($filters['limit'] ?? 25);$offset=Pagination::offset($filters['offset'] ?? 0);
         $search='%'.Values::text($filters['search'] ?? '',150,true).'%';
-        $rows=$this->repository->rows('SELECT c.id,c.uuid,c.casilla nombre,c.tipo,s.seccion,s.uuid seccion_uuid FROM casillas c JOIN secciones_electorales s ON s.id=c.seccion WHERE CAST(s.seccion AS CHAR) LIKE ? OR c.casilla LIKE ? ORDER BY s.seccion,c.id LIMIT '.($limit+1).' OFFSET '.$offset,[$search,$search]);
+        $scope=\App\Core\Auth::isSuperAdmin() ? '1=1' : 'EXISTS(SELECT 1 FROM casillas_procesos cp WHERE cp.casilla=c.id AND cp.proceso=? AND cp.activo=1)';$parameters=\App\Core\Auth::isSuperAdmin() ? [] : [$this->context->process];
+        $rows=$this->repository->rows('SELECT c.id,c.uuid,c.casilla nombre,c.tipo,s.seccion,s.uuid seccion_uuid FROM casillas c JOIN secciones_electorales s ON s.id=c.seccion WHERE ('.$scope.') AND (CAST(s.seccion AS CHAR) LIKE ? OR c.casilla LIKE ?) ORDER BY s.seccion,c.id LIMIT '.($limit+1).' OFFSET '.$offset,[...$parameters,$search,$search]);
         foreach($rows as &$row) { $row['uuid']=$row['uuid']===null ? null : Values::uuidText($row['uuid']); $row['seccion_uuid']=Values::uuidText($row['seccion_uuid']);$row['label']='Sección '.$row['seccion'].' · '.$row['nombre'].' ('.$row['tipo'].')'; } unset($row);
         return ['rows'=>array_slice($rows,0,$limit),'pagination'=>Pagination::response($rows,$limit,$offset)];
     }
@@ -175,12 +176,15 @@ class Configuration
                 $numeric=is_int($data['fisica']) || (is_string($data['fisica']) && ctype_digit($data['fisica']));
                 $physical=$this->repository->one('SELECT id FROM casillas WHERE '.($numeric ? 'id' : 'uuid').'=? FOR UPDATE',[$numeric ? Values::integer($data['fisica']) : Values::binary($data['fisica'])]) ?? throw new HttpError('Casilla física no disponible.',404);
                 $id=(int)$physical['id'];
+                if(!\App\Core\Auth::isSuperAdmin() && !$this->repository->one('SELECT casilla FROM casillas_procesos WHERE casilla=? AND proceso=? AND activo=1',[$id,$ctx->process]))throw new HttpError('Casilla no disponible en esta elección.',404);
             } else {
                 $section=$this->repository->one('SELECT id FROM secciones_electorales WHERE uuid=? FOR UPDATE',[Values::binary($data['seccion'] ?? null)]) ?? throw new HttpError('Sección no disponible.',404);
-                $name=Values::text($data['nombre'] ?? null,60);$type=Values::text($data['tipo'] ?? null,20);
+                (new \App\Services\GeographyService($this->repository))->assertSection((int)$section['id']);
+                $name=Values::text($data['nombre'] ?? null,60);$type=(new \App\Services\GeographyService($this->repository))->boothType($data['tipo'] ?? null);
                 $physical=$this->repository->one('SELECT id FROM casillas WHERE seccion=? AND casilla=? AND tipo=? FOR UPDATE',[$section['id'],$name,$type]);
                 $id=$physical ? (int)$physical['id'] : $this->repository->insert('INSERT INTO casillas(uuid,seccion,tipo,casilla,ubicacion,domicilio,registro,f_registro) VALUES(?,?,?,?,?,?,?,NOW())',[random_bytes(16),$section['id'],$type,$name,Values::text($data['ubicacion'] ?? '',255,true),Values::text($data['domicilio'] ?? '',255,true),$ctx->actor]);
             }
+            $physicalSection=(int)$this->repository->one('SELECT seccion FROM casillas WHERE id=?',[$id])['seccion'];(new \App\Services\GeographyService($this->repository))->attachBooth($id,$physicalSection,$ctx->process);
             $existing=$this->repository->one('SELECT id,uuid FROM jornada_casillas WHERE proceso=? AND casilla=?',[$ctx->process,$id]);
             if($existing) return ['uuid'=>Values::uuidText($existing['uuid'])];
             $uuid=Values::uuid();

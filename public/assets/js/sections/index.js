@@ -3,6 +3,7 @@
 var homeURL;
 var sectionsPagination;
 var selected_organization = '';
+var selectedSection = null, sectionWritable = false, sectionSuper = false, sectionHasElection = false;
 var new_section = false, modify_section = false, registering_section = false, modifying_section = false;
 var defaultSelectedState = 28;
 var defaultSelectedMunicipality = 1960;
@@ -15,6 +16,8 @@ function InitializeValues(home) {
 	$('#select-sections-state').on('change', GetMunicipalities);
 	GetSections();
 	GetStates();
+	$('#table-sections').on('click', '[data-section-open]', function(){ OpenSection(this.dataset.sectionOpen); });
+	$.getJSON(`${homeURL}/api/auth/me`).done(function(response){ const me=response.data;sectionSuper=me.is_superadmin;sectionHasElection=Boolean(me.process_id);sectionWritable=me.is_superadmin || me.rights.includes('secciones.administrar');$('#btn-sections-new').toggleClass('hidden',!sectionWritable || !me.process_id); });
 }
 
 function EnableSectionFields(v) {
@@ -25,7 +28,7 @@ function EnableSectionFields(v) {
 
 function NewSection() {
 	if(!new_section && !modify_section) {
-		new_section = true;
+		selectedSection=null;new_section = true;
 		if(!$('#btn-sections-new').hasClass('hidden'))
 			$('#btn-sections-new').addClass('hidden');
 		if($('#btn-sections-register').hasClass('hidden'))
@@ -39,7 +42,7 @@ function NewSection() {
 
 function CancelSection() {
 	if(new_section || modify_section) {
-		new_section = false;
+		selectedSection=null;new_section = false;
 		modify_section = false;
 		if($('#btn-sections-new').hasClass('hidden'))
 			$('#btn-sections-new').removeClass('hidden');
@@ -47,7 +50,7 @@ function CancelSection() {
 			$('#btn-sections-register').addClass('hidden');
 		if(!$('#btn-sections-cancel').hasClass('hidden'))
 			$('#btn-sections-cancel').addClass('hidden');
-		EnableSectionFields(true);
+		EnableSectionFields(true);$('#btn-sections-new').toggleClass('hidden',!sectionWritable);
 	}
 }
 
@@ -67,7 +70,7 @@ function GetStates() {
 					text: v.estado
 				}));
 			});
-			if(defaultSelectedState != null) {
+			if(defaultSelectedState != null && response.data.states.some(state=>Number(state.id)===defaultSelectedState)) {
 				$('#select-sections-state').val(defaultSelectedState);
 			}
 			$('#select-sections-state').trigger('change');
@@ -97,7 +100,7 @@ function GetMunicipalities() {
 						text: v.municipio
 					}));
 				});
-				if(defaultSelectedMunicipality != null)
+				if(defaultSelectedMunicipality != null && response.data.municipalities.some(municipality=>Number(municipality.id)===defaultSelectedMunicipality))
 					$('#select-sections-municipality').val(defaultSelectedMunicipality);
 				$('#select-sections-municipality').trigger('change');
 			},
@@ -126,15 +129,16 @@ function GetSections() {
 		success: function(response) {
 			sectionsPagination.update(response.pagination);
 			var rows = '';
-			console.log(response);
+
 			$.each(response.data.sections, function(k, v) {
 				rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.section)}</td>
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.state)}</td>
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.municipality)}</td>
+                                <td><button type="button" class="btn" data-section-open="${escapeHTML(v.id)}" aria-label="Ver sección" title="Ver sección">Ver</button></td>
 							</tr>`;
 			});
-			if (!rows) rows = '<tr><td colspan="3" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
+			if (!rows) rows = '<tr><td colspan="4" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 			$('#table-sections tbody').append(rows);
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) { 
@@ -150,10 +154,10 @@ function GetSections() {
 
 function RegisterSection() {
 	if(!registering_section) {
-		registering_section = true;
+		registering_section = true;$('#btn-sections-register').prop('disabled',true).text('Guardando…');
 		$.ajax({
-				url: `${homeURL}/api/sections`,
-				type: 'post',
+				url: `${homeURL}/api/sections${selectedSection ? '/'+selectedSection : ''}`,
+				type: selectedSection ? 'put' : 'post',
 				data: {
 					section: $('#field-sections-section').val(),
 					state: $(`#select-sections-state`).val(),
@@ -161,8 +165,8 @@ function RegisterSection() {
 				},
 				dataType: "json",
 				success: function(response) {
-					registering_section = false;
-					console.log(response);
+					registering_section = false;$('#btn-sections-register').prop('disabled',false).text('Guardar');
+
 					if(response.success) {
 						CancelSection();
 						GetSections();
@@ -172,15 +176,24 @@ function RegisterSection() {
 					}
 				},
 				error: function(XMLHttpRequest, textStatus, errorThrown) { 
-					registering_section = false;
+					registering_section = false;$('#btn-sections-register').prop('disabled',false).text('Guardar');
 					try {
 						var response = JSON.parse(XMLHttpRequest.responseText);
 						ShowToastMessage(response.message, 'error');
-						
+
 					} catch (e) {
 						ShowToastMessage(XMLHttpRequest.responseText, 'error');
 					}
 				}  
 		});
 	}
+}
+function OpenSection(uuid) {
+ $.getJSON(`${homeURL}/api/sections/${uuid}`).done(function(response) {
+  const row=response.data;selectedSection=uuid;new_section=false;modify_section=true;
+  $('#field-sections-section').val(row.seccion);defaultSelectedMunicipality=Number(row.municipio);$('#select-sections-state').val(row.estado).trigger('change');
+  const readOnly=!sectionHasElection || !sectionWritable || (!sectionSuper && row.shared) || row.history_locked;
+  $('#btn-sections-new').addClass('hidden');$('#btn-sections-cancel').removeClass('hidden');$('#btn-sections-register').toggleClass('hidden',readOnly).text('Guardar');EnableSectionFields(readOnly);
+  $('#sections-detail-message').text(!sectionHasElection ? 'Selecciona una elección de trabajo para editar.' : row.history_locked ? 'Se conservan los datos históricos de las actas existentes.' : row.shared ? 'Sección física compartida entre elecciones. Su modificación requiere administración global.' : '');
+ }).fail(function(xhr){ShowToastMessage(xhr.responseJSON?.message || 'No fue posible consultar la sección.','error');});
 }

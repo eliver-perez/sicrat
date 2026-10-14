@@ -17,6 +17,7 @@ class CaseService extends BaseService
 	{
 		$entity=$this->kind; $process=$this->context->process($data['process'] ?? null); $context=$this->context->require($entity,$process,$entity.'.crear');
 		return $this->repository->transaction(function() use($entity,$process,$context,$data) {
+			$category=(new CaseCategories($this->repository))->resolve($entity,$process,$data);
 			$person=$this->personReference($data['person'] ?? null,$entity.'.crear',$process);
 			$responsible=$this->personReference($data['responsible'] ?? null,$entity.'.crear',$process);
 			$priority=$this->repository->one('SELECT id FROM tareas_prioridades WHERE codigo=? AND activo=1',[$data['priority'] ?? 'NORMAL'])['id'] ?? throw new \InvalidArgumentException('Prioridad inválida.');
@@ -32,7 +33,7 @@ class CaseService extends BaseService
 				if ($event!==null && (int) $event['proceso']!==$process) throw new HttpError('El evento corresponde a otra elección.',422);
 				$record['evento']=$event['id'] ?? null;
 			}
-			$row=$this->newRow($entity,$record);
+			$row=$this->newRow($entity,[...$record,...$category]);
 			foreach (Catalog::list($data['related_people'] ?? []) as $reference) {
 				$related=$this->context->person($reference,$entity.'.crear',$process);
 				$this->repository->execute('INSERT IGNORE INTO operaciones_personas (entidad,registro,persona) VALUES (?,?,?)',[$entity,$row['id'],$related['id']]);
@@ -47,6 +48,8 @@ class CaseService extends BaseService
 	public function detail(string $uuid): array
 	{
 		$row=parent::detail($uuid); $row['permisos_capturista']=$row['permisos_capturista']===null ? null : json_decode($row['permisos_capturista'],true);
+		$category=$row['categoria_id'] ? $this->repository->one('SELECT uuid,nombre FROM casos_categorias WHERE id=?',[$row['categoria_id']]) : null;
+		$row['categoria_uuid']=$category ? Values::uuidText($category['uuid']) : null;$row['categoria_nombre']=$category['nombre'] ?? $row['categoria'];
 		$row['approval_uuid']=$row['aprobacion'] ? Values::uuidText($this->repository->one('SELECT uuid FROM aprobaciones WHERE id=?',[$row['aprobacion']])['uuid']) : null;
 		foreach (['persona','responsable'] as $field) $row[$field.'_nombre']=$row[$field]===null ? null : $this->repository->one("SELECT CONCAT_WS(' ',nombre,paterno,materno) nombre FROM personas WHERE id=?",[$row[$field]])['nombre'];
 		$row['capturista_nombre']=$this->repository->one('SELECT nombre FROM usuarios WHERE id=?',[$row[Catalog::entity($this->kind)['creator']]])['nombre'];
@@ -58,9 +61,9 @@ class CaseService extends BaseService
 		$this->repository->transaction(function() use($entity,$uuid,$data) {
 			$row=$this->context->record($entity,$uuid,$entity.'.editar',null,true); $this->context->version($row,$data);
 			if (in_array($row['estado'],['cerrada','cancelada','validacion'],true)) throw new HttpError('Resuelve la validación o revisa el cierre antes de editar.',409);
-			$changes=['descripcion'=>Values::text($data['description'] ?? $row['descripcion'],10000),'categoria'=>Values::text($data['category'] ?? $row['categoria'],100)];
+			$changes=['descripcion'=>Values::text($data['description'] ?? $row['descripcion'],10000),...(new CaseCategories($this->repository))->resolve($entity,(int)$row['proceso'],$data,$row)];
 			if (isset($data['state'])) $changes['estado']=Catalog::choice($data['state'],['abierta','en_atencion','correccion']);
-			$this->repository->updateRecord($entity,(int) $row['id'],$changes); $this->context->history($entity,$row,'editar','',null,['estado'=>$changes['estado'] ?? $row['estado']]);
+			$this->repository->updateRecord($entity,(int) $row['id'],$changes); $this->context->history($entity,$row,'editar',Values::text($data['reason'] ?? '',4000,true),['estado'=>$row['estado'],'categoria'=>$row['categoria'],'categoria_id'=>$row['categoria_id'],'descripcion'=>$row['descripcion']],$changes);
 		});
 	}
 	public function reassign(string $uuid,array $data): void
@@ -80,7 +83,7 @@ class CaseService extends BaseService
 			$reason=Values::text($data['reason'] ?? null,500);
 			if ($row['aprobacion']!==null) (new ApprovalService($this->repository))->withdrawForResource((int) $row['aprobacion'],$entity,(int) $row['id'],$entity.'.transferir','Reasignación: '.$reason);
 			$this->repository->updateRecord($entity,(int) $row['id'],['responsable'=>$person['id'],'permisos_capturista'=>Values::json($clean),'aprobador'=>null,'estado'=>'en_atencion','aprobacion'=>null]);
-			$this->context->history($entity,$row,'reasignar',$reason,['responsable'=>$row['responsable']],['responsable'=>$person['id'],'permisos_capturista'=>$clean]);
+			$this->context->history($entity,$row,'reasignar',$reason,['responsable'=>$row['responsable'],'estado'=>$row['estado']],['responsable'=>$person['id'],'permisos_capturista'=>$clean,'estado'=>'en_atencion']);
 		});
 	}
 	public function close(string $uuid,array $data): array

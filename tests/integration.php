@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/app/Support/helpers.php';
 loadEnv(dirname(__DIR__) . '/.env');
 date_default_timezone_set('America/Mexico_City');
+if (in_array('--post7',$argv,true) && !in_array('--phase7',$argv,true)) $argv[]='--phase7';
 if (in_array('--phase7',$argv,true) && !in_array('--phase6',$argv,true)) $argv[]='--phase6';
 if (in_array('--phase6',$argv,true) && !in_array('--phase5',$argv,true)) $argv[]='--phase5';
 if (in_array('--phase5',$argv,true)) {
@@ -159,7 +160,7 @@ try {
     verify(request('capture', 'GET', '/api/localities/1/neighborhoods')['json']['data']['neighborhoods'][0]['colonia'] === 'Colonia de prueba', 'Parámetro de colonias.');
     verify(request('capture', 'GET', '/api/municipalities/invalid/localities')['status'] === 422, 'Identificador de ruta inválido se rechaza.');
     foreach (['electoral-process', 'sections', 'persons'] as $resource) {
-        verify(request('admin', 'GET', '/api/' . $resource . '/no-detail')['status'] === 404, 'Ruta de detalle incompleta retirada: ' . $resource);
+        verify(request('admin', 'GET', '/api/' . $resource . '/no-detail')['status'] === ($resource==='sections' ? 422 : 404), $resource==='sections' ? 'Detalle de sección rechaza un UUID inválido.' : 'Ruta de detalle incompleta retirada: ' . $resource);
     }
     verify(count(request('capture', 'GET', '/api/electoral-process')['json']['data']['processes']) === 1, 'Los procesos se restringen al cliente propio.');
     verify(request('admin', 'GET', '/api/organizations/' . $organizationIds[0])['json']['data']['processes_pagination']['limit'] === 25, 'El detalle limita los procesos relacionados.');
@@ -240,9 +241,10 @@ try {
     if (in_array('--phase5',$argv,true)) require __DIR__.'/phase5.php';
     if (in_array('--phase6',$argv,true)) require __DIR__.'/phase6.php';
     if (in_array('--phase7',$argv,true)) require __DIR__.'/phase7.php';
+    if(in_array('--post7',$argv,true))require __DIR__.'/post7.php';
     if (in_array('--browser', $argv, true)) {
         if (!(in_array('--phase3',$argv,true) || in_array('--phase4',$argv,true))) throw new RuntimeException('--browser requiere --phase3.');
-        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : []),...(in_array('--phase6',$argv,true) ? ['--phase6'] : []),...(in_array('--phase6-browser-only',$argv,true) ? ['--only-phase6'] : []),...(in_array('--phase7',$argv,true) ? ['--phase7'] : []),...(in_array('--phase7-browser-only',$argv,true) ? ['--only-phase7'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
+        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : []),...(in_array('--phase6',$argv,true) ? ['--phase6'] : []),...(in_array('--phase6-browser-only',$argv,true) ? ['--only-phase6'] : []),...(in_array('--phase7',$argv,true) ? ['--phase7'] : []),...(in_array('--phase7-browser-only',$argv,true) ? ['--only-phase7'] : []),...(in_array('--post7',$argv,true) ? ['--post7'] : []),...(in_array('--post7-browser-only',$argv,true) ? ['--only-post7'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
         fclose($browserPipes[0]); verify(proc_close($browserProcess)===0,'Validación de las pantallas en navegador real.');
     }
     echo "OK: {$checks} comprobaciones HTTP/BD (" . $connection->query('SELECT VERSION()')->fetchColumn() . ").\n";

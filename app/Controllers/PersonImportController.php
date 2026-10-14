@@ -25,6 +25,7 @@ class PersonImportController extends Controller
     }
     public function confirm(Request $request, Response $response): void { $response->success($this->service()->confirm($request->route('id'))); }
     public function apply(Request $request, Response $response): void { $response->success($this->service()->apply($request->route('id'))); }
+    public function automatic(Request $request, Response $response): void { $response->success($this->service()->automatic($request->route('id'))); }
     public function results(Request $request, Response $response): void { $response->success($this->service()->results($request->route('id'),max(0,(int) $request->query('after',0)))); }
     public function status(Request $request, Response $response): void { $response->success($this->service()->status($request->route('id'))); }
 }

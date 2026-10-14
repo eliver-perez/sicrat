@@ -1,14 +1,16 @@
 <?php
     $title = "Personas";
     $section = "Personas";
+    $personCapabilities = ['create'=>\App\Auth\Authorization::canAny(['personas.crear']), 'edit'=>\App\Auth\Authorization::canAny(['personas.editar']), 'participate'=>\App\Auth\Authorization::canAny(['personas.participar']), 'import'=>\App\Auth\Authorization::canAny(['personas.importar']) && (\App\Core\Auth::isSuperAdmin() || in_array('organizacion',$_SESSION['SICRAT_PERMISSION_SCOPES']['personas.importar'] ?? [],true))];
 
+    $personCapabilities['automatic']=$personCapabilities['import'] && $personCapabilities['create'] && (\App\Core\Auth::isSuperAdmin() || in_array('organizacion',$_SESSION['SICRAT_PERMISSION_SCOPES']['personas.ver'] ?? [],true));
     require_once __DIR__.'/../layout/title.php';
 ?>
 
 
                 <div class="grid lg:grid-cols-12 gap-5 mb-5">
 
-                    <div class="lg:col-span-8">
+                    <div class="<?= $personCapabilities['create'] ? 'lg:col-span-8' : 'lg:col-span-12'; ?>">
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="card-title">Personas</h6>
@@ -62,6 +64,7 @@
                     </div>
 
                     
+                    <?php if ($personCapabilities['create']): ?>
                     <div class="lg:col-span-4">
                         <div class="card">
                             <div class="card-body">
@@ -114,11 +117,13 @@
                                             <input type="text" id="field-persons-last-name-2" class="form-input" placeholder="Apellido Materno" value="" readonly>
                                         </div>
 
-                                        <details class="mb-4">
+                                        <details class="mb-4 ux-full">
                                             <summary>Más datos (opcionales)</summary>
+                                            <div class="ux-form-grid">
                                             <?php foreach (['phone' => 'Teléfono', 'email' => 'Correo', 'curp' => 'CURP', 'elector_key' => 'Clave de elector'] as $field => $label): ?>
                                             <label class="block mt-3"><?= escape_html($label) ?><input id="person-quick-<?= escape_html($field) ?>" class="form-input person-quick-optional" type="text" readonly></label>
                                             <?php endforeach; ?>
+                                            </div>
                                         </details>
 
                                         <div class="lg:col-span-3 col-span-1">
@@ -135,8 +140,10 @@
                     </div>
 
 
+                    <?php endif; ?>
                 </div>
 
+<script>window.SicratPersonCapabilities=<?= json_script($personCapabilities); ?>;</script>
 <?php require __DIR__ . '/phase2.php'; ?>
 <script src="<?= escape_html(asset('js/persons/index.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/identity.js')); ?>"></script>

@@ -28,12 +28,12 @@ const SicratFeedback = (() => {
         const buttons = control.tagName === 'FORM'
             ? Array.from(control.querySelectorAll('button[type=submit],button:not([type])')).filter(button => !button.disabled)
             : control.tagName === 'BUTTON' ? [control] : [];
-        const previous = buttons.map(button => ({button, disabled: button.disabled, text: button.textContent}));
+        const previous = buttons.map(button => ({button, disabled: button.disabled, text: button.textContent, nodes: button.childNodes ? Array.from(button.childNodes) : null}));
         control.setAttribute('aria-busy', 'true');
         previous.forEach(({button,disabled}) => { pendingDisabled.set(button,disabled);button.disabled = true; button.textContent = control.dataset?.busyText || label; });
         try { return await work(); }
         finally {
-            previous.forEach(({button,text}) => { button.disabled = pendingDisabled.get(button);pendingDisabled.delete(button);button.textContent = text; });
+            previous.forEach(({button,text,nodes}) => { button.disabled = pendingDisabled.get(button);pendingDisabled.delete(button);if(nodes && button.replaceChildren) button.replaceChildren(...nodes);else button.textContent = text; });
             control.removeAttribute('aria-busy'); running.delete(control);
         }
     }

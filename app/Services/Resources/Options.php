@@ -72,6 +72,7 @@ final class Options
 			$table=$definition['table'];
 			$name=in_array($type,['categorias','metodos','cuentas','politicas','presupuestos','articulos','almacenes','categorias_inventario','origenes'],true) ? 'nombre' : 'concepto';
 			$where='r.organizacion=?';
+            if($type==='categorias'){if(str_starts_with($permission,'finanzas.ingresos.'))$where.=" AND r.tipo='ingreso'";elseif(str_starts_with($permission,'finanzas.gastos.') || str_starts_with($permission,'finanzas.reembolsos.') || str_starts_with($permission,'finanzas.presupuestos.'))$where.=" AND r.tipo='gasto'";}
 			$params=[$organization];
 			if(in_array($type,['presupuestos','gastos','anticipos','reembolsos'],true)) {
 				[$where,$params]=$this->context->predicate($type,$permission,$process);

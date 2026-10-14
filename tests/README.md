@@ -112,3 +112,22 @@ php tests/integration.php --phase7 --browser
 `phase7-migrations.php` prepara estado post-Fase 6, tablas parciales, datos históricos y conflictos de columnas/FKs/unicidad/contextos/votos. Comprueba preservación y reejecución. `phase7-unit.php` no requiere BD: valida votos tipados y horarios IANA, incluidos intervalos inexistentes o ambiguos por cambios de horario.
 
 Chrome conserva toda la regresión anterior y añade Jornada a 1600/820/390 px: configuración protegida y preview, asignaciones, captura real, comparación de versiones, imagen privada, gráficos, filtros, nueve reportes, confirmación de cierre/reapertura y feedback de cola. Verifica Super Administrador/administrador de elección, tarjetas disponibles, cuatro tipos de toast y prevención de doble envío en la regresión UX. Las capturas `phase7-*.png` permanecen en el directorio privado temporal. `--phase7-browser-only` aísla el navegador nuevo para diagnóstico; la validación final usa la suite completa. Ver `FASE7.md` para resultados y límites de QA/producción.
+
+## Revisión posterior a Fase 7
+
+```sh
+node tests/post7-frontend.js
+php tests/post7-migrations.php
+php tests/post7-resume-migrations.php
+php tests/integration.php --post7 --browser
+```
+
+`--post7` conserva toda la regresión de Fases 1–7 y UX. Añade CRUD electoral de secciones/casillas, aislamiento, territorios, niveles, categorías configurables, historial y opciones financieras filtradas. Chrome añade altas financieras, edición, pago, entradas/salidas/préstamos/daños/pérdidas/transferencia/devolución, UUID sin API nativa, diez asistentes consecutivos, escalas, grupo de chat con imagen, lecturas, silencio, header, SweetAlert y doble envío en formularios modernos y heredados. Recorre todas las pantallas también a 1280/768/390 px y conserva capturas privadas.
+
+`post7-migrations.php` verifica conservación de columnas originales, normalización de categorías, UUID heredados nulos, collations, tablas parciales, unicidad, FKs, nulabilidad y reentrada. Se ejecuta exclusivamente en una base desechable. La 009 aplicada localmente queda congelada por su checksum; las migraciones 001–008 y SQL originales no se modifican.
+
+`--post7-browser-only` sirve para aislar las comprobaciones nuevas durante el diagnóstico. La validación completa utiliza `--post7 --browser`, con comprobación de excepciones JavaScript después de la regresión anterior y del bloque nuevo. No equivale a QA de producción ni inicia Fase 8.
+
+La reanudación agrega `post7-resume.php` y `post7-resume-browser.js`: tipos activos de casilla (alta/edición/Jornada), revocación granular global/electoral frente al alias histórico, excepciones individuales y alcance, denegación de todos los endpoints de importación, controles de Personas, 1.005 altas automáticas sin confirmaciones por lote, CSV/XLSX, coincidencias intrarchivo y sobrevenidas, referencias no resolubles, reintentos y revisión de más de cien excepciones. Chrome procesa 121 altas desde el formulario y compara el chat de SICRAT con el HTML local de referencia usando únicamente assets definitivos. No hay dependencia runtime hacia `tailwick/`.
+
+`post7-resume-migrations.php` verifica la 010, preservación de todas las columnas/filas anteriores, tipos históricos, modalidad predeterminada de importaciones anteriores, conflictos e idempotencia sin reactivar tipos. 009 y 010 aplicadas localmente quedan congeladas; las pruebas utilizan bases generadas y desechables.

@@ -133,7 +133,7 @@ window.SicratResourceDetails={
 			}
 		const list=app.text('div');
 		target.append(list);
-		await app.pager(list,'resources/'+app.entity+'/'+row.uuid+'/files',[['Archivo','nombre_original'],['Tipo',file=>file.mime_type.startsWith('image/') ? 'Imagen' : 'PDF administrativo']],(cell,file)=>{const link=app.text('a','Abrir archivo privado','btn');
+		await app.pager(list,'resources/'+app.entity+'/'+row.uuid+'/files',[['Archivo','nombre_original'],['Tipo',file=>file.mime_type.startsWith('image/') ? 'Imagen' : 'Documento PDF']],(cell,file)=>{const link=app.text('a','Abrir','btn');
 			link.href=window.SicratPhase3.base+'/media/'+file.uuid;
 			link.target='_blank';
 			link.rel='noopener';
@@ -141,7 +141,7 @@ window.SicratResourceDetails={
 			}).load();
 		const writeChoices=({gastos:['finanzas.gastos.crear','finanzas.gastos.editar','finanzas.gastos.pagar'],anticipos:['finanzas.anticipos.crear','finanzas.anticipos.comprobar'],reembolsos:['finanzas.reembolsos.solicitar','finanzas.reembolsos.aprobar'],pagos:['finanzas.gastos.pagar','finanzas.anticipos.comprobar']})[app.entity] || [app.definition.write];
 		if(app.enabled && app.can('archivos.subir') && writeChoices.some(permission=>permission && app.can(permission)) && !['cancelado','rechazado'].includes(row.estado)) {
-			app.form(target,'Agregar evidencia privada',form=>{const field=app.field(form,'file','Imagen o PDF administrativo','file','',true);
+			app.form(target,'Agregar evidencia',form=>{const field=app.field(form,'file','Imagen o Documento PDF','file','',true);
 				field.accept='image/jpeg,image/png,image/webp,application/pdf';
 				},async(values,form)=>{
 				const data=new FormData();

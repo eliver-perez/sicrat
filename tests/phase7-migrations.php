@@ -16,7 +16,7 @@ try {
     $db->prepare("INSERT INTO procesos_electorales(uuid,organizacion,proceso,tipo,caracter,registro,f_registro) VALUES(?,1,'Elección histórica',1,1,1,NOW())")->execute([random_bytes(16)]);
     $before=[];foreach($db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table)$before[$table]=$db->query('SELECT * FROM '.$table)->fetchAll(PDO::FETCH_ASSOC);
     $db->exec('CREATE TABLE jornada_versiones(id INT PRIMARY KEY,uuid BINARY(16))');migration7Reject(fn()=>(require $file)($db,$runner));migration7Check(!$runner->columnExists('jornada_config','proceso'),'El conflicto no crea tablas previas al DDL.');$db->exec('DROP TABLE jornada_versiones');
-    migration7Check($runner->run()===[basename($file)],'Desde Fase 6 sólo se aplica la migración 008.');
+    migration7Check($runner->run()===[basename($file),'20261013_009_revision_post_fase7.php','20261014_010_padron_tipos_casilla.php'],'Desde Fase 6 aplica 008 y la revisión incremental 009.');
     foreach($before as $table=>$rows) {
         $now=$db->query('SELECT * FROM '.$table)->fetchAll(PDO::FETCH_ASSOC);
         if(in_array($table,['permisos','permisos_usuarios_tipo','esquema_migraciones'],true)) {migration7Check(count($now)>=count($rows),'Sólo añade catálogo en '.$table);continue;}

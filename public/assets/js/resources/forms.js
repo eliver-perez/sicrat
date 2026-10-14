@@ -114,9 +114,10 @@ window.SicratResourceForms={
 		app.field(form,'tipo','Tipo de gasto','select',row?.tipo || 'ordinario',true,{ordinario:'Gasto ordinario',compra:'Compra inventariable',apoyo:'Apoyo fijo',viatico:'Viático fijo'});
 		app.money(form,'monto','Importe total',row?.monto || '');
 		app.field(form,'fecha_operacion','Fecha del gasto','date',row?.fecha_operacion || new Date().toISOString().slice(0,10),true);
-		app.field(form,'proveedor','Proveedor externo','text',row?.proveedor || '');
+		const supplier=app.field(form,'proveedor','Proveedor externo','text',row?.proveedor || '');
 		const category=await app.optionPicker(form,'Categoría','categorias',permission,false,row?.categoria_uuid ? [{uuid:row.categoria_uuid,label:row.categoria_nombre}] : [],true);
 		const person=await app.optionPicker(form,'Beneficiario registrado','personas',permission,false,row?.beneficiario_uuid ? [{uuid:row.beneficiario_uuid,label:row.beneficiario_nombre}] : []);
+        form.append(app.text('p','Selecciona un beneficiario registrado o indica el proveedor.','ux-full ux-help'));const recipientRule=()=>supplier.required=!person.values();person.select.addEventListener('change',recipientRule);recipientRule();
 		const budget=await app.optionPicker(form,'Presupuesto opcional','presupuestos',permission,false,row?.presupuesto_uuid ? [{uuid:row.presupuesto_uuid,label:row.presupuesto_nombre}] : []);
 		app.field(form,'descripcion','Descripción','textarea',row?.descripcion || '');
 		app.field(form,'referencia','Referencia administrativa','text',row?.referencia || '');
@@ -231,8 +232,8 @@ window.SicratResourceForms={
 	async contribution(app,form) {
 		app.field(form,'concepto','Concepto','text','',true);
 		const type=app.field(form,'tipo','Tipo de aportación','select','monetaria',true,{monetaria:'Monetaria',especie:'En especie'});
-		app.field(form,'donante_externo','Donante externo','text');
-		const donor=await app.optionPicker(form,'Donante registrado','personas','finanzas.ingresos.crear');
+		const externalDonor=app.field(form,'donante_externo','Donante externo','text');
+		const donor=await app.optionPicker(form,'Donante registrado','personas','finanzas.ingresos.crear');const donorRule=()=>externalDonor.required=!donor.values();donor.select.addEventListener('change',donorRule);donorRule();form.append(app.text('p','Selecciona un donante registrado o escribe el nombre del donante externo.','ux-full ux-help'));
 		const section=app.text('div','','op-form-fields ux-full');
 		form.append(section);
 		let dto=null;

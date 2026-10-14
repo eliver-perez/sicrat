@@ -72,6 +72,7 @@ class CommonServicesController extends Controller
 		readfile($file['path']);
 	}
 	public function notifications(Request $request,Response $response): void { $response->success((new NotificationService($this->repository))->listing($request->query())); }
+	public function notificationSummary(Request $request,Response $response): void {$response->success((new NotificationService($this->repository))->summary());}
 	public function readNotifications(Request $request,Response $response): void
 	{
 		$uuids=$request->input('ids',[]); if (!is_array($uuids)) throw new \InvalidArgumentException('Notificaciones inválidas.');

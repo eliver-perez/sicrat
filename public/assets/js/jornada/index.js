@@ -120,8 +120,8 @@ function InitializeValues(url) {
         app.form(target,'Subir imagen privada',form=>{const file=app.field(form,'imagen','JPEG, PNG o WebP','file','',true);file.accept='image/jpeg,image/png,image/webp';},async(data,form)=>{const file=await upload(form.elements.imagen.files[0],'jornada_'+type,row.uuid);const values={nombre:row.nombre,activo:row.activo,[type==='partidos' ? 'logo' : 'foto']:file.uuid};if(type==='candidaturas')values.cargo=row.cargo;else {values.siglas=row.siglas;values.color=row.color;}await app.api('jornada/catalogs/'+type+'/'+row.uuid,'PUT',values);app.node('jornada-version-dialog').close();await configuration();app.notice('Imagen electoral guardada.');});app.node('jornada-version-dialog').showModal();
     }
     async function associateForms(target) {
-        let section,physical;
-        const form=app.form(target,'Registrar y asociar casilla física',fields=>{app.field(fields,'nombre','Nombre de casilla','text','',true);app.field(fields,'tipo','Tipo de casilla','text','',true);app.field(fields,'ubicacion','Ubicación','text');app.field(fields,'domicilio','Domicilio','text');},async data=>{await app.api('jornada/booths','POST',{...data,seccion:section.values()});await configuration();app.notice('Casilla asociada correctamente.');});
+        let section,physical;const types=Object.fromEntries((await app.api('polling-booth-types')).map(type=>[type.codigo,type.nombre]));
+        const form=app.form(target,'Registrar y asociar casilla física',fields=>{app.field(fields,'nombre','Nombre de casilla','text','',true);app.field(fields,'tipo','Tipo de casilla','select','',true,types);app.field(fields,'ubicacion','Ubicación','text');app.field(fields,'domicilio','Domicilio','text');},async data=>{await app.api('jornada/booths','POST',{...data,seccion:section.values()});await configuration();app.notice('Casilla asociada correctamente.');});
         section=await app.picker(form,'Sección electoral','jornada/territories?type=seccion&catalogue=1',false,[],true);
         const existing=app.form(target,'Asociar una casilla del catálogo existente',()=>{},async()=>{await app.api('jornada/booths','POST',{fisica:physical.values()});await configuration();app.notice('Casilla existente asociada.');});physical=await app.picker(existing,'Casilla física por sección','jornada/physical-booths',false,[],true);
     }
@@ -145,7 +145,7 @@ function InitializeValues(url) {
     }
     async function captureForm(target,booth,correction) {
         target.querySelector('[data-capture-form]')?.remove();
-        const key=crypto.randomUUID();let draft=null,photo=null,uploadedFile=null;
+        const key=window.SicratSecurity.uuid();let draft=null,photo=null,uploadedFile=null;
         const votes=new Map();const original=new Map((booth.vigente?.votos || []).map(row=>[row.uuid,row.votos]));
         const form=app.form(target,correction ? 'Nueva corrección' : 'Capturar acta',fields=>{
             fields.dataset.captureForm='1';fields.append(app.text('p','Introduce enteros no negativos en cada fila, respetando el orden del acta.','ux-full ux-help'));

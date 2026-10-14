@@ -92,7 +92,7 @@ class PersonIdentityRepository
                 if (isset($fields[$column]) && $fields[$column] !== '') { $conditions[] = "$column = ?"; $params[] = $fields[$column]; }
             }
             $conditions[] = "TRIM(CONCAT_WS(' ', nombre, NULLIF(paterno,''), NULLIF(materno,''))) COLLATE utf8mb4_unicode_ci = ?";
-            $params[] = trim(implode(' ', array_filter([$fields['nombre'], $fields['paterno'] ?? null, $fields['materno'] ?? null])));
+            $params[] = trim(implode(' ', array_filter([$fields['nombre'], $fields['paterno'] ?? null, $fields['materno'] ?? null],static fn($value)=>$value!==null && $value!=='')));
         }
         if ($conditions === []) return [];
         $sql = 'SELECT id, uuid, codigo_persona, nombre, paterno, materno, curp, clave_elector, telefono, email FROM personas p WHERE organizacion=? AND (' . implode(' OR ', $conditions) . ')';
@@ -162,7 +162,7 @@ class PersonIdentityRepository
 
     public function participations(int $person): array
     {
-        $sql = 'SELECT pp.activo, pp.f_registro, pp.f_actualizacion, pe.uuid, pe.proceso, pe.estatus FROM personas_procesos pp JOIN procesos_electorales pe ON pe.id=pp.proceso WHERE pp.persona=?';
+        $sql = 'SELECT pp.activo, pp.f_registro, pp.f_actualizacion, pe.id, pe.uuid, pe.proceso, pe.estatus FROM personas_procesos pp JOIN procesos_electorales pe ON pe.id=pp.proceso WHERE pp.persona=?';
         $params = [$person];
         if (!\App\Core\Auth::isSuperAdmin()) {
             $sql .= ' AND EXISTS (SELECT 1 FROM usuarios_procesos up JOIN usuarios u ON u.id=up.usuario WHERE up.proceso=pe.id AND up.usuario=? AND up.activo=1 AND up.f_baja IS NULL AND u.organizacion=pe.organizacion)';

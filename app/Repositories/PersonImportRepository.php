@@ -61,6 +61,16 @@ class PersonImportRepository
         $statement->execute([$id,$after]);
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
+    public function reviewRows(string $id,int $after): array
+    {
+        $statement=$this->db->prepare("SELECT * FROM personas_importacion_filas WHERE importacion=? AND fila>? AND estado IN ('pendiente','listo','decision','invalido','error') ORDER BY fila LIMIT 100");
+        $statement->execute([$id,$after]);return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+    public function automaticRows(string $id): array
+    {
+        $statement=$this->db->prepare("SELECT * FROM personas_importacion_filas WHERE importacion=? AND estado='listo' AND decision IS NULL AND resultado IS NULL ORDER BY fila LIMIT 100");
+        $statement->execute([$id]);return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
     public function addRow(string $id, int $number, array $values): void
     {
         $statement = $this->db->prepare('INSERT INTO personas_importacion_filas (importacion,fila,datos) VALUES (?,?,?)');
@@ -102,6 +112,7 @@ class PersonImportRepository
     public function plannedSummary(string $id): array
     {
         $statement = $this->db->prepare("SELECT CASE
+            WHEN estado IN ('nuevo','vinculado','completado','omitido','rechazado','error') THEN 'processed'
             WHEN estado='invalido' THEN 'rejected'
             WHEN estado='pendiente' THEN 'pending'
             WHEN estado='decision' THEN 'unresolved'
@@ -109,7 +120,7 @@ class PersonImportRepository
             END accion, COUNT(*) cantidad
             FROM personas_importacion_filas WHERE importacion=? GROUP BY accion");
         $statement->execute([$id]);
-        $summary = array_fill_keys(['new','existing','fill','skip','rejected','pending','unresolved'],0);
+        $summary = array_fill_keys(['new','existing','fill','skip','rejected','pending','unresolved','processed'],0);
         foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) $summary[$row['accion']] = (int) $row['cantidad'];
         return $summary;
     }

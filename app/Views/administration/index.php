@@ -17,7 +17,7 @@
     <div class="ux-actions"><button id="module-save" type="button" class="btn bg-primary text-white" disabled>Guardar cambios</button><span id="module-save-status" role="status">Sin cambios pendientes</span></div>
 </section>
 <section id="administration-levels" role="tabpanel" aria-labelledby="administration-tab-levels" class="card p-5 mb-5">
-    <h6>Niveles organizacionales</h6><p class="ux-help">Los niveles describen responsabilidades en el equipo. Los roles definen el acceso al sistema.</p>
+    <h6>Niveles organizacionales</h6><p class="ux-help">Los niveles describen responsabilidades en el equipo. Selecciona un nivel para editar su nombre, orden o estado. Los roles definen el acceso al sistema.</p>
     <div id="level-list" class="my-3"></div>
     <form id="level-form" class="ux-form-grid">
         <input name="id" type="hidden"><label>Nombre del nivel<input name="name" class="form-input" maxlength="128" required></label><label>Orden jerárquico<input name="order" type="number" class="form-input" min="1" max="32767" required></label>
@@ -25,8 +25,8 @@
         <div class="ux-actions"><button class="btn bg-primary text-white">Guardar nivel</button><button id="level-new" type="button" class="btn">Nuevo nivel</button></div>
     </form>
     <form id="structure-config-form" class="ux-form-grid ux-section">
-        <h6 class="ux-full">Reglas de la elección</h6><label><input name="auto_promote" type="checkbox"> Promover con la primera incorporación autorizada</label><label><input name="approval_required" type="checkbox" checked> Las transferencias requieren aprobación</label>
-        <label class="ux-full">Responsable de aprobar transferencias<select name="approver" class="form-input"><option value="">Superior común o Super Administrador</option></select></label><div class="ux-actions"><button class="btn bg-primary text-white">Guardar reglas</button></div>
+        <h6 class="ux-full">Reglas de la elección</h6><label><input name="auto_promote" type="checkbox"> Promover con la primera incorporación autorizada<small class="ux-help block">Permite pasar al primer nivel habilitado para incorporar equipo, después de una incorporación válida.</small></label><label><input name="approval_required" type="checkbox" checked> Las transferencias requieren aprobación<small class="ux-help block">El cambio de responsable se aplica cuando una persona autorizada lo aprueba.</small></label>
+        <label class="ux-full">Responsable de aprobar transferencias<select name="approver" class="form-input"><option value="">Superior común o Super Administrador</option></select><small class="ux-help block">Selecciona una cuenta autorizada o utiliza la regla de superior común. No modifica los permisos de esa cuenta.</small></label><div class="ux-actions"><button class="btn bg-primary text-white">Guardar reglas</button></div>
     </form>
 </section>
 <section id="administration-permissions" role="tabpanel" aria-labelledby="administration-tab-permissions" class="card p-5 mb-5">

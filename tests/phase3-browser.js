@@ -32,8 +32,9 @@ async function main() {
         if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
         return result.result.value;
     }
-    async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } throw new Error('La interfaz no completó: ' + expression); }
+    async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if(process.argv.includes('--only-post7')){checks+=await require('./post7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome post Fase 7 sin excepciones JavaScript.');return;}
     if (process.argv.includes('--only-phase7')) { checks+=await require('./phase7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 7 sin excepciones JavaScript.');return; }
     if (process.argv.includes('--only-phase6')) { checks+=await require('./phase6-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 6 sin excepciones JavaScript.');return; }
     if (process.argv.includes('--only-phase5')) { checks+=await require('./phase5-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 5 sin excepciones JavaScript.');return; }
@@ -79,6 +80,7 @@ async function main() {
         assert.ok((await evaluate('document.getElementById("jobs-list").textContent')).includes('Exportación')); checks++;
         assert.ok((await evaluate('document.getElementById("backup-summary").textContent')).includes('Espacio disponible')); checks++;
         await evaluate('document.getElementById("services-tab-files").click()'); await waitFor('document.querySelectorAll("#file-form select option").length > 1');
+        await evaluate('document.getElementById("file-person-search").value="Evidencia Fase 4";document.getElementById("file-person-find").click()');await waitFor('Array.from(document.getElementById("file-form").elements.record.options).some(option=>option.textContent.includes("Evidencia Fase 4"))');
         await evaluate('document.getElementById("file-form").elements.record.value = Array.from(document.getElementById("file-form").elements.record.options).find(option=>option.textContent.includes("Evidencia Fase 4")).value');
         const documentNode=await call('DOM.getDocument'); const fileInput=await call('DOM.querySelector',{nodeId:documentNode.root.nodeId,selector:'#file-form input[type=file]'});
         await call('DOM.setFileInputFiles',{nodeId:fileInput.nodeId,files:[path.join(directory,'test-image.png')]});
@@ -97,6 +99,7 @@ async function main() {
     if (process.argv.includes('--phase6')) checks += await require('./phase6-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     if(process.argv.includes('--phase7')) checks+=await require('./phase7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     assert.deepEqual(failures,[]); checks++;
+    if(process.argv.includes('--post7')){checks+=await require('./post7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);checks++;}
     console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
 }
 main().catch(error => { console.error(error.stack || error.message); process.exitCode=1; }).finally(() => { socket?.close(); browser.kill('SIGTERM'); });

@@ -26,7 +26,7 @@ foreach([['PAN','partido',$phase7Parties[0]],['PRI','partido',$phase7Parties[1]]
 phase7Api('catalogs/opciones','POST',['nombre'=>'Fila con orden ocupado','tipo'=>'otro','orden'=>1],'admin',409);
 $phase7Section=Values::uuidText($phase5Repository->one('SELECT uuid FROM secciones_electorales ORDER BY id LIMIT 1')['uuid']);
 $phase7Booths=[];
-foreach(['Básica F7','Contigua F7','Extraordinaria F7',...array_map(static fn($n)=>'Casilla concurrente F7 '.$n,range(3,11))] as $name)$phase7Booths[]=phase7Api('booths','POST',['seccion'=>$phase7Section,'nombre'=>$name,'tipo'=>'PRUEBA'])['uuid'];
+foreach(['Básica F7','Contigua F7','Extraordinaria F7',...array_map(static fn($n)=>'Casilla concurrente F7 '.$n,range(3,11))] as $name)$phase7Booths[]=phase7Api('booths','POST',['seccion'=>$phase7Section,'nombre'=>$name,'tipo'=>'BASICA'])['uuid'];
 $phase7Accounts=[];$phase7AccountIds=[];
 foreach([0,1] as $index) {
     $account=phase7Api('/api/users','POST',['organization'=>$organizationIds[0],'username'=>'fase7-captura-'.$index,'password'=>'Fase7 captura segura','type'=>3,'name'=>'Capturista de prueba '.$index]);$phase7Accounts[]=$account['id'];

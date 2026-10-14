@@ -83,7 +83,7 @@ function InitializeValues(url) {
 		const response = await fetch(uploadUrl.href, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': context.csrf_token }, body });
 		const result = await response.json(); if (!response.ok || !result.success) throw new Error(result.message);
 		const target = node('file-result'); target.replaceChildren(); const file = result.data;
-		const link = text('a', 'Abrir archivo privado'); link.href = applicationBase + '/media/' + file.uuid; target.append(link);
+		const link = text('a', 'Abrir'); link.href = applicationBase + '/media/' + file.uuid; target.append(link);
 		if (file.mime.startsWith('image/')) { const image = document.createElement('img'); image.src = applicationBase + '/media/' + file.uuid + '?size=thumb'; image.alt = 'Miniatura de la imagen procesada'; image.style.maxWidth = '320px'; target.append(image); }
 		notice('Archivo procesado y guardado.');
 	}));
@@ -106,8 +106,19 @@ function InitializeValues(url) {
 		if (!append) { select.replaceChildren(); const empty = text('option',{user:'Todos los usuarios autorizados',process:'Elección de trabajo',organization:'Organización de trabajo',action:'Todas las actividades',entity:'Todas las áreas'}[kind]); empty.value = ''; select.append(empty); }
 		data.rows.forEach(row => { const option = text('option',['action','entity'].includes(kind) ? visual.label(row.label) : row.label); option.value = row.value; select.append(option); });
 		if (Array.from(select.options).some(option => option.value === selected)) select.value = selected;
-		if (['user','organization','process'].includes(kind)) node('audit-' + kind + '-more').hidden = !data.pagination.has_more;
+		if (['user','organization','process'].includes(kind)) node('audit-' + kind + '-more').hidden = true;
 	}
+	['organization','process','user'].forEach(kind=>{
+        const select=node('audit-filter').elements[kind],search=node('audit-'+kind+'-search');
+        const host=select.closest('label') || select.parentElement;
+        select.hidden=true;search.hidden=true;search.closest('label')?.classList.add('hidden');node('audit-'+kind+'-more').hidden=true;
+        const row=text('div','');row.className='ux-search-row';const summary=text('span',select.selectedOptions[0]?.textContent || 'Todas las opciones');summary.className='form-input';
+        const find=action('Buscar '+{organization:'organización',process:'elección',user:'usuario'}[kind],()=>visual.entitySelector({title:'Seleccionar '+{organization:'organización',process:'elección',user:'usuario'}[kind],selected:select.value,
+            load:async(search,offset)=>{const filters=fields(node('audit-filter'));delete filters[kind];delete filters.user;delete filters.action;delete filters.entity;if(context.is_superadmin || filters.context==='all')filters.process='all';delete filters.context;return api.request('/api/audit/options?'+new URLSearchParams({...filters,kind,limit:25,offset,search}));},
+            choose:async item=>{let option=Array.from(select.options).find(option=>option.value===item.value);if(!option){option=text('option',item.label);option.value=item.value;select.append(option);}select.value=item.value;summary.textContent=item.label;select.dispatchEvent(new Event('change'));}
+        }));visual.action(find,'Buscar '+{organization:'organización',process:'elección',user:'usuario'}[kind],'search');const clear=action('Quitar filtro',()=>{select.value='';summary.textContent={organization:'Organización de trabajo',process:'Elección de trabajo',user:'Todos los usuarios autorizados'}[kind];select.dispatchEvent(new Event('change'));});row.append(summary,find,clear);host.append(row);
+        select.addEventListener('change',()=>{summary.textContent=select.selectedOptions[0]?.textContent || 'Sin filtro';});
+    });
 	node('audit-user-search').addEventListener('input',() => { clearTimeout(auditSearchTimer); auditSearchTimer = setTimeout(() => { optionOffsets.user=0; guarded(() => auditOptions('user'))(); },250); });
 	node('audit-user-more').addEventListener('click',guarded(async () => { optionOffsets.user+=25; await auditOptions('user',true); }));
 	['organization','process'].forEach(kind => {

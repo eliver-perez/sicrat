@@ -9,7 +9,8 @@ if (!preg_match('/^sicrat_phase1_test_[a-f0-9]{12}$/', (string) env('DB_DATABASE
 }
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $public = dirname(__DIR__) . '/public';
-if (str_starts_with($path, '/api/') || str_starts_with($path, '/media/')) {
+if(str_starts_with($path,'/media/')) {require $public.'/index.php';return;}
+if (str_starts_with($path, '/api/')) {
     $_SERVER['SCRIPT_NAME'] = '/api.php';
     require $public . '/api.php';
     return;

@@ -18,6 +18,8 @@ class Element {
     attr(name, value) { if (typeof name === 'object') Object.assign(this.attributes, name); else if (value === undefined) return this.attributes[name]; else this.attributes[name] = value; return this; }
     prop(name, value) { this.properties[name] = value; return this; }
     on(name, callback) { this.events[name] = callback; return this; }
+    closest() {return this;}
+    toggleClass() {return this;}
     off(name) { delete this.events[name]; return this; }
     removeClass() { return this; }
     addClass() { return this; }
@@ -45,7 +47,7 @@ jquery.ajax = options => {
     return {done(callback) { callback(response(options)); return this; }, fail() { return this; }, always(callback) { callback(); return this; }};
 };
 const dialogs = new Map();
-const scope = {console, $: jquery, homeURL: 'http://localhost', document: {getElementById(id) { if (!dialogs.has(id)) dialogs.set(id, {open: false, showModal() { this.open = true; }}); return dialogs.get(id); }}, window: {location: {}}, ShowToastMessage() {}, GetPersons() {}};
+const scope = {console, $: jquery, homeURL: 'http://localhost', document: {createTextNode(text) {return new Element().text(text);},getElementById(id) { if (!dialogs.has(id)) dialogs.set(id, {open: false, showModal() { this.open = true; }}); return dialogs.get(id); }}, window: {location: {},SicratPersonCapabilities:{create:true,edit:true,participate:true,import:true}}, ShowToastMessage() {}, GetPersons() {}};
 scope.loadOptions = (options) => { requests.push(options); options.success(response(options)); };
 const beforeJquery = vm.createContext({});
 for (const file of ['persons/identity.js', 'persons/import.js', 'users/accesses.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/assets/js', file), 'utf8'), beforeJquery);
@@ -60,7 +62,7 @@ verify(!box.children.some(child => typeof child === 'string'), 'Advertencia util
 verify(!descendants(box).some(element => element.textValue === 'Crear persona nueva'), 'Regla estricta no ofrece crear duplicado.');
 scope.showPersonDuplicates({blocked: false, matches: [{id: 'uuid', code: 'CODE', name: payload}]}, () => {});
 verify(descendants(box).some(element => element.textValue === 'Crear persona nueva'), 'Advertencia no estricta permite continuar explícitamente.');
-response = options => options.url.includes('/auth/elections') ? {data: {electoral_processes: [{id: 'election', organization: payload, process: payload, selected: false}]}} : {data: {code: 'CODE', name: payload, organization: 'org', participations: [{id: 'election', process: payload, active: 1}]}};
+response = options => options.url.includes('/auth/elections') ? {data: {electoral_processes: [{id: 'election', organization: payload, process: payload, selected: false}]}} : {data: {code: 'CODE', name: payload, organization: 'org', editable:true,participation_choices:[{id:'election',process:payload}], participations: [{id: 'election', process: payload, active: 1}]}};
 scope.openPerson('uuid');
 verify(elements.get('#person-detail-title').textValue === `CODE · ${payload}`, 'Ficha presenta nombre mediante texto.');
 verify(dialogs.get('person-detail').open, 'Ficha abre el diálogo actual.');

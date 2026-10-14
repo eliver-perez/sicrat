@@ -4,14 +4,15 @@ window.SicratOperationForms = {
 	day() { const date=new Date();return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-'); },
 	now() { const date=new Date();return this.day()+'T'+String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0'); },
 	async interaction(app,target) {
-		const person=await app.personPicker(target,'Persona','crear',false,[],true);
-		app.field(target,'type','Tipo de interacción','select','VISITA',true,{VISITA:'Visita',LLAMADA:'Llamada',WHATSAPP:'WhatsApp',MENSAJE:'Correo o mensaje',EVENTO:'Reunión',OTRO:'Otro'});
-		app.field(target,'date','Cuándo se realizó','datetime-local',this.now(),true); app.field(target,'result','Resultado','text','',true);app.field(target,'notes','Notas y contexto','textarea');
+		const person=await app.personPicker(app.section(target,'Persona'),'Persona','crear',false,[],true);
+		const dataFields=app.section(target,'Datos de la interacción');
+		app.field(dataFields,'type','Tipo de interacción','select','VISITA',true,{VISITA:'Visita',LLAMADA:'Llamada',WHATSAPP:'WhatsApp',MENSAJE:'Correo o mensaje',EVENTO:'Reunión',OTRO:'Otro'});
+		app.field(dataFields,'date','Cuándo se realizó','datetime-local',this.now(),true); app.field(dataFields,'result','Resultado','text','',true);app.field(dataFields,'notes','Notas y contexto','textarea');
 		const capabilities=await app.api('operations/capabilities');
-		const elections=await app.picker(target,'Elecciones relacionadas','operations/interaction-elections',true,capabilities.election ? [{uuid:capabilities.election.uuid,label:capabilities.election.nombre}] : []);
+		const elections=await app.picker(app.section(target,'Elecciones relacionadas'),'Elecciones relacionadas','operations/interaction-elections',true,capabilities.election ? [{uuid:capabilities.election.uuid,label:capabilities.election.nombre}] : [],false,'choices');
 		let task=null,item=null,complete=null;
 		if (app.can('tareas.ver') && app.moduleEnabled('tareas_metas')) {
-			const related=app.section(target,'Tarea relacionada','Seleccionar una tarea no la completa. Un intento sin contacto conserva su estado.');
+			const related=app.section(target,'Vincular a una tarea (opcional)','Selecciona una tarea si esta interacción corresponde a una asignación pendiente.');
 			task=await app.picker(related,'Tarea','operations/tareas'); item=app.field(related,'task_item','Asignación o subtarea','select','',false,{'':'Selecciona una tarea primero'});
 			complete=app.check(related,'complete_task','Marcar la asignación relacionada como completada');
 			complete.closest('label').hidden=!app.can('tareas.completar');complete.disabled=!app.can('tareas.completar');
@@ -33,7 +34,7 @@ window.SicratOperationForms = {
 			function updateTypes() { const choices=['SELECCION_UNICA','SELECCION_MULTIPLE'].includes(type.value);options.closest('label').hidden=!choices;options.disabled=!choices;const numeric=['NUMERO','ESCALA'].includes(type.value);minimum.closest('label').hidden=!numeric;maximum.closest('label').hidden=!numeric;minimum.disabled=maximum.disabled=!numeric;equals.closest('label').hidden=!when.value;equals.disabled=!when.value; }
 			function conditions() { editors.forEach((item,index)=> { const selected=item.when.value; item.when.replaceChildren();window.SicratPhase3.option(item.when,'','Siempre');editors.slice(0,index).forEach((previous,position)=>window.SicratPhase3.option(item.when,previous.key,previous.title.value || 'Pregunta '+(position+1),previous.key===selected));item.equals.closest('label').hidden=!item.when.value;item.equals.disabled=!item.when.value; }); }
 			type.addEventListener('change',updateTypes);when.addEventListener('change',updateTypes);title.addEventListener('change',conditions);
-			box.append(app.button('Quitar pregunta',()=>{box.remove();editors.splice(editors.indexOf(editor),1);conditions();}));container.append(box); conditions(); updateTypes();
+			box.append(window.SicratUI.action(app.button('Quitar pregunta',()=>{box.remove();editors.splice(editors.indexOf(editor),1);conditions();}),'Quitar pregunta','trash-2'));container.append(box); conditions(); updateTypes();
 		};
 		definitions.forEach(question=>{sequence++;add(question);}); if (!definitions.length) add(null);
 		target.append(app.button('Agregar pregunta',()=>{if(editors.length>=100)throw new Error('Máximo cien preguntas.');add(null);}));
@@ -47,26 +48,27 @@ window.SicratOperationForms = {
 	async survey(app,target,row = null) {
 		app.field(target,'title','Nombre de la encuesta','text',row?.encuesta || '',true); app.field(target,'description','Descripción','textarea',row?.descripcion || '').maxLength=500;
 		app.field(target,'start','Inicio de aplicación','datetime-local',row?.inicio?.replace(' ','T') || '');app.field(target,'end','Fin de aplicación','datetime-local',row?.fin?.replace(' ','T') || '');
-		const frequency=app.field(target,'frequency','Frecuencia por persona','select',row?.frecuencia || 'unica',true,{unica:'Una sola vez',multiple:'Varias veces con intervalo'});const interval=app.field(target,'interval','Cada cuántas unidades','number',row?.intervalo || 1);interval.min='1';interval.max='1000';
+		const frequency=app.field(target,'frequency','Frecuencia por persona','select',row?.frecuencia || 'unica',true,{unica:'Una sola vez',multiple:'Varias veces con intervalo'});frequency.closest('label').classList.add('ux-full');const interval=app.field(target,'interval','Cada cuánto','number',row?.intervalo || 1);interval.min='1';interval.max='1000';
 		const unit=app.field(target,'unit','Unidad del intervalo','select',row?.unidad || 'dias',false,{horas:'Horas',dias:'Días',semanas:'Semanas',meses:'Meses'});
-		const toggle=()=>{interval.disabled=unit.disabled=frequency.value!=='multiple';};frequency.addEventListener('change',toggle);toggle();
+		const toggle=()=>{interval.disabled=unit.disabled=frequency.value!=='multiple';interval.closest('label').hidden=unit.closest('label').hidden=frequency.value!=='multiple';};frequency.addEventListener('change',toggle);toggle();
 		const questions=this.questions(app,app.section(target,'Preguntas','Las respuestas conservarán esta versión. Las condiciones usan una pregunta anterior; para opciones puedes escribir su etiqueta.'),row?.questions || []);
 		return form=>({...app.values(form),questions:questions()});
 	},
 	async task(app,target) {
-		app.field(target,'title','Título de la tarea','text','',true);app.field(target,'description','Descripción','textarea');
-		const mode=app.field(target,'mode','Modalidad','select','individual',true,{individual:'Asignación individual a varias personas',colaborativa:'Tarea colaborativa con subtareas'});
-		app.field(target,'priority','Prioridad','select','NORMAL',true,{BAJA:'Baja',NORMAL:'Normal',ALTA:'Alta',URGENTE:'Urgente'});app.field(target,'start','Fecha de inicio','datetime-local',this.now(),true);app.field(target,'deadline','Fecha límite','datetime-local');
-		const assignments=await app.personPicker(target,'Personas asignadas','crear',true); const subtaskSection=app.section(target,'Subtareas','Cada subtarea conserva su propio estado.');const subtasks=[];
+		const general=app.section(target,'Datos generales'),assignment=app.section(target,'Asignación'),evidence=app.section(target,'Validación y evidencias');
+		app.field(general,'title','Título de la tarea','text','',true);app.field(general,'description','Descripción','textarea');
+		const mode=app.field(general,'mode','Modalidad','select','individual',true,{individual:'Asignación individual a varias personas',colaborativa:'Tarea colaborativa con subtareas'});
+		app.field(general,'priority','Prioridad','select','NORMAL',true,{BAJA:'Baja',NORMAL:'Normal',ALTA:'Alta',URGENTE:'Urgente'});app.field(general,'start','Fecha de inicio','datetime-local',this.now(),true);app.field(general,'deadline','Fecha límite','datetime-local');
+		const assignments=await app.personPicker(assignment,'Personas asignadas','crear',true); const subtaskSection=app.section(assignment,'Subtareas','Cada subtarea conserva su propio estado.');const subtasks=[];
 		const add=async()=>{const box=app.text('div','','op-question op-form-fields ux-full');subtaskSection.append(box);const title=app.field(box,'subtask_title','Título de subtarea','text','',true);const person=await app.personPicker(box,'Responsable de subtarea','crear');subtasks.push({box,title,person});box.append(app.button('Quitar subtarea',()=>{box.remove();subtasks.splice(subtasks.findIndex(item=>item.box===box),1);}));};
 		subtaskSection.append(app.button('Agregar subtarea',async()=>{if(subtasks.length>=100)throw new Error('Máximo cien subtareas.');await add();}));
 		const toggle=()=>{assignments.box.hidden=mode.value!=='individual';assignments.select.disabled=mode.value!=='individual';subtaskSection.parentElement.hidden=mode.value!=='colaborativa';subtasks.forEach(item=>item.title.disabled=mode.value!=='colaborativa');};mode.addEventListener('change',app.guard(async()=>{if(mode.value==='colaborativa' && !subtasks.length)await add();toggle();}));toggle();
-		const validation=app.check(target,'validation','Requiere validación para considerarse completada');app.check(target,'allow_pdf','Permitir PDF administrativo como evidencia');
-		const approver=await app.picker(target,'Aprobador opcional','operations/tareas/approvers?action=crear');
-		const recurrence=app.section(target,'Recurrencia opcional','Se generan nuevas ocurrencias mediante el scheduler y la cola comunes.');const recurrent=app.check(recurrence,'recurrent','Repetir esta tarea');app.field(recurrence,'recurrence_frequency','Frecuencia','select','semanal',false,{diario:'Diaria',semanal:'Semanal',mensual:'Mensual'});const every=app.field(recurrence,'recurrence_every','Cada cuántos periodos','number','1');every.min='1';every.max='31';const until=app.field(recurrence,'recurrence_until','Repetir hasta','date');
+		const validation=app.check(evidence,'validation','Requiere validación para considerarse completada');app.check(evidence,'allow_pdf','Permitir documentos PDF como evidencia');
+		const approver=await app.picker(evidence,'Persona que autoriza la finalización (opcional)','operations/tareas/approvers?action=crear');
+		const recurrence=app.section(target,'Recurrencia opcional','El sistema repetirá la tarea durante el periodo indicado.');const recurrent=app.check(recurrence,'recurrent','Repetir esta tarea');app.field(recurrence,'recurrence_frequency','Frecuencia','select','semanal',false,{diario:'Diaria',semanal:'Semanal',mensual:'Mensual'});const every=app.field(recurrence,'recurrence_every','Cada cuántos periodos','number','1');every.min='1';every.max='31';const until=app.field(recurrence,'recurrence_until','Repetir hasta','date');
 		recurrent.addEventListener('change',()=>until.required=recurrent.checked);
 		const entities={'':'Sin relación',personas:'Persona'};['eventos','peticiones','incidencias','interacciones'].forEach(entity=>{const module={eventos:'eventos',peticiones:'peticiones_incidencias',incidencias:'peticiones_incidencias',interacciones:'interacciones'}[entity];if(app.can(entity+'.ver') && app.moduleEnabled(module))entities[entity]=app.label(entity);});
-		const relatedType=app.field(target,'related_entity','Registro relacionado opcional','select','',false,entities);const relatedBox=app.text('div','','ux-full');target.append(relatedBox);let related=null;
+		const relationship=app.section(target,'Relación con otro registro (opcional)');const relatedType=app.field(relationship,'related_entity','Registro relacionado opcional','select','',false,entities);const relatedBox=app.text('div','','ux-full');relationship.append(relatedBox);let related=null;
 		relatedType.addEventListener('change',app.guard(async()=>{relatedBox.replaceChildren();related=null;if(!relatedType.value)return;related=relatedType.value==='personas' ? await app.personPicker(relatedBox,'Persona relacionada','crear') : await app.picker(relatedBox,'Registro relacionado','operations/'+relatedType.value);}));
 		return form=>{const data=app.values(form);return {...data,validation:validation.checked ? 1 : 0,approver:approver.values(),allow_pdf:form.elements.allow_pdf.checked ? 1 : 0,related_entity:relatedType.value,related_record:related?.values() || '',assignees:mode.value==='individual' ? assignments.values() : [],subtasks:mode.value==='colaborativa' ? subtasks.map(item=>({title:item.title.value,person:item.person.values()})) : [],recurrence:recurrent.checked ? {frequency:data.recurrence_frequency,every:Number(data.recurrence_every),until:until.value} : null};};
 	},
@@ -89,11 +91,11 @@ window.SicratOperationForms = {
 	},
 	async caseRecord(app,target) {
 		const person=await app.personPicker(target,app.entity==='peticiones' ? 'Persona solicitante' : 'Persona relacionada','crear');let external=null,name=null,contact=null;
-		if (app.entity==='peticiones') { external=app.check(target,'external','El solicitante es externo a SICRAT');name=app.field(target,'external_name','Nombre del solicitante externo','text');contact=app.field(target,'external_contact','Contacto mínimo del solicitante','text');const toggle=()=>{person.box.hidden=external.checked;person.select.disabled=external.checked;name.closest('label').hidden=contact.closest('label').hidden=!external.checked;name.required=external.checked;name.disabled=contact.disabled=!external.checked;};external.addEventListener('change',toggle);toggle(); }
-		app.field(target,'category','Categoría o tipo','text','General',true);app.field(target,'description',app.entity==='peticiones' ? 'Solicitud' : 'Problema reportado','textarea','',true);app.field(target,'priority','Prioridad','select','NORMAL',true,{BAJA:'Baja',NORMAL:'Normal',ALTA:'Alta',URGENTE:'Urgente'});const responsible=await app.personPicker(target,'Responsable','crear');const validation=app.check(target,'validation','El cierre requiere validación superior');app.check(target,'allow_pdf','Permitir documento administrativo PDF');
-		const approver=await app.picker(target,'Aprobador opcional','operations/'+app.entity+'/approvers?action=crear');
+		if (app.entity==='peticiones') { external=app.check(target,'external','El solicitante es externo a SICRAT');name=app.field(target,'external_name','Nombre del solicitante externo','text');contact=app.field(target,'external_contact','Contacto del solicitante','text');const toggle=()=>{person.box.hidden=external.checked;person.select.disabled=external.checked;name.closest('label').hidden=contact.closest('label').hidden=!external.checked;name.required=external.checked;name.disabled=contact.disabled=!external.checked;};external.addEventListener('change',toggle);toggle(); }
+		const category=await app.picker(target,'Categoría','operations/case-categories/'+app.entity+'?active=1',false,[],true);app.field(target,'description',app.entity==='peticiones' ? 'Solicitud' : 'Problema reportado','textarea','',true);app.field(target,'priority','Prioridad','select','NORMAL',true,{BAJA:'Baja',NORMAL:'Normal',ALTA:'Alta',URGENTE:'Urgente'});const responsible=await app.personPicker(target,'Responsable','crear');const validation=app.check(target,'validation','El cierre requiere validación superior');app.check(target,'allow_pdf','Permitir documentos PDF como evidencia');
+		const approver=await app.picker(target,'Persona que autoriza el cierre (opcional)','operations/'+app.entity+'/approvers?action=crear');
 		let event=null;if(app.entity==='incidencias' && app.can('eventos.ver') && app.moduleEnabled('eventos')) event=await app.picker(target,'Evento relacionado opcional','operations/eventos');
-		return form=>({...app.values(form),person:external?.checked ? '' : person.values(),responsible:responsible.values(),approver:approver.values(),validation:validation.checked ? 1 : 0,allow_pdf:form.elements.allow_pdf.checked ? 1 : 0,event:event?.values() || ''});
+		return form=>({...app.values(form),category_id:category.values(),person:external?.checked ? '' : person.values(),responsible:responsible.values(),approver:approver.values(),validation:validation.checked ? 1 : 0,allow_pdf:form.elements.allow_pdf.checked ? 1 : 0,event:event?.values() || ''});
 	},
 	async conversation(app,target) {
 		const types={};if(app.can('mensajes.enviar'))types.DIRECTA='Conversación directa';if(app.can('mensajes.crear_grupos'))types.GRUPO='Grupo manual';if(app.can('mensajes.crear_grupos_estructura'))types.ESTRUCTURA='Grupo automático de estructura';

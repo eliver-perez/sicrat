@@ -60,6 +60,12 @@ $router->get('/api/genders', [GenderController::class, 'index'], 'catalogs.read'
 
 $router->get('/api/sections', [SectionsController::class, 'index'], 'sections.read');
 $router->post('/api/sections', [SectionsController::class, 'store'], 'sections.create');
+$router->get('/api/sections/{id}',[SectionsController::class,'detail'],'sections.read');
+$router->put('/api/sections/{id}',[SectionsController::class,'detail'],'sections.create');
+$router->get('/api/polling-booths',[\App\Controllers\PollingBoothsController::class,'index'],'booths.read');
+$router->post('/api/polling-booths',[\App\Controllers\PollingBoothsController::class,'index'],'booths.admin');
+$router->get('/api/polling-booths/{id}',[\App\Controllers\PollingBoothsController::class,'detail'],'booths.read');
+$router->put('/api/polling-booths/{id}',[\App\Controllers\PollingBoothsController::class,'detail'],'booths.admin');
 
 /**
  * PERSONS ROUTES ROUTES
@@ -104,6 +110,8 @@ $router->post('/api/person-imports/{id}/preview', [\App\Controllers\PersonImport
 $router->put('/api/person-imports/{id}/decisions', [\App\Controllers\PersonImportController::class, 'decisions'], 'persons.import');
 $router->post('/api/person-imports/{id}/confirm', [\App\Controllers\PersonImportController::class, 'confirm'], 'persons.import');
 $router->post('/api/person-imports/{id}/apply', [\App\Controllers\PersonImportController::class, 'apply'], 'persons.import');
+$router->post('/api/person-imports/{id}/automatic', [\App\Controllers\PersonImportController::class, 'automatic'], 'persons.import');
+$router->get('/api/polling-booth-types', [\App\Controllers\PollingBoothsController::class, 'types'], 'catalogs.read');
 $router->get('/api/person-imports/{id}', [\App\Controllers\PersonImportController::class, 'status'], 'persons.import');
 
 $router->get('/api/person-imports/{id}/results', [\App\Controllers\PersonImportController::class, 'results'], 'persons.import');
@@ -122,7 +130,7 @@ $router->post('/api/structures/{id}/members/{member}/transfers', [\App\Controlle
 $router->get('/api/structures/{id}/transfers', [\App\Controllers\StructureController::class,'requests'], 'structure.read');
 $router->put('/api/structures/{id}/transfers/{transfer}', [\App\Controllers\StructureController::class,'resolve'], 'structure.approve');
 $router->get('/api/structures/{id}/history', [\App\Controllers\StructureController::class,'history'], 'structure.admin');
-$router->get('/api/structure-levels', [\App\Controllers\AdministrationController::class,'levels'], 'structure.read');
+$router->get('/api/structure-levels', [\App\Controllers\AdministrationController::class,'levels'], 'levels.read');
 $router->post('/api/structure-levels', [\App\Controllers\AdministrationController::class,'level'], 'levels.admin');
 $router->put('/api/structure-levels/{level}', [\App\Controllers\AdministrationController::class,'level'], 'levels.admin');
 $router->get('/api/structure-config', [\App\Controllers\AdministrationController::class,'configuration'], 'levels.admin');
@@ -152,6 +160,7 @@ $router->post('/api/files', [\App\Controllers\CommonServicesController::class,'u
 $router->delete('/api/files/{id}', [\App\Controllers\CommonServicesController::class,'deleteFile'], 'files.delete');
 $router->get('/media/{id}', [\App\Controllers\CommonServicesController::class,'media'], 'authenticated');
 $router->get('/api/notifications', [\App\Controllers\CommonServicesController::class,'notifications'], 'authenticated');
+$router->get('/api/notifications/summary',[\App\Controllers\CommonServicesController::class,'notificationSummary'],'authenticated');
 $router->post('/api/notifications/read', [\App\Controllers\CommonServicesController::class,'readNotifications'], 'authenticated');
 $router->get('/api/notification-config', [\App\Controllers\CommonServicesController::class,'notificationConfiguration'], 'notifications.admin');
 $router->put('/api/notification-config', [\App\Controllers\CommonServicesController::class,'notificationConfiguration'], 'notifications.admin');
@@ -177,6 +186,9 @@ $router->get('/api/operations/interaction-elections', [\App\Controllers\Operatio
 $router->get('/api/operations/capabilities',[$operations,'capabilities'],'operations.access');
 $router->get('/api/operations/event-types',[$operations,'types'],'operations.access');
 $router->post('/api/operations/event-types',[$operations,'types'],'operations.access');
+$router->get('/api/operations/case-categories/{kind}',[$operations,'categories'],'operations.access');
+$router->post('/api/operations/case-categories/{kind}',[$operations,'categories'],'operations.access');
+$router->put('/api/operations/case-categories/{kind}/{id}',[$operations,'categories'],'operations.access');
 $router->get('/api/operations/indicators',[$operations,'indicators'],'operations.access');
 $router->get('/api/operations/transport-summary',[$operations,'transportSummary'],'operations.access');
 $router->get('/api/operations/contacts',[$operations,'contacts'],'operations.access');

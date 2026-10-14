@@ -90,7 +90,12 @@ class Context
 	}
 	public function history(string $entity,array $row,string $action,string $note = '',?array $before = null,?array $after = null): void
 	{
-		$this->repository->execute('INSERT INTO operaciones_historial (organizacion,proceso,entidad,registro,usuario,accion,nota,fecha) VALUES (?,?,?,?,?,?,?,NOW())',[$row['organizacion'],$row['proceso'],$entity,$row['id'],$this->actor(),$action,Values::text($note,4000,true)]);
+		if(isset($before['estado'],$after['estado']) && $before['estado']!==$after['estado']) {
+			$states=['abierta'=>'Abierta','en_atencion'=>'En atención','correccion'=>'Requiere corrección','validacion'=>'Pendiente de validación','cerrada'=>'Resuelta','cancelada'=>'Cancelada','pendiente'=>'Pendiente','completada'=>'Completada'];
+			$transition='Estado cambiado de '.($states[$before['estado']] ?? $before['estado']).' a '.($states[$after['estado']] ?? $after['estado']).'.';
+			$note=$transition.($note!=='' ? ' '.$note : '');
+		}
+		$this->repository->execute('INSERT INTO operaciones_historial (organizacion,proceso,entidad,registro,usuario,accion,nota,fecha) VALUES (?,?,?,?,?,?,?,NOW())',[$row['organizacion'],$row['proceso'],$entity,$row['id'],$this->actor(),$action,Values::text($note,5000,true)]);
 		(new AuditService($this->repository))->record((int) $row['organizacion'],(int) $row['proceso'],$action,$entity,(int) $row['id'],$before,$after);
 	}
 	public function version(array $row,array $data): void

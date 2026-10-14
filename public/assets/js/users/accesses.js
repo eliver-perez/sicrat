@@ -29,18 +29,14 @@ function InitializeUserAccesses() {
     }}, 'electoral_processes');
     $.getJSON(`${homeURL}/api/users-types`, function (response) { response.data.users_types.forEach(type => $('#user-access-type').append($('<option>', {value: type.id, text: type.type}))); });
     $(document).on('click', '#table-users tbody tr', function () { loadUserAccesses($(this).attr('data-id')); });
-    $('#user-access-form').on('submit', function (event) {
-        event.preventDefault();
-        userAccessRequest(`users/${selectedAccessUser}/accesses`, 'post', {process: processes.val(), type: $('#user-access-type').val(), active: $('#user-access-active').is(':checked') ? 1 : 0}).done(function () { loadUserAccesses(selectedAccessUser); }).fail(userAccessError);
-    });
-    $('#user-person-find').on('click', function () {
-        $.getJSON(`${homeURL}/api/persons`, {search: $('#user-person-search').val(), limit: 100}, function (response) {
-            const selector = $('#user-person-select').empty().append($('<option>', {value: '', text: 'Sin persona vinculada'}));
-            response.data.persons.forEach(person => selector.append($('<option>', {value: person.id, text: `${person.code} · ${person.name}`})));
-        }).fail(userAccessError);
-    });
-    $('#user-person-form').on('submit', function (event) {
-        event.preventDefault();
-        userAccessRequest(`users/${selectedAccessUser}/person`, 'put', {person: $('#user-person-select').val() || null}).done(function () { loadUserAccesses(selectedAccessUser); }).fail(userAccessError);
-    });
+    $('#user-access-form').on('submit', window.SicratFeedback.guard(async function (event) {
+        await userAccessRequest(`users/${selectedAccessUser}/accesses`, 'post', {process: processes.val(), type: $('#user-access-type').val(), active: $('#user-access-active').is(':checked') ? 1 : 0}).done(function () { loadUserAccesses(selectedAccessUser);ShowToastMessage('Acceso guardado correctamente.','success'); });
+    }));
+    $('#user-person-find').on('click',window.SicratFeedback.guard(()=>window.SicratUI.entitySelector({title:'Seleccionar persona',selected:$('#user-person-select').val(),
+        load:async(search,offset)=>{const response=await $.getJSON(`${homeURL}/api/persons`,{search:search || $('#user-person-search').val(),limit:25,offset});return {rows:response.data.persons.map(person=>({value:person.id,label:`${person.code} · ${person.name}`})),pagination:response.pagination};},
+        choose:person=>{$('#user-person-select').empty().append($('<option>',{value:person.value,text:person.label,selected:true}));}
+    })));
+    $('#user-person-form').on('submit', window.SicratFeedback.guard(async function (event) {
+        await userAccessRequest(`users/${selectedAccessUser}/person`, 'put', {person: $('#user-person-select').val() || null}).done(function () { loadUserAccesses(selectedAccessUser);ShowToastMessage('Vínculo guardado correctamente.','success'); });
+    }));
 }

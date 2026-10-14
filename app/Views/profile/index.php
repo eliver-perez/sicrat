@@ -57,7 +57,7 @@
                     <div id="changePassword" role="tabpanel" aria-labelledby="changePasswordTab">
                         <div class="card">
                             <div class="card-body">
-                                <h6 class="mb-4 text-[15px]">Modificar Contraseña</h6>
+                                <h6 id="password" class="mb-4 text-[15px]">Modificar contraseña</h6>
 
                                 <form id="form-change-password" no-validate action="javascript:ChangePassword()">
                                     <div class="grid grid-cols-1 gap-5 lg:grid-cols-12">

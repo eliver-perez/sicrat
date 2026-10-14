@@ -42,7 +42,10 @@ function InitializeValues(url) {
 		document.querySelectorAll('#resources-tabs button,#resources-config-tabs button').forEach(button=>{button.setAttribute('aria-selected',String(button.dataset.entity===entity));
 			button.classList.toggle('active',button.dataset.entity===entity);
 			});
-		app.node('resources-configuration').open=configuration.includes(entity);
+		const configDialog=app.node('resources-config-dialog'),panel=app.node('resources-primary-panel');
+		panel.hidden=false;
+		if(configuration.includes(entity)){configDialog.append(panel);if(!configDialog.open)configDialog.showModal();}
+		else{app.primaryEntity=entity;app.node('resources-primary-anchor').after(panel);if(configDialog.open)configDialog.close();}
 		app.node('resources-new').hidden=!app.enabled || !app.definition.write || !(app.entity==='movimientos' ? ['inventario.entradas','inventario.salidas','inventario.ajustar'].some(permission=>app.can(permission)) : app.can(app.definition.write));
 		app.node('resources-new').textContent=({gastos:'Nuevo gasto',presupuestos:'Nuevo presupuesto',anticipos:'Solicitar anticipo',reembolsos:'Solicitar reembolso',ingresos:'Registrar ingreso',movimientos:'Registrar movimiento'})[entity] || 'Nuevo registro';
 		app.node('resources-export').hidden=!app.can('exportaciones.generar') || ['resumen','categorias','cuentas','metodos','politicas','transferencias','categorias_inventario','origenes'].includes(entity);
@@ -79,8 +82,8 @@ function InitializeValues(url) {
 			const summary=entity==='resumen' ? await app.api('resources/summary?module='+app.module) : await app.api('resources/cash-flow');
 			const cards=entity==='resumen' ? summary.cards : Object.entries(summary).filter(([key])=>key!=='moneda').map(([key,value])=>({label:app.label(key),value:app.moneyText(value)}));
 			const grid=app.text('div','','ux-module-grid');
-			cards.forEach(item=>{const card=app.text('div','','card p-5');
-				card.append(app.text('h6',item.label),app.text('p',item.monetary ? app.moneyText(item.value) : item.value,'text-xl font-semibold mt-3'));
+			cards.forEach(item=>{const card=app.text('div','','card p-5 ux-summary-card');const body=app.text('div');card.append(window.SicratUI.icon(app.module==='finanzas' ? 'coins' : 'package'),body);
+				body.append(app.text('h6',item.label),app.text('p',item.monetary ? app.moneyText(item.value) : item.value,'text-xl font-semibold mt-3'));
 				grid.append(card);
 				});
 			app.node('resources-content').append(grid);
@@ -91,6 +94,8 @@ function InitializeValues(url) {
 		if(entity==='existencias' && app.enabled && app.can('inventario.articulos'))app.node('resources-content').append(app.button('Configurar mínimo por almacén',()=>window.SicratResourceForms.minimum(app)));
 	};
 	app.navigate=navigate;
+	app.node('resources-configuration').addEventListener('click',app.guard(()=>navigate(app.node('resources-config-tabs').querySelector('button')?.dataset.entity)));
+	app.node('resources-config-dialog').addEventListener('close',()=>{if(configuration.includes(app.entity)){if(app.primaryEntity)app.guard(()=>navigate(app.primaryEntity))();else{const panel=app.node('resources-primary-panel');app.node('resources-primary-anchor').after(panel);panel.hidden=true;}}});
 	app.node('resources-new').addEventListener('click',app.guard(()=>window.SicratResourceForms.create(app)));
 	app.node('resources-export').addEventListener('click',app.guard(()=>app.exportDialog()));
 	app.node('resources-filters').addEventListener('submit',app.guard(async event=>{app.filters={...app.values(event.currentTarget),...(app.filterDto ? app.filterDto() : {})};
@@ -106,6 +111,7 @@ function InitializeValues(url) {
 		app.node('resources-mode').textContent=app.enabled ? (app.module==='finanzas' ? 'Operación habilitada. Importes en pesos mexicanos (MXN).' : 'Inventario común a todas las elecciones de la organización.') : 'Modo histórico: el módulo está deshabilitado. Puedes consultar datos anteriores según tus permisos.';
 		const entities=app.module==='finanzas' ? ['resumen','presupuestos','gastos','anticipos','reembolsos','ingresos','aportaciones','pagos','flujo','categorias','cuentas','metodos','politicas','transferencias'] : ['resumen','articulos','existencias','movimientos','almacenes','categorias_inventario','origenes'];
 		const allowed=entities.filter(entity=>app.can(definitions[entity].read));
+		app.primaryEntity=allowed.find(entity=>!configuration.includes(entity)) || null;
 		if(!allowed.length){app.node('resources-mode').textContent='No tienes permiso para consultar estos apartados. Solicita al administrador el acceso necesario.';
 			app.initialized=true;
 			return;

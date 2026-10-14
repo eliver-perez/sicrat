@@ -1,11 +1,13 @@
 const personLabels = {name: 'Nombre', last_name: 'Apellido paterno', last_name_2: 'Apellido materno', birth_date: 'Fecha de nacimiento', gender: 'Género', phone: 'Teléfono', alternate_phone: 'Teléfono alternativo', email: 'Correo', curp: 'CURP', elector_key: 'Clave de elector', ocr: 'OCR', section: 'Sección', street: 'Calle', exterior_number: 'Número exterior', interior_number: 'Número interior', postal_code: 'Código postal', references: 'Referencias', neighborhood: 'Colonia', latitude: 'Latitud', longitude: 'Longitud'};
 let selectedPerson = null;
 let detailOrganization = null;
+let personEditable = false;
+function personCan(action) { return window.SicratPersonCapabilities?.[action] === true; }
 
 function identityRequest(path, method, data) {
     return $.ajax({url: `${homeURL}/api/${path}`, type: method, data: JSON.stringify(data), contentType: 'application/json', dataType: 'json'});
 }
-function identityError(xhr) { ShowToastMessage(xhr.responseJSON?.message || 'No se pudo completar la operación.', 'error'); }
+function identityError(xhr) { ShowToastMessage(xhr.responseJSON?.message || 'No se pudo completar la operación.', [403,409,422].includes(xhr.status) ? 'warning' : 'error'); }
 
 function showPersonDuplicates(data, continueNew) {
     const box = $('#person-duplicates').empty().removeClass('hidden');
@@ -20,6 +22,8 @@ function openPerson(uuid) {
     identityRequest(`persons/${uuid}`, 'get').done(function (response) {
         const person = response.data;
         selectedPerson = uuid;
+        personEditable = person.editable && personCan('edit');
+        $('#person-edit-form button[type=submit]').prop('hidden', !personEditable);
         detailOrganization = person.organization;
         $('#person-detail-title').text(`${person.code} · ${person.name}`);
         const fields = $('#person-edit-fields').empty();
@@ -32,7 +36,7 @@ function openPerson(uuid) {
         Object.entries(personLabels).forEach(function ([key, label]) {
             const group = ['phone','alternate_phone','email'].includes(key) ? groups.contact : ['section','street','exterior_number','interior_number','postal_code','references','neighborhood','latitude','longitude'].includes(key) ? groups.address : groups.personal;
             const control = key === 'references' ? $('<textarea>', {rows:3}) : ['section', 'neighborhood', 'gender'].includes(key) ? $('<select>') : $('<input>', {type: key === 'birth_date' ? 'date' : key === 'email' ? 'email' : ['phone','alternate_phone'].includes(key) ? 'tel' : 'text'});
-            control.attr({name: key, class: 'form-input'}).val(person[key] || '');
+            control.attr({name: key, class: 'form-input'}).val(person[key] || '').prop('disabled',!personEditable);
             if (key === 'name') control.prop('required', true);
             if (key === 'section') {
                 control.append($('<option>', {value: '', text: 'Sin sección'}));
@@ -49,7 +53,7 @@ function openPerson(uuid) {
                 if (person.neighborhood) control.append($('<option>', {value: person.neighborhood, text: 'Colonia registrada', selected: true}));
                 const choose = $('<button>', {type: 'button', class: 'btn text-primary'}).text('Elegir colonia');
                 choose.on('click', function () { choosePersonNeighborhood(control); });
-                group.append($('<div>', {class:'ux-actions'}).append(choose));
+                if (personEditable) group.append($('<div>', {class:'ux-actions'}).append(choose));
             }
             group.append($('<label>').text(label).append(control));
         });
@@ -60,14 +64,17 @@ function openPerson(uuid) {
         person.participations.forEach(function (participation) {
             const line = $('<tr>').append($('<td>').text(participation.process),$('<td>').append($('<span>', {class:'ux-badge ' + (participation.active ? 'ux-badge-success' : 'ux-badge-neutral')}).text(participation.active ? 'Activa' : 'Retirada')));
             const button = $('<button>', {type: 'button', class: 'btn text-primary'}).text(participation.active ? 'Retirar' : 'Reactivar');
-            button.on('click', function () { identityRequest(`persons/${uuid}/participations`, 'post', {processes: [participation.id], active: participation.active ? 0 : 1}).done(function () { openPerson(uuid); }).fail(identityError); });
-            line.append($('<td>').append(button)); rows.append(line);
+            button.on('click', async function () {
+                if (!personCan('participate') || !participation.can_participate) return;
+                if (participation.active && !await window.SicratFeedback.confirm('¿Retirar la participación de esta elección?',{confirm:'Retirar participación'})) return;
+                window.SicratFeedback.execute(this,()=>identityRequest(`persons/${uuid}/participations`, 'post', {processes:[participation.id],active:participation.active ? 0 : 1}).done(()=>openPerson(uuid))).catch(identityError);
+            });
+            line.append($('<td>').append(participation.can_participate && personCan('participate') ? button : document.createTextNode('Sólo consulta'))); rows.append(line);
         });
         const selector = $('#person-election-select').empty();
-        loadOptions({url: `${homeURL}/api/auth/elections`, type: 'get', dataType: 'json', success: function (elections) {
-            // El backend verifica la organización aun si se manipula el selector.
-            elections.data.electoral_processes.forEach(function (election) { selector.append($('<option>', {value: election.id, text: `${election.organization} — ${election.process}`})); });
-        }}, 'electoral_processes');
+        person.participation_choices.forEach(election => selector.append($('<option>', {value:election.id,text:election.process})));
+        selector.closest('label').prop('hidden',!personCan('participate') || !person.participation_choices.length);
+        $('#person-participate').prop('hidden',!personCan('participate') || !person.participation_choices.length);
         const dialog = document.getElementById('person-detail');
         if (!dialog.open) dialog.showModal();
         if (typeof window.InitializePersonOperations==='function') window.InitializePersonOperations(uuid,homeURL);
@@ -98,11 +105,15 @@ function InitializePersonIdentity() {
     $(document).on('click', '.person-open', function () { openPerson($(this).attr('data-id')); });
     $('#person-edit-form').on('submit', function (event) {
         event.preventDefault();
+        if (!personCan('edit') || !personEditable) return;
+        if (this.dataset.busy) return;
+        const form=this;
         const data = Object.fromEntries(new FormData(this));
-        identityRequest(`persons/${selectedPerson}`, 'put', data).done(function (response) { ShowToastMessage(response.data.identity_warnings?.length ? 'Información guardada. Hay coincidencias de identidad en otras fichas.' : 'Información guardada.', 'success'); GetPersons(true); openPerson(selectedPerson); }).fail(identityError);
+        window.SicratFeedback.execute(form, () => identityRequest(`persons/${selectedPerson}`, 'put', data).done(function (response) { ShowToastMessage(response.data.identity_warnings?.length ? 'Información guardada. Hay coincidencias de identidad en otras fichas.' : 'Información guardada.', 'success'); GetPersons(true); openPerson(selectedPerson); })).catch(identityError);
     });
     $('#person-participate').on('click', function () {
-        identityRequest(`persons/${selectedPerson}/participations`, 'post', {processes: $('#person-election-select').val() || [], active: 1}).done(function () { openPerson(selectedPerson); }).fail(identityError);
+        if (!personCan('participate')) return;
+        window.SicratFeedback.execute(this,()=>identityRequest(`persons/${selectedPerson}/participations`, 'post', {processes: $('#person-election-select').val() || [], active: 1}).done(function () { openPerson(selectedPerson); })).catch(identityError);
     });
     $('#identity-policy-open').on('click', function () {
         identityRequest(`organizations/${$('#select-persons-organization').val()}/identity-policy`, 'get').done(function (response) {

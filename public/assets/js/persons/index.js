@@ -44,6 +44,7 @@ function EnablePersonFields(v) {
 }
 
 function NewPerson() {
+	if (!personCan('create')) return;
 	if(!new_person && !modify_person) {
 		new_person = true;
 		if(!$('#btn-persons-new').hasClass('hidden'))
@@ -233,6 +234,7 @@ function GetPersons(force = false) {
 }
 
 function RegisterPerson(confirmDuplicate = false) {
+	if (!personCan('create')) return;
 	if(!registering_person) {
 		registering_person = true;
 		$.ajax({

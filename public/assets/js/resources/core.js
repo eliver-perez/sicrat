@@ -42,6 +42,7 @@ Object.assign(window.SicratResources,{
 		const dialog=this.node('resources-dialog');
 		if(!dialog.open)dialog.showModal();
 		const form=this.text('form','','ux-form-grid op-form-fields');
+		form.addEventListener('submit',event=>event.preventDefault());
 		target.append(form);
 		const status=this.text('p','Cargando opciones…','ux-full op-small-note');
 		form.append(status);
@@ -58,7 +59,7 @@ Object.assign(window.SicratResources,{
 			}catch(error){status.textContent=error.message;
 			return;
 			}
-		const key=crypto.randomUUID();
+		const key=window.SicratSecurity.uuid();
 		form.addEventListener('submit',this.guard(async()=>{const values={...this.values(form),idempotencia:key,...(dto ? dto(form) : {})};
 			if ((/cancelar|revertir|rechazar|eliminar|revocar|restaurar/i.test(submitLabel) || String(values.approved)==='0') && !await window.SicratFeedback.confirm(title,{confirm:String(values.approved)==='0' ? 'Rechazar' : submitLabel})) return;
 			await submit(values);

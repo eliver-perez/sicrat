@@ -54,6 +54,7 @@ class SectionsService extends Service
 
     public function create(array $data): ?array {
         Authorization::requireOperation('sections.create');
+        $geography=new GeographyService(new \App\Repositories\CommonRepository($this->sectionsRepository->getConnection()));$geography->authorize('secciones',true);
         $uid = $this->normalizeRequiredInt($data['uid'] ?? null, 'No existe una sesion activa.');
 
         $state = $this->normalizeRequiredInt($data['state'] ?? null, 'Es necesario seleccionar un estado.');
@@ -66,12 +67,18 @@ class SectionsService extends Service
         $conn = $this->sectionsRepository->getConnection();
         $conn->beginTransaction();
         try {
+            $geography->lockContext();$geography->authorize('secciones',true);
             if($this->sectionsRepository->sectionExists([
                 'section'                               => $section,
                 'state'                                 => $state,
                 'municipality'                          => $municipality
-            ]))
-                throw new InvalidArgumentException("La Sección $section ya se encuentra registrada");
+            ])) {
+                $existing=$conn->prepare('SELECT id,uuid,municipio FROM secciones_electorales WHERE estado=? AND seccion=?');$existing->execute([$state,$section]);$row=$existing->fetch(\PDO::FETCH_ASSOC);
+                if((int)$row['municipio']!==$municipality)throw new InvalidArgumentException('La sección registrada corresponde a otro municipio. Revisa su ubicación.');
+                $assigned=$conn->prepare('SELECT 1 FROM secciones_procesos WHERE proceso=? AND seccion=?');$assigned->execute([\App\Core\Auth::processId(),$row['id']]);
+                if(\App\Core\Auth::isSuperAdmin() || $assigned->fetchColumn())throw new InvalidArgumentException("La Sección $section ya se encuentra registrada");
+                $geography->attachSection((int)$row['id']);$conn->commit();return ['uuid'=>$this->uuidBinaryToString($row['uuid'])];
+            }
 
             $sectionUuid = $this->generateUuidBinary();
             $sectionId = $this->sectionsRepository->insertSection([
@@ -84,6 +91,7 @@ class SectionsService extends Service
                     'uid'                           => $uid
                 ]);
 
+            $geography->attachSection($sectionId);
             $conn->commit();
 
             return [

@@ -20,6 +20,11 @@ use Throwable;
 
 class SectionsController extends Controller
 {
+    public function detail(Request $request,Response $response): void
+    {
+        $service=new \App\Services\GeographyService(new \App\Repositories\CommonRepository((new Database())->getConnection()));
+        $response->success($request->method()==='PUT' ? $service->saveSection($request->route('id'),$request->input()) : $service->section($request->route('id')));
+    }
     private ?SectionsRepository $repository = null;
 
     private function getService(): SectionsService

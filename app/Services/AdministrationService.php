@@ -56,7 +56,8 @@ class AdministrationService extends Service
     public function levels(?string $uuid = null): array
     {
         $process = $this->process($uuid);
-        (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.ver',(int) $process['id']);
+        $effective=(new PermissionRepository($this->repository->connection()))->effective(Auth::id() ?? 0,(int)$process['id']);
+        if(!$effective['super'] && !array_intersect(['estructura.ver','niveles.administrar'],$effective['rights']))throw new HttpError('No tienes permiso para consultar niveles.',403);
         (new ModuleRepository($this->repository->connection()))->require('estructura',(int) $process['id']);
         return array_map(fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'order'=>(int) $row['orden'],'active'=>(int) $row['activo'],'can_recruit'=>(int) $row['puede_reclutar'],'same_level'=>(int) $row['permite_mismo_nivel']],$this->repository->rows('SELECT * FROM niveles_organizacionales WHERE proceso=? ORDER BY orden,id',[$process['id']]));
     }
@@ -110,8 +111,8 @@ class AdministrationService extends Service
             foreach ($this->repository->rows('SELECT estructura FROM estructuras_procesos WHERE proceso=? AND activo=1',[$process['id']]) as $container) (new StructureRepository($this->repository->connection()))->history((int) $container['estructura'],null,'configuracion_reglas',null,['auto_promote'=>$promotion,'approval_required'=>$approval,'approver'=>$approver],(int) $process['id']);
             return ['auto_promote'=>$promotion,'approval_required'=>$approval,'approver'=>$data['approver'] ?? null];
         });
-        $config = $this->repository->rows('SELECT c.*,u.uuid aprobador_uuid FROM procesos_estructura_config c LEFT JOIN usuarios u ON u.id=c.aprobador WHERE c.proceso=?',[$process['id']])[0] ?? [];
-        return ['auto_promote'=>(int) ($config['promocion_primera_incorporacion'] ?? 0),'approval_required'=>(int) ($config['requiere_aprobacion'] ?? 1),'approver'=>isset($config['aprobador_uuid']) ? $this->uuidBinaryToString($config['aprobador_uuid']) : null];
+        $config = $this->repository->rows('SELECT c.*,u.uuid aprobador_uuid,CONCAT_WS(CHAR(32),u.nombre,u.paterno,u.materno) aprobador_nombre FROM procesos_estructura_config c LEFT JOIN usuarios u ON u.id=c.aprobador WHERE c.proceso=?',[$process['id']])[0] ?? [];
+        return ['auto_promote'=>(int) ($config['promocion_primera_incorporacion'] ?? 0),'approval_required'=>(int) ($config['requiere_aprobacion'] ?? 1),'approver'=>isset($config['aprobador_uuid']) ? $this->uuidBinaryToString($config['aprobador_uuid']) : null,'approver_name'=>$config['aprobador_nombre'] ?? null];
     }
 
     public function permissions(): array
@@ -241,7 +242,10 @@ class AdministrationService extends Service
             $ids = [];
             foreach ($sections as $uuid) {
                 $section = $this->repository->rows('SELECT id FROM secciones_electorales WHERE uuid=?',[$this->uuidStringToBinary((string) $uuid)])[0] ?? null;
-                if (!$section) throw new InvalidArgumentException('Sección inválida.'); $ids[] = (int) $section['id'];
+                if (!$section) throw new InvalidArgumentException('Sección inválida.');
+                $geography=new GeographyService(new \App\Repositories\CommonRepository($this->repository->connection()));
+                if(Auth::isSuperAdmin())$geography->attachSection((int)$section['id'],(int)$process['id']);else $geography->assertSection((int)$section['id']);
+                $ids[] = (int) $section['id'];
             }
             $beforeTerritories=$this->repository->rows('SELECT seccion FROM usuarios_territorios WHERE usuario=? AND proceso=?',[$user['id'],$process['id']]);
             $this->audit((int) $process['organizacion'],(int) $process['id'],'usuarios_territorios',(int) $user['id'],$beforeTerritories,['secciones'=>$ids]);

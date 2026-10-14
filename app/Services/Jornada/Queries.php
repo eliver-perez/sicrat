@@ -51,7 +51,7 @@ class Queries
     public function territories(array $filters): array
     {
         $ctx=$this->context;$type=$filters['type'] ?? 'seccion';$limit=Pagination::limit($filters['limit'] ?? 25);$offset=Pagination::offset($filters['offset'] ?? 0);$search='%'.Values::text($filters['search'] ?? '',150,true).'%';
-        if(($filters['catalogue'] ?? '')==='1') { $ctx->broad('jornada.configurar');$where='1=1';$params=[];$joins='FROM secciones_electorales s LEFT JOIN municipios m ON m.id=s.municipio'; }
+        if(($filters['catalogue'] ?? '')==='1') { $ctx->broad('jornada.configurar');$where=\App\Core\Auth::isSuperAdmin() ? '1=1' : 'EXISTS(SELECT 1 FROM secciones_procesos sp WHERE sp.seccion=s.id AND sp.proceso=? AND sp.activo=1)';$params=\App\Core\Auth::isSuperAdmin() ? [] : [$ctx->process];$joins='FROM secciones_electorales s LEFT JOIN municipios m ON m.id=s.municipio'; }
         else { [$where,$params]=$ctx->predicate($this->permission());$joins=$this->joins(); }
         if(!in_array($type,['seccion','municipio'],true)) throw new \InvalidArgumentException('Territorio inválido.');
         $column=$type==='seccion' ? 's.id' : 's.municipio';$name=$type==='seccion' ? "CONCAT('Sección ',s.seccion,' · ',COALESCE(m.municipio,''))" : 'm.municipio';
