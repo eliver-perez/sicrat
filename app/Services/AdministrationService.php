@@ -59,8 +59,16 @@ class AdministrationService extends Service
         $effective=(new PermissionRepository($this->repository->connection()))->effective(Auth::id() ?? 0,(int)$process['id']);
         if(!$effective['super'] && !array_intersect(['estructura.ver','niveles.administrar'],$effective['rights']))throw new HttpError('No tienes permiso para consultar niveles.',403);
         (new ModuleRepository($this->repository->connection()))->require('estructura',(int) $process['id']);
-        return array_map(fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'order'=>(int) $row['orden'],'active'=>(int) $row['activo'],'can_recruit'=>(int) $row['puede_reclutar'],'same_level'=>(int) $row['permite_mismo_nivel']],$this->repository->rows('SELECT * FROM niveles_organizacionales WHERE proceso=? ORDER BY orden,id',[$process['id']]));
+        return array_map(fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'associated_role'=>$row['rol_asociado'] === null ? null : (int) $row['rol_asociado'],'order'=>(int) $row['orden'],'active'=>(int) $row['activo'],'can_recruit'=>(int) $row['puede_reclutar'],'same_level'=>(int) $row['permite_mismo_nivel']],$this->repository->rows('SELECT * FROM niveles_organizacionales WHERE proceso=? ORDER BY orden,id',[$process['id']]));
     }
+    public function levelRoles(): array
+    {
+        $process = $this->process();
+        $this->authorize('niveles.administrar', (int) $process['id']);
+        (new ModuleRepository($this->repository->connection()))->require('estructura', (int) $process['id']);
+        return $this->repository->rows("SELECT id,tipo name FROM usuarios_tipos WHERE codigo<>'superadmin' AND (organizacion IS NULL OR organizacion=?) ORDER BY tipo", [$process['organizacion']]);
+    }
+
     public function saveLevel(?string $uuid, array $data): array
     {
         return $this->transaction(function () use ($uuid,$data) {
@@ -74,20 +82,24 @@ class AdministrationService extends Service
             $levelUuid = $uuid ? $this->uuidStringToBinary($uuid) : $this->generateUuidBinary();
             $previous = $uuid ? ($this->repository->rows('SELECT * FROM niveles_organizacionales WHERE uuid=? AND proceso=?',[$levelUuid,$process['id']])[0] ?? null) : null;
             if ($uuid && !$previous) throw new HttpError('El nivel no está disponible.',404);
+            $role = array_key_exists('associated_role',$data) ? ($data['associated_role'] === '' || $data['associated_role'] === null ? null : $this->normalizeRequiredInt($data['associated_role'],'Rol inválido.')) : ($previous['rol_asociado'] ?? null);
+            if ($role !== null) (new LevelRoleService($this->repository->connection()))->validateRole((int) $role,(int) $process['organizacion']);
+            // El historial y la auditoría reciben un UUID textual, no los bytes de BINARY(16).
+            if ($previous) $previous['uuid'] = $this->uuidBinaryToString($previous['uuid']);
             if ($this->repository->rows('SELECT id FROM niveles_organizacionales WHERE proceso=? AND orden=? AND uuid<>?',[$process['id'],$order,$levelUuid])!==[]) throw new HttpError('Ya existe un nivel con ese orden.',409);
             if ($previous) {
                 if (!$active && $this->repository->rows('SELECT persona FROM estructura_integrantes_procesos WHERE nivel=? AND activo=1 LIMIT 1',[$previous['id']])!==[]) throw new HttpError('Reasigna primero los integrantes activos de este nivel.',409);
                 if ((int) $previous['puede_reclutar']===1 && !$recruit && $this->repository->rows('SELECT e.id FROM estructura e JOIN estructura_integrantes_procesos ep ON ep.integrante=e.id JOIN estructura child ON child.nodo_padre=e.id AND child.activo=1 WHERE ep.nivel=? AND ep.activo=1 LIMIT 1',[$previous['id']])!==[]) throw new HttpError('Resuelve primero los equipos directos antes de retirar capacidad organizacional.',409);
-                $this->repository->execute('UPDATE niveles_organizacionales SET nombre=?,orden=?,activo=?,puede_reclutar=?,permite_mismo_nivel=?,editado_por=?,fecha=NOW() WHERE id=?',[$name,$order,$active,$recruit,$same,Auth::id(),$previous['id']]);
-            } else $this->repository->execute('INSERT INTO niveles_organizacionales (uuid,proceso,nombre,orden,activo,puede_reclutar,permite_mismo_nivel,editado_por,fecha) VALUES (?,?,?,?,?,?,?,?,NOW())',[$levelUuid,$process['id'],$name,$order,$active,$recruit,$same,Auth::id()]);
+                $this->repository->execute('UPDATE niveles_organizacionales SET nombre=?,orden=?,activo=?,puede_reclutar=?,permite_mismo_nivel=?,rol_asociado=?,editado_por=?,fecha=NOW() WHERE id=?',[$name,$order,$active,$recruit,$same,$role,Auth::id(),$previous['id']]);
+            } else $this->repository->execute('INSERT INTO niveles_organizacionales (uuid,proceso,nombre,orden,activo,puede_reclutar,permite_mismo_nivel,rol_asociado,editado_por,fecha) VALUES (?,?,?,?,?,?,?,?,?,NOW())',[$levelUuid,$process['id'],$name,$order,$active,$recruit,$same,$role,Auth::id()]);
             $structures = $this->repository->rows('SELECT c.* FROM estructuras_organizacionales c JOIN estructuras_procesos ep ON ep.estructura=c.id WHERE ep.proceso=? AND ep.activo=1',[$process['id']]);
             $service = new StructureService(new StructureRepository($this->repository->connection()));
             foreach ($structures as $container) {
                 // Un orden electoral no altera la jerarquía física compartida; se valida su proyección.
                 $service->validateHierarchy((int) $container['id']);
-                (new StructureRepository($this->repository->connection()))->history((int) $container['id'],null,'configuracion_nivel',$previous,['name'=>$name,'order'=>$order,'can_recruit'=>$recruit,'same_level'=>$same],(int) $process['id']);
+                (new StructureRepository($this->repository->connection()))->history((int) $container['id'],null,'configuracion_nivel',$previous,['name'=>$name,'order'=>$order,'can_recruit'=>$recruit,'same_level'=>$same,'associated_role'=>$role],(int) $process['id']);
             }
-            $this->audit((int) $process['organizacion'],(int) $process['id'],'niveles_organizacionales',$previous ? (int) $previous['id'] : (int) $this->repository->rows('SELECT id FROM niveles_organizacionales WHERE uuid=?',[$levelUuid])[0]['id'],$previous,['nombre'=>$name,'orden'=>$order,'activo'=>$active,'puede_reclutar'=>$recruit,'permite_mismo_nivel'=>$same]);
+            $this->audit((int) $process['organizacion'],(int) $process['id'],'niveles_organizacionales',$previous ? (int) $previous['id'] : (int) $this->repository->rows('SELECT id FROM niveles_organizacionales WHERE uuid=?',[$levelUuid])[0]['id'],$previous,['nombre'=>$name,'orden'=>$order,'activo'=>$active,'puede_reclutar'=>$recruit,'permite_mismo_nivel'=>$same,'rol_asociado'=>$role]);
             return ['id'=>$this->uuidBinaryToString($levelUuid)];
         });
     }

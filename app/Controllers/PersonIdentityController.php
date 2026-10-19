@@ -28,6 +28,7 @@ class PersonIdentityController extends Controller
     public function show(Request $request, Response $response): void { if (!is_uuid($request->route('id'))) throw new \App\Core\HttpError('La persona no está disponible.',404); $response->success($this->service()->detail($request->route('id'))); }
     public function update(Request $request, Response $response): void { $response->success($this->service()->update($request->route('id'), $request->input()), 'Información guardada.'); }
     public function participation(Request $request, Response $response): void { $this->service()->participation($request->route('id'), $request->input()); $response->success(null, 'Participación actualizada.'); }
+    public function mapSettings(Request $request, Response $response): void { $response->success($this->service()->mapSettings($request->route('id'),$request->method()==='GET' ? null : $request->input())); }
     public function policy(Request $request, Response $response): void { $response->success($this->service()->policy($request->route('id'), $request->method() === 'GET' ? null : $request->input()), 'Configuración de identidad.'); }
     public function duplicates(Request $request, Response $response): void
     {

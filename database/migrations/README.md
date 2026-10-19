@@ -67,3 +67,27 @@ Añade 23 permisos granulares y su plantilla electoral del administrador con alc
 Dinero MXN `DECIMAL(14,2)`, cantidades `DECIMAL(14,3)`, folios por organización/tipo/año. Pagos, caja, revisiones y movimientos conservan su historia; las cancelaciones/reversiones generan trazabilidad en vez de borrar operaciones. El código serializa escrituras por organización y revalida saldos bajo bloqueo.
 
 Antes de aplicar en otra instalación, respaldar y ensayar restauración con el procedimiento general de este documento. El DDL no es una transacción reversible completa; no existe `down` destructivo. Validación y resultado de la aplicación local en `FASE6.md`. Los SQL originales y las migraciones 001–006 permanecen intactos.
+
+## 20261017_011_catalogos_geograficos.php
+
+Corrige duplicados físicos de los catálogos de ubicación. El SQL original de geografía usa INSERT sin protección de repetición y contiene además cuatro nombres de municipios repetidos dentro de Oaxaca. Permanece intacto; no se debe volver a ejecutarlo sobre una instalación poblada.
+
+La migración conserva el ID menor por identidad geográfica, archiva cada fila fusionada en `geografia_fusiones` y reasigna todas sus referencias declaradas por FK antes de eliminar exclusivamente el duplicado. Los municipios se comparan dentro de su estado; localidades y colonias dentro de su padre y código postal. Si dos municipios homónimos tienen claves oficiales distintas, aborta para revisión. Conserva homónimos con códigos postales diferentes. No elimina personas, domicilios, secciones ni códigos postales. Una colisión de integridad revierte la transacción de limpieza.
+
+Añade índices únicos para impedir que una carga repetida o concurrente vuelva a duplicar los catálogos. CP nulo y vacío comparten una clave generada de ausencia. El DDL admite reanudación y no se modifican migraciones anteriores. No usa DISTINCT para ocultar duplicados. Los IDs antiguos y su destino quedan documentados en la tabla de fusiones; no hay reversión destructiva automática.
+
+Antes de aplicar: respaldar los cuatro catálogos y las referencias afectadas y validar la restauración. Si hay referencias personales, el respaldo requiere el mismo tratamiento privado que el resto de los datos del sistema. Ejecutar durante una ventana sin escrituras. Prueba aislada: `php tests/geography-dedup.php`. El ensayo reproduce dos cargas del catálogo original, verifica FKs adicionales, reanudación, unicidad y conservación de homónimos con CP distinto.
+
+## 20261018_012_mapa_personas.php
+
+Añade `organizaciones_mapa` con el centro (latitud/longitud) y zoom inicial del mapa de Personas, por organización, y autor/fecha de edición. No modifica domicilios ni el SQL original. La configuración se administra desde Personas → Ubicación inicial del mapa, con los mismos permisos administrativos y aislamiento por organización que las reglas de identidad. Las coordenadas de una persona tienen prioridad y la geolocalización solicitada al navegador sólo centra el mapa.
+
+Migración aditiva e idempotente. Probada en base desechable y aplicada de forma individual a la instalación local el 2026-10-19, con su checksum registrado en `esquema_migraciones`. La tabla quedó vacía: cada organización puede guardar su centro desde la interfaz. La migración 011 de geografía permanece pendiente y no se ejecutó durante este ajuste. No ejecutar otras migraciones pendientes como parte de este cambio sin revisar su alcance.
+
+## 20261019_013_niveles_roles.php
+
+Añade `niveles_organizacionales.rol_asociado` (`SMALLINT NULL`) con FK a `usuarios_tipos.id`. El contexto electoral lo conserva el nivel mediante `proceso`; la aplicación admite roles globales o de la organización correspondiente, excluyendo Super Administrador. Todos los niveles existentes quedan sin asociación; no se crean roles ni se reasignan cuentas existentes.
+
+La asociación se utiliza al crear una cuenta para una persona estructurada y al cambiar su nivel. La sincronización modifica únicamente el acceso electoral afectado dentro de la misma transacción y mantiene las verificaciones de permisos y alcance. Cambiar manualmente un rol no modifica niveles; guardar un nivel sin cambiarlo conserva la asignación manual. Cambiar la configuración del rol asociado tampoco reasigna masivamente cuentas.
+
+Validación aislada: `php tests/integration.php --phase3 --level-role --browser`. La suite Personas/Estructura puede añadirse con `--persons-structure`. Incluye creación derivada, niveles sin rol, aislamiento, permisos efectivos, modificación manual, rollback y Chrome de escritorio/móvil.

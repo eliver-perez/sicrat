@@ -57,24 +57,37 @@ class StructureService extends Service
         return $elections;
     }
 
+    // Para asignar responsables, el titular del equipo es un ancla válida de un
+    // alcance directos/descendientes. No amplía alcances de otros módulos/acciones.
+    private function assignmentScope(string $permission, int $process): array
+    {
+        [$scope,$params]=(new ScopeRepository($this->repository->connection()))->predicate($permission,$process);
+        $effective=(new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,$permission,$process);
+        if (!$effective['super'] && array_intersect(['directos','descendientes'],$effective['scopes'][$permission])!==[]) {
+            $scope='(('.$scope.') OR (p.id=? AND p.organizacion=? AND EXISTS(SELECT 1 FROM estructura propia JOIN estructura_integrantes_procesos proyeccion ON proyeccion.integrante=propia.id WHERE propia.persona=p.id AND propia.activo=1 AND proyeccion.proceso=? AND proyeccion.activo=1)))';
+            $params=[...$params,$effective['user']['persona'] ?? 0,$effective['user']['organizacion'],$process];
+        }
+        return [$scope,$params];
+    }
+
     private function fullScope(string $permission, int $process): void
     {
         $effective = (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,$permission,$process);
         if (!$effective['super'] && array_intersect(['eleccion','organizacion'],$effective['scopes'][$permission]) === []) throw new HttpError('Esta operación requiere alcance de elección u organización.',403);
     }
 
-    public function index(array $data): array
+    public function index(array $data, bool $assignment = false): array
     {
         $process = $this->currentProcess();
         (new ModuleRepository($this->repository->connection()))->require('estructura',$process);
-        [$scope,$params] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
+        [$scope,$params] = $assignment ? $this->assignmentScope('estructura.ver',$process) : (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
         $effective = (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.ver',$process);
         $whole = $effective['super'] || array_intersect(['eleccion','organizacion'],$effective['scopes']['estructura.ver']) !== [];
-        $sql = 'SELECT c.* FROM estructuras_organizacionales c JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.proceso=? AND ep.activo=1 WHERE c.activo=1';
-        $args = [$process];
+        $sql = "SELECT c.*,EXISTS(SELECT 1 FROM estructura e JOIN personas p ON p.id=e.persona JOIN usuarios u ON u.persona=p.id WHERE e.contenedor=c.id AND u.id=? AND e.activo=1 AND ($scope)) own_member FROM estructuras_organizacionales c JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.proceso=? AND ep.activo=1 WHERE c.activo=1";
+        $args = [Auth::id(),...$params,$process];
         if (!$whole) { $sql .= " AND EXISTS (SELECT 1 FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.contenedor=c.id AND e.activo=1 AND ($scope))"; $args = [...$args,...$params]; }
         $sql .= ' ORDER BY c.nombre,c.id LIMIT ' . (int) $data['limit'] . ' OFFSET ' . (int) $data['offset'];
-        return array_map(fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'version'=>(int) $row['version'],'cloned'=>(bool) $row['clonada_de']],$this->repository->rows($sql,$args));
+        return array_map(fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'version'=>(int) $row['version'],'cloned'=>(bool) $row['clonada_de'],'own'=>(bool) $row['own_member']],$this->repository->rows($sql,$args));
     }
 
     public function create(array $data): array
@@ -119,24 +132,60 @@ class StructureService extends Service
 
     private function mappedMember(array $member, int $process): array
     {
-        $level = $this->repository->rows('SELECT n.uuid,n.nombre,n.orden FROM estructura_integrantes_procesos ep LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=?',[$member['id'],$process])[0] ?? [];
+        [$scope,$params] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
+        $level = $this->repository->rows('SELECT n.uuid,n.nombre,n.orden,n.rol_asociado,ut.tipo rol_nombre FROM estructura_integrantes_procesos ep LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel LEFT JOIN usuarios_tipos ut ON ut.id=n.rol_asociado WHERE ep.integrante=? AND ep.proceso=?',[$member['id'],$process])[0] ?? [];
         return ['id'=>$this->uuidBinaryToString($member['uuid']),'person'=>$this->uuidBinaryToString($member['persona_uuid']),'code'=>$member['codigo_persona'],'name'=>$member['nombre'],
+            'initials'=>mb_strtoupper(mb_substr($member['first_name'] ?? $member['nombre'],0,1).mb_substr($member['last_name'] ?? '',0,1)),
             'has_account'=>$member['usuario_uuid'] !== null,'account'=>$member['usuario_uuid'] ? $this->uuidBinaryToString($member['usuario_uuid']) : null,
             'active'=>(int) $member['activo'],'responsible'=>$member['responsable_uuid'] ? $this->uuidBinaryToString($member['responsable_uuid']) : null,
-            'level'=>isset($level['uuid']) ? $this->uuidBinaryToString($level['uuid']) : null,'level_name'=>$level['nombre'] ?? null,'level_order'=>isset($level['orden']) ? (int) $level['orden'] : null,
-            'direct_count'=>(int) $this->repository->rows('SELECT COUNT(*) total FROM estructura WHERE nodo_padre=? AND activo=1',[$member['id']])[0]['total'],
-            'team_count'=>(int) $this->repository->rows('SELECT COUNT(*) total FROM estructura_relaciones r JOIN estructura e ON e.id=r.descendiente WHERE r.ancestro=? AND r.profundidad>0 AND e.activo=1',[$member['id']])[0]['total']];
+            'responsible_visible'=>$member['nodo_padre'] && $this->repository->rows("SELECT 1 FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.id=? AND ($scope)",[$member['nodo_padre'],...$params]) !== [],
+            'level'=>isset($level['uuid']) ? $this->uuidBinaryToString($level['uuid']) : null,'level_name'=>$level['nombre'] ?? null,'associated_role'=>$level['rol_asociado'] ?? null,'associated_role_name'=>$level['rol_nombre'] ?? null,'level_order'=>isset($level['orden']) ? (int) $level['orden'] : null,
+            'direct_count'=>(int) $this->repository->rows("SELECT COUNT(*) total FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.nodo_padre=? AND e.activo=1 AND ($scope)",[$member['id'],...$params])[0]['total'],
+            'team_count'=>(int) $this->repository->rows("SELECT COUNT(*) total FROM estructura_relaciones r JOIN estructura e ON e.id=r.descendiente JOIN personas p ON p.id=e.persona WHERE r.ancestro=? AND r.profundidad>0 AND e.activo=1 AND ($scope)",[$member['id'],...$params])[0]['total']];
     }
 
-    public function show(string $uuid, array $page): array
+    public function show(string $uuid, array $page, ?string $parent = null, string $search = ''): array
     {
         $container = $this->repository->container($this->uuidStringToBinary($uuid)); $process = $this->visible($container);
         [$condition,$params] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
-        $ids = $this->repository->rows("SELECT e.id FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.contenedor=? AND ($condition) ORDER BY p.nombre,e.id LIMIT " . (int) $page['limit'] . ' OFFSET ' . (int) $page['offset'],[$container['id'],...$params]);
+        $own = $this->repository->rows("SELECT e.id FROM estructura e JOIN personas p ON p.id=e.persona JOIN usuarios u ON u.persona=p.id WHERE e.contenedor=? AND u.id=? AND e.activo=1 AND ($condition)",[$container['id'],Auth::id(),...$params])[0] ?? null;
+        $focus = null; $filter = ''; $args = [$container['id'],...$params];
+        if ($parent !== null && $parent !== '') {
+            if ($parent === 'mine') $focus = $own;
+            elseif ($parent !== 'roots') {
+                $focus = $this->repository->member($this->uuidStringToBinary($parent),(int)$container['id']);
+                (new ScopeRepository($this->repository->connection()))->assertPerson((int)$focus['persona'],'estructura.ver',$process);
+            }
+            if ($focus) { $filter = ' AND e.nodo_padre=? AND e.activo=1'; $args[] = $focus['id']; }
+            else {
+                [$parentScope,$parentParams] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process,'candidate');
+                $filter = " AND e.activo=1 AND NOT EXISTS(SELECT 1 FROM estructura boss JOIN personas candidate ON candidate.id=boss.persona WHERE boss.id=e.nodo_padre AND boss.activo=1 AND ($parentScope))";
+                $args = [...$args,...$parentParams];
+            }
+        }
+        if ($parent === '' && trim($search) !== '') {
+            if (mb_strlen($search)>200) throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
+            $filter .= " AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) LIKE ? OR CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_bin LIKE ?)";
+            $args[] = '%'.trim($search).'%';$args[] = '%'.trim($search).'%';
+        }
+        $ids = $this->repository->rows("SELECT e.id FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.contenedor=? AND ($condition)" . $filter . " ORDER BY p.nombre,e.id LIMIT " . (int)$page['limit'] . ' OFFSET ' . (int)$page['offset'],$args);
+        $canAddOwn = false;
+        if ($own) {
+            $ownRow = $this->repository->members((int)$container['id'],false,[(int)$own['id']])[0];
+            try {
+                $elections = $this->guard($container,'estructura.formar',[(int)$ownRow['persona']]);
+                $canAddOwn = true;
+                foreach ($elections as $election) {
+                    $level = $this->repository->rows('SELECT n.puede_reclutar FROM estructura_integrantes_procesos ep JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=?',[$own['id'],$election['id']])[0] ?? null;
+                    if ($level && !(int)$level['puede_reclutar']) $canAddOwn = false;
+                }
+            } catch (HttpError $error) { if (!in_array($error->statusCode,[403,404,409],true)) throw $error; }
+        }
+        $mapOne = fn ($row) => $row ? $this->mappedMember($this->repository->members((int)$container['id'],false,[(int)$row['id']])[0],$process) : null;
         $wanted = array_column($ids,'id');
         $members = $this->repository->members((int) $container['id'],false,$wanted);
         return ['id'=>$uuid,'name'=>$container['nombre'],'version'=>(int) $container['version'],'elections'=>array_map(fn ($pe) => ['id'=>$this->uuidBinaryToString($pe['uuid']),'name'=>$pe['proceso']],$this->repository->elections((int) $container['id'])),
-            'members'=>array_map(fn ($row) => $this->mappedMember($row,$process),$members)];
+            'can_add_to_own'=>$canAddOwn,'own'=>$mapOne($own),'focus'=>$mapOne($focus),'members'=>array_map(fn ($row) => $this->mappedMember($row,$process),$members)];
     }
 
     public function detail(string $uuid, string $memberUuid, array $page = ['limit'=>101,'offset'=>0]): array
@@ -146,19 +195,70 @@ class StructureService extends Service
         (new ScopeRepository($this->repository->connection()))->assertPerson((int) $member['persona'],'estructura.ver',$process);
         [$condition,$params] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
         $limitSql = ' LIMIT ' . (int) $page['limit'] . ' OFFSET ' . (int) $page['offset'];
-        $line = $this->repository->rows("SELECT e.uuid,p.uuid persona_uuid,TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) nombre,r.profundidad FROM estructura_relaciones r JOIN estructura e ON e.id=r.ancestro JOIN personas p ON p.id=e.persona WHERE r.descendiente=? AND r.profundidad>0 AND ($condition) ORDER BY r.profundidad" . $limitSql,[$member['id'],...$params]);
-        $team = $this->repository->rows("SELECT e.uuid,TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) nombre,r.profundidad FROM estructura_relaciones r JOIN estructura e ON e.id=r.descendiente JOIN personas p ON p.id=e.persona WHERE r.ancestro=? AND r.profundidad>0 AND e.activo=1 AND ($condition) ORDER BY r.profundidad,e.id" . $limitSql,[$member['id'],...$params]);
+        $line = $this->repository->rows("SELECT e.uuid,p.uuid persona_uuid,TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) nombre,r.profundidad FROM estructura_relaciones r JOIN estructura e ON e.id=r.ancestro JOIN personas p ON p.id=e.persona WHERE r.descendiente=? AND r.profundidad>0 AND ($condition) ORDER BY r.profundidad DESC" . $limitSql,[$member['id'],...$params]);
+        $team = $this->repository->rows("SELECT e.id,e.uuid,TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) nombre,r.profundidad FROM estructura_relaciones r JOIN estructura e ON e.id=r.descendiente JOIN personas p ON p.id=e.persona WHERE r.ancestro=? AND r.profundidad=1 AND e.activo=1 AND ($condition) ORDER BY e.id" . $limitSql,[$member['id'],...$params]);
         $full = $this->repository->members((int) $container['id'],false,[(int) $member['id']])[0];
         $map = fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'depth'=>(int) $row['profundidad']];
         $participations = (new PersonIdentityRepository($this->repository->connection()))->participations((int) $member['persona']);
-        $levels = [];
+        $levels = [];$levelOptions=[];
         foreach ($this->repository->rows('SELECT pe.id,pe.uuid,n.uuid nivel_uuid FROM estructura_integrantes_procesos ep JOIN procesos_electorales pe ON pe.id=ep.proceso LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=?',[$member['id']]) as $projection) {
-            try { (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.ver',(int) $projection['id']); $levels[$this->uuidBinaryToString($projection['uuid'])] = isset($projection['nivel_uuid']) ? $this->uuidBinaryToString($projection['nivel_uuid']) : null; }
+            try { (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.ver',(int) $projection['id']); $key=$this->uuidBinaryToString($projection['uuid']);$levels[$key] = isset($projection['nivel_uuid']) ? $this->uuidBinaryToString($projection['nivel_uuid']) : null;$levelOptions[$key]=$this->memberLevelOptions($member,(int)$projection['id']); }
             catch (HttpError $error) { if (!in_array($error->statusCode,[401,403],true)) throw $error; }
         }
-        return [...$this->mappedMember($full,$process),'levels'=>$levels,'superiors'=>array_map($map,array_slice($line,0,$page['limit']-1)),'team'=>array_map($map,array_slice($team,0,$page['limit']-1)),
+        return [...$this->mappedMember($full,$process),'levels'=>$levels,'level_options'=>$levelOptions,'superiors'=>array_map($map,array_slice($line,0,$page['limit']-1)),'team'=>array_map(fn ($row) => [...$this->mappedMember($this->repository->members((int)$container['id'],false,[(int)$row['id']])[0],$process),'depth'=>(int)$row['profundidad']],array_slice($team,0,$page['limit']-1)),
             'superiors_pagination'=>\App\Core\Pagination::response($line,$page['limit']-1,$page['offset']),'team_pagination'=>\App\Core\Pagination::response($team,$page['limit']-1,$page['offset']),
             'participations'=>array_map(fn ($pe) => ['id'=>$this->uuidBinaryToString($pe['uuid']),'name'=>$pe['proceso'],'active'=>(int) $pe['activo']],$participations)];
+    }
+
+    public function personContext(int $person): array
+    {
+        if (!Auth::processId()) return ['available'=>false,'message'=>'Selecciona una elección para consultar su estructura.'];
+        $process = $this->currentProcess();
+        try {
+            (new ModuleRepository($this->repository->connection()))->require('estructura',$process);
+            (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.ver',$process);
+        } catch (HttpError $error) {
+            if (!in_array($error->statusCode,[403,404],true)) throw $error;
+            return ['available'=>false,'message'=>'La participación electoral no asigna un responsable. No tienes acceso a la estructura de esta persona en la elección actual.'];
+        }
+        $election = $this->repository->rows('SELECT proceso FROM procesos_electorales WHERE id=?',[$process])[0]['proceso'];
+        $participates = $this->repository->rows('SELECT 1 FROM personas_procesos WHERE persona=? AND proceso=? AND activo=1',[$person,$process]) !== [];
+        $rows = $this->repository->rows('SELECT e.*,c.uuid container_uuid,c.nombre container_name,c.activo container_active FROM estructura e JOIN estructuras_organizacionales c ON c.id=e.contenedor JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.proceso=? AND ep.activo=1 WHERE e.persona=? ORDER BY e.activo DESC,e.id',[$process,$person]);
+        if ($rows !== []) {
+            try { (new ScopeRepository($this->repository->connection()))->assertPerson($person,'estructura.ver',$process); }
+            catch (HttpError $error) { if ($error->statusCode!==404) throw $error; return ['available'=>false,'message'=>'La estructura de esta persona está fuera de tu alcance de consulta.']; }
+        }
+        $canForm = true;
+        try { (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.formar',$process); }
+        catch (HttpError $error) { if ($error->statusCode!==403) throw $error; $canForm=false; }
+        $members = [];
+        foreach ($rows as $row) {
+            $responsible = null;
+            if ($row['nodo_padre']) {
+                [$scope,$params] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
+                $boss = $this->repository->rows("SELECT TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) name FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.id=? AND ($scope)",[$row['nodo_padre'],...$params]);
+                $responsible = $boss[0]['name'] ?? 'Fuera de tu alcance de consulta';
+            }
+            $members[] = ['structure'=>$this->uuidBinaryToString($row['container_uuid']),'name'=>$row['container_name'],'id'=>$this->uuidBinaryToString($row['uuid']),'active'=>(bool)$row['activo'] && (bool)$row['container_active'],'responsible'=>$responsible,'level_name'=>$this->repository->rows('SELECT n.nombre FROM estructura_integrantes_procesos ep LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=?',[$row['id'],$process])[0]['nombre'] ?? null];
+        }
+        $ownStructure = null;
+        if ($canForm && !array_filter($members,static fn ($member) => $member['active'])) {
+            $own = $this->repository->rows('SELECT c.uuid FROM estructura_integrantes_procesos ep JOIN estructura e ON e.id=ep.integrante JOIN estructuras_organizacionales c ON c.id=e.contenedor JOIN usuarios u ON u.persona=e.persona WHERE ep.proceso=? AND ep.activo=1 AND e.activo=1 AND c.activo=1 AND u.id=?',[$process,Auth::id()])[0] ?? null;
+            if ($own) {
+                try { $context=$this->assignmentOptions($this->uuidBinaryToString($own['uuid']),['limit'=>2,'offset'=>0],'','mine'); if ($context['own']) $ownStructure=$this->uuidBinaryToString($own['uuid']); }
+                catch (HttpError $error) { if (!in_array($error->statusCode,[403,404,409],true)) throw $error; }
+            }
+        }
+        return ['available'=>true,'election'=>$election,'participates'=>$participates,'can_form'=>$canForm,'own_structure'=>$ownStructure,'members'=>$members];
+    }
+
+    private function memberLevelOptions(array $member, int $process): array
+    {
+        $parent=$member['nodo_padre'] ? ($this->repository->rows('SELECT n.orden,n.permite_mismo_nivel FROM estructura_integrantes_procesos ep JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=? AND ep.activo=1',[$member['nodo_padre'],$process])[0] ?? null) : null;
+        $sql='SELECT n.* FROM niveles_organizacionales n WHERE n.proceso=? AND n.activo=1';$args=[$process];
+        if($parent){$sql.=' AND (n.orden>? OR (n.orden=? AND ?=1))';$args=[...$args,$parent['orden'],$parent['orden'],$parent['permite_mismo_nivel']];}
+        $sql.=' AND NOT EXISTS(SELECT 1 FROM estructura hijo JOIN estructura_integrantes_procesos ep ON ep.integrante=hijo.id JOIN niveles_organizacionales nh ON nh.id=ep.nivel WHERE hijo.nodo_padre=? AND hijo.activo=1 AND ep.proceso=? AND ep.activo=1 AND (n.orden>nh.orden OR (n.orden=nh.orden AND n.permite_mismo_nivel=0))) ORDER BY n.orden,n.id';
+        return array_map(fn($row)=>['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'order'=>(int)$row['orden']],$this->repository->rows($sql,[...$args,$member['id'],$process]));
     }
 
     private function level(int $process, mixed $uuid, bool $activeOnly = true): ?int
@@ -174,15 +274,20 @@ class StructureService extends Service
 
     private function projection(array $member, int $process, ?int $level): void
     {
+        $previousLevel = $this->repository->rows('SELECT nivel FROM estructura_integrantes_procesos WHERE persona=? AND proceso=?',[$member['persona'],$process]);
         $existing = $this->repository->rows('SELECT integrante,activo FROM estructura_integrantes_procesos WHERE persona=? AND proceso=? AND activo=1 FOR UPDATE',[$member['persona'],$process]);
         if ((int) $member['activo']===1 && $existing !== [] && (int) $existing[0]['integrante']!==(int) $member['id']) throw new HttpError('La persona ya tiene una ubicación estructural activa en esta elección.',409);
         $this->repository->execute('INSERT INTO estructura_integrantes_procesos (persona,proceso,integrante,nivel,activo,fecha) VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE integrante=VALUES(integrante),nivel=VALUES(nivel),activo=VALUES(activo),fecha_baja=NULL',[$member['persona'],$process,$member['id'],$level,$member['activo']]);
+        if ($previousLevel !== [] && $previousLevel[0]['nivel'] != $level) (new LevelRoleService($this->repository->connection()))->synchronize((int)$member['persona'],$process,$level);
     }
 
     public function validateHierarchy(int $container): void
     {
-        $invalid = $this->repository->rows('SELECT e.id FROM estructura e JOIN estructura parent ON parent.id=e.nodo_padre JOIN estructura_integrantes_procesos child_ep ON child_ep.integrante=e.id AND child_ep.activo=1 JOIN estructura_integrantes_procesos parent_ep ON parent_ep.integrante=parent.id AND parent_ep.proceso=child_ep.proceso AND parent_ep.activo=1 JOIN niveles_organizacionales child_level ON child_level.id=child_ep.nivel JOIN niveles_organizacionales parent_level ON parent_level.id=parent_ep.nivel WHERE e.contenedor=? AND e.activo=1 AND (parent_level.orden>child_level.orden OR (parent_level.orden=child_level.orden AND parent_level.permite_mismo_nivel=0)) LIMIT 1',[$container]);
-        if ($invalid !== []) throw new InvalidArgumentException('La relación de responsabilidad contradice el orden o la configuración del nivel.');
+        $invalid = $this->repository->rows('SELECT e.id,parent_level.orden parent_order,child_level.orden child_order FROM estructura e JOIN estructura parent ON parent.id=e.nodo_padre JOIN estructura_integrantes_procesos child_ep ON child_ep.integrante=e.id AND child_ep.activo=1 JOIN estructura_integrantes_procesos parent_ep ON parent_ep.integrante=parent.id AND parent_ep.proceso=child_ep.proceso AND parent_ep.activo=1 JOIN niveles_organizacionales child_level ON child_level.id=child_ep.nivel JOIN niveles_organizacionales parent_level ON parent_level.id=parent_ep.nivel WHERE e.contenedor=? AND e.activo=1 AND (parent_level.orden>child_level.orden OR (parent_level.orden=child_level.orden AND parent_level.permite_mismo_nivel=0)) LIMIT 1',[$container]);
+        if ($invalid !== []) {
+            if ((int)$invalid[0]['parent_order'] === (int)$invalid[0]['child_order']) throw new InvalidArgumentException('Existen integrantes de este nivel asignados a responsables del mismo nivel. Reasígnalos o permite responsables del mismo nivel antes de guardar.');
+            throw new InvalidArgumentException('Hay integrantes asignados a responsables de un nivel inferior. Revisa el orden de los niveles o reasigna a los responsables antes de guardar.');
+        }
     }
 
     public function associate(string $uuid, array $data): void
@@ -201,21 +306,84 @@ class StructureService extends Service
         });
     }
 
+    // Consulta la misma capacidad que se comprueba al guardar, sin promover ni escribir.
+    private function recruitmentLevel(array $container, array $parent, array $process): ?array
+    {
+        $level = $this->repository->rows('SELECT n.* FROM estructura_integrantes_procesos ep JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=?',[$parent['id'],$process['id']])[0] ?? null;
+        if ($level === null || (int)$level['puede_reclutar']===1) return $level;
+        $user=$this->repository->rows('SELECT persona FROM usuarios WHERE id=?',[Auth::id()])[0] ?? [];
+        $config=$this->repository->rows('SELECT promocion_primera_incorporacion FROM procesos_estructura_config WHERE proceso=?',[$process['id']])[0] ?? [];
+        $last=$this->repository->rows('SELECT MAX(orden) orden FROM niveles_organizacionales WHERE proceso=? AND activo=1',[$process['id']])[0]['orden'];
+        $prior=$this->repository->rows("SELECT id FROM estructura_historial WHERE estructura=? AND accion='alta' AND JSON_EXTRACT(despues,'$.responsible')=? LIMIT 1",[$container['id'],(int)$parent['id']]);
+        if ((int)($config['promocion_primera_incorporacion'] ?? 0)!==1 || (int)($user['persona'] ?? 0)!==(int)$parent['persona'] || (int)$level['orden']!==(int)$last || $prior!==[] || $this->repository->children((int)$parent['id'])!==[]) throw new HttpError('El responsable no tiene capacidad organizacional para incorporar integrantes.',403);
+        $candidate=$this->repository->rows('SELECT * FROM niveles_organizacionales WHERE proceso=? AND activo=1 AND puede_reclutar=1 ORDER BY orden DESC LIMIT 1',[$process['id']])[0] ?? null;
+        if (!$candidate) throw new InvalidArgumentException('No hay un nivel autorizado para reclutar.');
+        return [...$candidate,'previous_level'=>$level['id']];
+    }
+
     private function promoteFirstIncorporation(array $container, array $parent, array $elections): void
     {
-        $user = $this->repository->rows('SELECT persona FROM usuarios WHERE id=?',[Auth::id()])[0] ?? [];
         foreach ($elections as $process) {
-            $level = $this->repository->rows('SELECT n.* FROM estructura_integrantes_procesos ep JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=?',[$parent['id'],$process['id']])[0] ?? null;
-            if ($level === null || (int) $level['puede_reclutar']===1) continue;
-            $config = $this->repository->rows('SELECT promocion_primera_incorporacion FROM procesos_estructura_config WHERE proceso=?',[$process['id']])[0] ?? [];
-            $last = $this->repository->rows('SELECT MAX(orden) orden FROM niveles_organizacionales WHERE proceso=? AND activo=1',[$process['id']])[0]['orden'];
-            $prior = $this->repository->rows("SELECT id FROM estructura_historial WHERE estructura=? AND accion='alta' AND JSON_EXTRACT(despues,'$.responsible')=? LIMIT 1",[$container['id'],(int) $parent['id']]);
-            if ((int) ($config['promocion_primera_incorporacion'] ?? 0)!==1 || (int) ($user['persona'] ?? 0)!==(int) $parent['persona'] || (int) $level['orden']!==(int) $last || $prior!==[] || $this->repository->children((int) $parent['id'])!==[]) throw new HttpError('El responsable no tiene capacidad organizacional para incorporar integrantes.',403);
-            $candidate = $this->repository->rows('SELECT * FROM niveles_organizacionales WHERE proceso=? AND activo=1 AND puede_reclutar=1 ORDER BY orden DESC LIMIT 1',[$process['id']])[0] ?? null;
-            if (!$candidate) throw new InvalidArgumentException('No hay un nivel autorizado para reclutar.');
-            $this->repository->execute('UPDATE estructura_integrantes_procesos SET nivel=? WHERE integrante=? AND proceso=?',[$candidate['id'],$parent['id'],$process['id']]);
-            $this->repository->history((int) $container['id'],(int) $parent['id'],'promocion_primera_incorporacion',['level'=>$level['id']],['level'=>$candidate['id']],(int) $process['id']);
+            $level=$this->recruitmentLevel($container,$parent,$process);
+            if (!isset($level['previous_level'])) continue;
+            $this->repository->execute('UPDATE estructura_integrantes_procesos SET nivel=? WHERE integrante=? AND proceso=?',[$level['id'],$parent['id'],$process['id']]);
+            (new LevelRoleService($this->repository->connection()))->synchronize((int)$parent['persona'],(int)$process['id'],(int)$level['id']);
+            $this->repository->history((int)$container['id'],(int)$parent['id'],'promocion_primera_incorporacion',['level'=>$level['previous_level']],['level'=>$level['id']],(int)$process['id']);
         }
+    }
+
+    public function assignmentOptions(string $uuid, array $page, string $search = '', ?string $parent = null): array
+    {
+        $container=$this->repository->container($this->uuidStringToBinary($uuid));$current=$this->visible($container);
+        $elections=$this->guard($container,'estructura.formar');$canRoot=true;$catalogs=[];
+        [$scope,$params]=$this->assignmentScope('estructura.ver',$current);
+        foreach ($elections as $election) {
+            [$condition,$args]=$this->assignmentScope('estructura.formar',(int)$election['id']);
+            $scope.=' AND ('.$condition.')';$params=[...$params,...$args];
+            try {$this->fullScope('estructura.formar',(int)$election['id']);} catch(HttpError $error){if($error->statusCode!==403)throw $error;$canRoot=false;}
+            $levels=$this->repository->rows('SELECT * FROM niveles_organizacionales WHERE proceso=? AND activo=1 ORDER BY orden,id',[$election['id']]);
+            $catalogs[]=['id'=>$this->uuidBinaryToString($election['uuid']),'name'=>$election['proceso'],'levels'=>array_map(fn($level)=>['id'=>$this->uuidBinaryToString($level['uuid']),'name'=>$level['nombre'],'order'=>(int)$level['orden'],'same_level'=>(bool)$level['permite_mismo_nivel']],$levels)];
+        }
+        $candidate=function(array $row) use($container,$elections,$catalogs,$current): ?array {
+            $levels=[];$name=null;$order=null;
+            foreach ($elections as $index=>$election) {
+                try {$level=$this->recruitmentLevel($container,$row,$election);} catch(HttpError|InvalidArgumentException $error){if($error instanceof HttpError && $error->statusCode!==403)throw $error;return null;}
+                $key=$this->uuidBinaryToString($election['uuid']);
+                $levels[$key]=$level ? ['order'=>(int)$level['orden'],'same_level'=>(bool)$level['permite_mismo_nivel']] : null;
+                if ($level && $catalogs[$index]['levels']!==[] && !array_filter($catalogs[$index]['levels'],fn($child)=>$child['order']>(int)$level['orden'] || ($child['order']==(int)$level['orden'] && (bool)$level['permite_mismo_nivel']))) return null;
+                if((int)$election['id']===$current){$name=$level['nombre'] ?? null;$order=isset($level['orden']) ? (int)$level['orden'] : null;}
+            }
+            return ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['name'],'code'=>$row['codigo_persona'],'level_name'=>$name,'level_order'=>$order,'levels'=>$levels];
+        };
+        $select="SELECT e.*,p.codigo_persona,TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) name FROM estructura e JOIN personas p ON p.id=e.persona LEFT JOIN estructura_integrantes_procesos ep ON ep.integrante=e.id AND ep.proceso=? LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE e.contenedor=? AND e.activo=1 AND ($scope)";
+        $args=[$current,$container['id'],...$params];
+        $ownRow=$this->repository->rows($select.' AND EXISTS(SELECT 1 FROM usuarios u WHERE u.id=? AND u.persona=p.id) LIMIT 1',[...$args,Auth::id()])[0] ?? null;
+        $own=$ownRow ? $candidate($ownRow) : null;
+        $focus=null;$ancestors=[];
+        if ($parent!==null) {
+            if ($parent==='mine') $focusRow=$own ? $ownRow : null;
+            elseif ($parent==='roots') $focusRow=null;
+            else $focusRow=$this->repository->rows($select.' AND e.uuid=?',[...$args,$this->uuidStringToBinary($parent)])[0] ?? null;
+            if (!in_array($parent,['mine','roots'],true) && !$focusRow) throw new HttpError('Responsable no disponible.',404);
+            $focus=$focusRow ? $candidate($focusRow) : null;
+            if ($focusRow && !$focus) throw new HttpError('Responsable no disponible.',403);
+            if ($focusRow) {
+                $line=$this->repository->rows($select.' AND e.id IN (SELECT ancestro FROM estructura_relaciones WHERE descendiente=? AND profundidad>0) ORDER BY (SELECT profundidad FROM estructura_relaciones WHERE ancestro=e.id AND descendiente=?) DESC',[...$args,$focusRow['id'],$focusRow['id']]);
+                foreach($line as $row) { $item=$candidate($row);if($item)$ancestors[]=$item; }
+            }
+        }
+        if(mb_strlen($search)>200)throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
+        if(trim($search)!==''){$select.=" AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) LIKE ? OR p.codigo_persona LIKE ?)";$args[]='%'.trim($search).'%';$args[]='%'.trim($search).'%';}
+        elseif ($parent!==null) {
+            if ($focusRow) {$select.=' AND e.nodo_padre=?';$args[]=$focusRow['id'];}
+            else $select.=' AND (e.nodo_padre IS NULL OR NOT EXISTS(SELECT 1 FROM estructura epadre JOIN personas p ON p.id=epadre.persona WHERE epadre.id=e.nodo_padre AND ('.$scope.')))';
+            if (!$focusRow) $args=[...$args,...$params];
+        }
+        // Cursor sobre una ventana acotada; las filas inválidas no se entregan al selector.
+        $rows=$this->repository->rows($select.' ORDER BY n.orden,p.nombre,e.id LIMIT 101 OFFSET '.(int)$page['offset'],$args);
+        $candidates=[];$scanned=0;
+        foreach(array_slice($rows,0,100) as $row){$scanned++;$item=$candidate($row);if($item)$candidates[]=$item;if(count($candidates)>=$page['limit']-1)break;}
+        return ['focus'=>$focus,'ancestors'=>$ancestors,'elections'=>$catalogs,'candidates'=>$candidates,'own'=>$own,'can_root'=>$canRoot,'pagination'=>['has_more'=>count($rows)>$scanned,'next_offset'=>$page['offset']+$scanned]];
     }
 
     public function add(string $uuid, array $data): array
@@ -224,7 +392,11 @@ class StructureService extends Service
             $container = $this->locked($uuid);
             $parent = isset($data['responsible']) && $data['responsible']!=='' ? $this->repository->member($this->uuidStringToBinary((string) $data['responsible']),(int) $container['id']) : null;
             if ($parent && !(int) $parent['activo']) throw new InvalidArgumentException('El responsable debe estar activo.');
-            $elections = $this->guard($container,'estructura.formar',$parent ? [(int) $parent['persona']] : []);
+            $elections = $this->guard($container,'estructura.formar');
+            if ($parent) foreach($elections as $process) {
+                [$scope,$params]=$this->assignmentScope('estructura.formar',(int)$process['id']);
+                if ($this->repository->rows('SELECT 1 FROM personas p WHERE p.id=? AND ('.$scope.')',[$parent['persona'],...$params])===[]) throw new HttpError('El responsable está fuera de tu alcance.',404);
+            }
             if (!$parent) foreach ($elections as $process) $this->fullScope('estructura.formar',(int) $process['id']);
             if ($parent) $this->promoteFirstIncorporation($container,$parent,$elections);
             $identity = new PersonIdentityRepository($this->repository->connection());
@@ -268,9 +440,11 @@ class StructureService extends Service
             foreach ($elections as $process) {
                 $processUuid = $this->uuidBinaryToString($process['uuid']);
                 if (!array_key_exists($processUuid,$data['levels'] ?? [])) continue;
+                if ((int)$member['activo']===1 && empty($data['levels'][$processUuid])) throw new InvalidArgumentException('Un integrante activo debe conservar un nivel organizacional válido.');
                 $level = $this->level((int) $process['id'],$data['levels'][$processUuid]);
                 $previous = $this->repository->rows('SELECT nivel FROM estructura_integrantes_procesos WHERE integrante=? AND proceso=?',[$member['id'],$process['id']])[0]['nivel'] ?? null;
                 $this->repository->execute('UPDATE estructura_integrantes_procesos SET nivel=? WHERE integrante=? AND proceso=?',[$level,$member['id'],$process['id']]);
+                if ($previous != $level) (new LevelRoleService($this->repository->connection()))->synchronize((int)$member['persona'],(int)$process['id'],$level);
                 $this->repository->history((int) $container['id'],(int) $member['id'],'cambio_nivel',['level'=>$previous],['level'=>$level],(int) $process['id']);
             }
             $this->validateHierarchy((int) $container['id']);

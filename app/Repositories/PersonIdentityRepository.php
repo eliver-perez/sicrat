@@ -80,6 +80,22 @@ class PersonIdentityRepository
         $this->audit($organization, null, 'configurar', 'identidad_politica', $organization, $before, ['curp_unica'=>$curp,'clave_elector_unica'=>$key]);
     }
 
+    public function mapSettings(int $organization): array
+    {
+        $statement=$this->db->prepare('SELECT latitud latitude,longitud longitude,zoom FROM organizaciones_mapa WHERE organizacion=?');
+        $statement->execute([$organization]);
+        $row=$statement->fetch(PDO::FETCH_ASSOC);
+        return $row ? ['latitude'=>(float)$row['latitude'],'longitude'=>(float)$row['longitude'],'zoom'=>(int)$row['zoom']] : ['latitude'=>23.6345,'longitude'=>-102.5528,'zoom'=>5];
+    }
+
+    public function setMapSettings(int $organization, array $settings): void
+    {
+        $before=$this->mapSettings($organization);
+        $statement=$this->db->prepare('INSERT INTO organizaciones_mapa (organizacion,latitud,longitud,zoom,editado_por,fecha) VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE latitud=VALUES(latitud),longitud=VALUES(longitud),zoom=VALUES(zoom),editado_por=VALUES(editado_por),fecha=NOW()');
+        $statement->execute([$organization,$settings['latitude'],$settings['longitude'],$settings['zoom'],\App\Core\Auth::id()]);
+        $this->audit($organization,null,'configurar','organizaciones_mapa',$organization,$before,$settings);
+    }
+
     public function matches(int $organization, array $fields, bool $approximate, ?int $exclude = null): array
     {
         $conditions = [];

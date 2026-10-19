@@ -97,20 +97,34 @@ window.SicratOperationForms = {
 		let event=null;if(app.entity==='incidencias' && app.can('eventos.ver') && app.moduleEnabled('eventos')) event=await app.picker(target,'Evento relacionado opcional','operations/eventos');
 		return form=>({...app.values(form),category_id:category.values(),person:external?.checked ? '' : person.values(),responsible:responsible.values(),approver:approver.values(),validation:validation.checked ? 1 : 0,allow_pdf:form.elements.allow_pdf.checked ? 1 : 0,event:event?.values() || ''});
 	},
-	async conversation(app,target) {
-		const types={};if(app.can('mensajes.enviar'))types.DIRECTA='Conversación directa';if(app.can('mensajes.crear_grupos'))types.GRUPO='Grupo manual';if(app.can('mensajes.crear_grupos_estructura'))types.ESTRUCTURA='Grupo automático de estructura';
-		const type=app.field(target,'type','Tipo de conversación','select',Object.keys(types)[0],true,types);const title=app.field(target,'title','Nombre del grupo','text');const announcements=app.check(target,'announcements','Sólo administradores publican anuncios');const pdf=app.check(target,'allow_pdf','Permitir documentos administrativos PDF');const participants=app.text('div','','ux-full');target.append(participants);
-		let recipient=null,members=null,structure=null,root=null,level=null,structureMode=null;
-		const rebuild=async()=>{
-			participants.replaceChildren();recipient=members=structure=root=level=null;title.required=type.value!=='DIRECTA';title.disabled=type.value==='DIRECTA';announcements.disabled=type.value==='DIRECTA';
-			if(type.value==='DIRECTA')recipient=await app.picker(participants,'Cuenta destinataria','operations/contacts?permission=mensajes.enviar',false,[],true);
-			else if(type.value==='GRUPO')members=await app.picker(participants,'Cuentas integrantes','operations/contacts?permission=mensajes.crear_grupos',true);
-			else {
-				structure=await app.picker(participants,'Estructura','structures',false,[],true);structureMode=app.field(participants,'structure_mode','Grupo basado en','select','estructura',true,{estructura:'Toda la estructura autorizada',equipo:'Equipo a cargo',nivel:'Nivel organizacional'});const subset=app.text('div','','ux-full');participants.append(subset);
-				const choose=async()=>{subset.replaceChildren();root=level=null;if(structureMode.value==='equipo' && structure.values()){root=await app.picker(subset,'Responsable del equipo','structures/'+structure.values(),false,[],true);}else if(structureMode.value==='nivel'){const result=await app.api('structure-levels');level=app.field(subset,'level','Nivel','select','',true,Object.fromEntries((result.levels || result).map(item=>[item.id,item.name || item.nombre])));}};
-				structure.select.addEventListener('change',app.guard(choose));structureMode.addEventListener('change',app.guard(choose));
-			}
-		};type.addEventListener('change',app.guard(rebuild));await rebuild();
-		return form=>({...app.values(form),type:type.value,title:type.value==='DIRECTA' ? 'Conversación directa' : title.value,recipient:recipient?.values() || '',members:members?.values() || [],structure:structure?.values() || '',root:root?.values() || '',level:level?.value || '',structure_mode:structureMode?.value || '',announcements:announcements.checked && !announcements.disabled ? 1 : 0,allow_pdf:pdf.checked ? 1 : 0});
-	}
+    async conversation(app,target) {
+        const kind=app.chatCreateKind || (app.can('mensajes.enviar') ? 'direct' : 'group');
+        if(kind==='direct') {
+            if(!app.can('mensajes.enviar'))throw new Error('No tienes permiso para iniciar una conversación.');
+            const recipient=await app.picker(target,'Destinatario','operations/contacts?permission=mensajes.enviar',false,[],true);
+            target.append(app.text('p','Busca una cuenta autorizada. Al seleccionarla se abrirá su conversación existente o se iniciará una nueva.','ux-help ux-full'));
+            recipient.select.addEventListener('change',()=>{if(recipient.values())queueMicrotask(()=>app.node('operation-create-form').requestSubmit());});
+            return ()=>({type:'DIRECTA',recipient:recipient.values()});
+        }
+        const announcement=kind==='announcement';
+        if(announcement && !app.can('mensajes.administrar_grupos'))throw new Error('No tienes permiso para crear anuncios.');
+        const types={};if(app.can('mensajes.crear_grupos'))types.GRUPO='Seleccionar cuentas';if(app.can('mensajes.crear_grupos_estructura'))types.ESTRUCTURA='Estructura organizacional';
+        if(!Object.keys(types).length)throw new Error('No tienes permiso para crear grupos.');
+        const title=app.field(target,'title',announcement ? 'Título del anuncio' : 'Nombre del grupo','text','',true);
+        const type=Object.keys(types).length>1 ? app.field(target,'type','Integrantes','select',Object.keys(types)[0],true,types) : {value:Object.keys(types)[0]};
+        if(announcement)target.append(app.text('p','Sólo las cuentas administradoras de esta conversación pueden publicar anuncios.','ux-help ux-full'));
+        const pdf=app.check(target,'allow_pdf','Permitir documentos administrativos PDF');
+        const participants=app.text('div','','ux-full');target.append(participants);
+        let members=null,structure=null,root=null,level=null,structureMode=null;
+        const rebuild=async()=>{
+            participants.replaceChildren();members=structure=root=level=structureMode=null;
+            if(type.value==='GRUPO')members=await app.picker(participants,'Cuentas integrantes','operations/contacts?permission=mensajes.crear_grupos',true,[],true);
+            else {
+                structure=await app.picker(participants,'Estructura','structures',false,[],true);structureMode=app.field(participants,'structure_mode','Grupo basado en','select','estructura',true,{estructura:'Toda la estructura autorizada',equipo:'Equipo a cargo',nivel:'Nivel organizacional'});const subset=app.text('div','','ux-full');participants.append(subset);
+                const choose=async()=>{subset.replaceChildren();root=level=null;if(structureMode.value==='equipo' && structure.values()){root=await app.picker(subset,'Responsable del equipo','structures/'+structure.values(),false,[],true);}else if(structureMode.value==='nivel'){const result=await app.api('structure-levels');level=app.field(subset,'level','Nivel','select','',true,Object.fromEntries((result.levels || result).map(item=>[item.id,item.name || item.nombre])));}};
+                structure.select.addEventListener('change',app.guard(choose));structureMode.addEventListener('change',app.guard(choose));
+            }
+        };if(type.addEventListener)type.addEventListener('change',app.guard(rebuild));await rebuild();
+        return ()=>({type:type.value,title:title.value,members:members?.values() || [],structure:structure?.values() || '',root:root?.values() || '',level:level?.value || '',structure_mode:structureMode?.value || '',announcements:announcement ? 1 : 0,allow_pdf:pdf.checked ? 1 : 0});
+    }
 };

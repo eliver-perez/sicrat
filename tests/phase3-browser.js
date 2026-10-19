@@ -34,6 +34,9 @@ async function main() {
     }
     async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if(process.argv.includes('--only-persons-structure')){checks+=await require('./persons-structure-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});if(process.argv.includes('--level-role'))checks+=await require('./level-role-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Personas/Estructura sin excepciones JavaScript.');return;}
+    if(process.argv.includes('--level-role')){checks+=await require('./level-role-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Nivel → Rol sin excepciones JavaScript.');return;}
+    if(process.argv.includes('--only-messaging')){checks+=await require('./messaging-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Mensajería sin excepciones JavaScript.');return;}
     if(process.argv.includes('--only-post7')){checks+=await require('./post7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome post Fase 7 sin excepciones JavaScript.');return;}
     if (process.argv.includes('--only-phase7')) { checks+=await require('./phase7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 7 sin excepciones JavaScript.');return; }
     if (process.argv.includes('--only-phase6')) { checks+=await require('./phase6-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Fase 6 sin excepciones JavaScript.');return; }
@@ -45,6 +48,7 @@ async function main() {
     const selected=await evaluate(`(async () => { const token=document.querySelector('meta[name="csrf-token"]').content; const choices=await (await fetch('/api/auth/elections?limit=100')).json(); const election=choices.data.electoral_processes.find(item=>item.process==='Promoción Fase 3'); const result=await fetch('/api/auth/election',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({process:election.id})}); return result.status; })()`);
     assert.equal(selected,200); checks++;
     await navigate('/structure/');
+    await waitFor('document.querySelector("#structure-members button")');await evaluate('document.getElementById("structure-all").click()');
     await waitFor('document.querySelectorAll("#structure-members tr").length === 3'); checks++;
     assert.equal(await evaluate('document.getElementById("phase3-message").textContent'),''); checks++;
     await evaluate('document.querySelector("#structure-members button").click()');
@@ -68,7 +72,7 @@ async function main() {
         await waitFor('!document.getElementById("services-tab-backups").hidden');
         await evaluate('document.getElementById("services-tab-backups").click()');
         await waitFor('document.querySelectorAll("#backups-list tr").length > 1'); checks++;
-        await evaluate('document.getElementById("services-tab-jobs").click()'); await waitFor('document.querySelectorAll("#jobs-list tr").length > 1');
+        await evaluate('document.getElementById("services-tab-jobs").click();document.getElementById("jobs-filter").elements.state.value="completado";document.getElementById("jobs-filter").requestSubmit()'); await waitFor('document.querySelectorAll("#jobs-list tr").length > 1 && document.getElementById("jobs-list").textContent.includes("Exportación")');
         assert.equal(await evaluate('document.getElementById("services-jobs").hidden'),false); checks++;
         assert.equal(await evaluate('document.getElementById("backup-policy-form").elements.retention_days.value'),'14'); checks++;
         await evaluate('document.getElementById("services-tab-audit").click()'); await waitFor('document.querySelectorAll("#audit-list tr").length > 1 && Array.from(document.getElementById("audit-filter").elements.action.options).some(option=>option.value==="prueba_fase4")');
@@ -100,6 +104,7 @@ async function main() {
     if(process.argv.includes('--phase7')) checks+=await require('./phase7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});
     assert.deepEqual(failures,[]); checks++;
     if(process.argv.includes('--post7')){checks+=await require('./post7-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);checks++;}
+    if(process.argv.includes('--messaging')){checks+=await require('./messaging-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);checks++;}
     console.log(`OK: ${checks} comprobaciones en Chrome, pantallas y formularios sin errores JavaScript.`);
 }
 main().catch(error => { console.error(error.stack || error.message); process.exitCode=1; }).finally(() => { socket?.close(); browser.kill('SIGTERM'); });

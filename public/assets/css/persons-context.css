@@ -1,0 +1,12 @@
+.person-structure-card{padding:1rem;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.5rem;background:var(--color-default-50,#f8fafc)}
+.person-structure-member{margin-top:.75rem}
+.person-structure-data{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin:1rem 0}
+.person-structure-data dt{font-size:.75rem;color:var(--color-default-500,#64748b)}
+.person-structure-data dd{font-weight:500;overflow-wrap:anywhere}
+.person-map-section{min-width:0}
+.person-location-map{height:280px;max-height:45vh;width:100%;border-radius:.5rem;margin-top:.75rem;isolation:isolate}
+.person-map-pin{display:grid;place-items:center;background:var(--color-primary,#3b82f6);color:white;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px #0005}
+@media(max-width:600px){.person-structure-data{grid-template-columns:minmax(0,1fr)}}
+.person-map-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.5rem 0}
+.person-map-actions>button,#person-detail .ux-actions>button,#person-detail .ux-actions>a,#person-detail .ux-modal-footer>button,#person-map-settings .ux-modal-footer>button{margin:0!important;min-height:2.5rem}
+#person-detail .ux-actions,#person-detail .ux-modal-footer,#person-map-settings .ux-modal-footer{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}

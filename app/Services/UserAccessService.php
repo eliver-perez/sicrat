@@ -35,7 +35,8 @@ class UserAccessService extends Service
         if ($typeCode === 'superadmin' && $user['tipo_codigo'] !== 'superadmin') throw new InvalidArgumentException('Super Administrador es un tipo global de cuenta, no un acceso electoral.');
         if ($typeCode === null) throw new InvalidArgumentException('Tipo de usuario inválido.');
         $db = $this->repository->connection();
-        $db->beginTransaction();
+        $ownsTransaction = !$db->inTransaction();
+        if ($ownsTransaction) $db->beginTransaction();
         try {
             $db->prepare('SELECT id FROM organizaciones WHERE id=? FOR UPDATE')->execute([$user['organizacion']]);
             $permissions = new \App\Repositories\PermissionRepository($db);
@@ -54,8 +55,8 @@ class UserAccessService extends Service
             }
             if (!$active || (($before['super'] || in_array('estructura.formar',$before['rights'],true)) && !$after['super'] && !in_array('estructura.formar',$after['rights'],true))) (new StructureService(new \App\Repositories\StructureRepository($db)))->withdrawCapacity((int) $user['id'],(int) $process['id']);
             (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($db)))->record((int) $user['organizacion'],(int) $process['id'],'acceso_electoral','usuarios',(int) $user['id'],['rights'=>$before['rights'],'scopes'=>$before['scopes']],['tipo'=>$type,'activo'=>$active,'rights'=>$after['rights'],'scopes'=>$after['scopes']]);
-            $db->commit();
-        } catch (\Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }
+            if ($ownsTransaction) $db->commit();
+        } catch (\Throwable $error) { if ($ownsTransaction && $db->inTransaction()) $db->rollBack(); throw $error; }
     }
     public function link(string $uuid, ?string $personUuid): void
     {

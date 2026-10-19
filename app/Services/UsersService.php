@@ -59,16 +59,12 @@ class UsersService extends Service
 
         $username = $this->normalizeRequiredText($data['username'] ?? null, 'Es necesario capturar un usuario.');
         $password = PasswordPolicy::newPassword($data['password'] ?? null);
-        $user_type = $this->normalizeRequiredInt($data['user_type'] ?? null, 'Es necesario seleccionar el tipo de usuario.');
         $organization = $this->normalizeOptionalText($data['organization'] ?? null);
 
         $process = $this->normalizeOptionalText($data['process'] ?? null);
 
         $email = $this->normalizeOptionalText($data['email'] ?? null);
         $status = $this->normalizeStatus($data['status'] ?? 1);
-        if (!$this->usersRepository->userTypeExists($user_type)) {
-            throw new InvalidArgumentException('El tipo de usuario no es válido.');
-        }
 
         $name = $this->normalizeRequiredText($data['name'] ?? null, 'Es necesario capturar el nombre.');
         $last_name = $this->normalizeOptionalText($data['last_name'] ?? null);
@@ -110,21 +106,37 @@ class UsersService extends Service
         $registerProcess = $processId !== null;
 
         $conn = $this->usersRepository->getConnection();
-        $roleOwner=$conn->prepare('SELECT organizacion FROM usuarios_tipos WHERE id=?'); $roleOwner->execute([$user_type]); $typeOrganization=$roleOwner->fetchColumn();
-        if ($typeOrganization !== null && (int) $typeOrganization!==($organizationId ?? \App\Core\Auth::organizationId())) throw new InvalidArgumentException('El rol pertenece a otra organización.');
-        if (!\App\Core\Auth::isSuperAdmin()) {
-            $organizationId ??= \App\Core\Auth::organizationId();
-            if ($organizationId === null) throw new InvalidArgumentException('La cuenta debe pertenecer a una organización.');
-            Authorization::assertOrganization($organizationId);
-            $role = $conn->prepare('SELECT codigo,organizacion FROM usuarios_tipos WHERE id=?'); $role->execute([$user_type]); $typeRow=$role->fetch(\PDO::FETCH_ASSOC);
-            if (!$typeRow || $typeRow['codigo']==='superadmin' || ($typeRow['organizacion']!==null && (int) $typeRow['organizacion']!==$organizationId)) throw new InvalidArgumentException('El rol no está disponible para esta organización.');
-            (new \App\Repositories\PermissionRepository($conn))->require(\App\Core\Auth::id() ?? 0,'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
-        }
+        if (!\App\Core\Auth::isSuperAdmin()) $organizationId ??= \App\Core\Auth::organizationId();
         $conn->beginTransaction();
         try {
             if ($organizationId !== null) $conn->prepare('SELECT id FROM organizaciones WHERE id=? FOR UPDATE')->execute([$organizationId]);
             $managerPermissions = (new \App\Repositories\PermissionRepository($conn))->require(\App\Core\Auth::id() ?? 0,'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
             if (!$managerPermissions['super'] && empty($data['person']) && array_intersect(['eleccion','organizacion'],$managerPermissions['scopes']['usuarios.administrar'])===[]) throw new \App\Core\HttpError('Selecciona una persona dentro de tu alcance para crear su cuenta.',403);
+            if (isset($data['person']) && $data['person'] !== '') {
+                $person = (new \App\Repositories\PersonIdentityRepository($conn))->person($this->uuidStringToBinary((string) $data['person']),true);
+                if ($organizationId === null || (int) $person['organizacion']!==$organizationId) throw new InvalidArgumentException('La persona debe pertenecer a la organización de la cuenta.');
+                (new \App\Repositories\ScopeRepository($conn))->assertPerson((int) $person['id'],'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
+                $existing=$conn->prepare('SELECT id FROM usuarios WHERE persona=? FOR UPDATE'); $existing->execute([$person['id']]);
+                if ($existing->fetchColumn()) throw new \App\Core\HttpError('Esta persona ya tiene una cuenta SICRAT.',409);
+            }
+            $derivedRole = null;
+            if (isset($person)) {
+                $targetProcess = $processId ?? \App\Core\Auth::processId();
+                if ($targetProcess !== null) $derivedRole = (new LevelRoleService($conn))->roleForPerson((int)$person['id'],$targetProcess);
+                if ($derivedRole !== null && $processId === null) { $processId = $targetProcess; $registerProcess = true; }
+            }
+            $user_type = $derivedRole ?? $this->normalizeRequiredInt($data['user_type'] ?? null, 'Es necesario seleccionar el tipo de usuario.');
+            if (!$this->usersRepository->userTypeExists($user_type)) throw new InvalidArgumentException('El tipo de usuario no es válido.');
+            $roleOwner=$conn->prepare('SELECT organizacion FROM usuarios_tipos WHERE id=?'); $roleOwner->execute([$user_type]); $typeOrganization=$roleOwner->fetchColumn();
+            if ($typeOrganization !== null && (int) $typeOrganization!==($organizationId ?? \App\Core\Auth::organizationId())) throw new InvalidArgumentException('El rol pertenece a otra organización.');
+            if (!\App\Core\Auth::isSuperAdmin()) {
+                $organizationId ??= \App\Core\Auth::organizationId();
+                if ($organizationId === null) throw new InvalidArgumentException('La cuenta debe pertenecer a una organización.');
+                Authorization::assertOrganization($organizationId);
+                $role = $conn->prepare('SELECT codigo,organizacion FROM usuarios_tipos WHERE id=?'); $role->execute([$user_type]); $typeRow=$role->fetch(\PDO::FETCH_ASSOC);
+                if (!$typeRow || $typeRow['codigo']==='superadmin' || ($typeRow['organizacion']!==null && (int) $typeRow['organizacion']!==$organizationId)) throw new InvalidArgumentException('El rol no está disponible para esta organización.');
+                (new \App\Repositories\PermissionRepository($conn))->require(\App\Core\Auth::id() ?? 0,'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
+            }
             $userUuid = $this->generateUuidBinary();
             $userId = $this->usersRepository->insertUser([
                     'uuid'                          => $userUuid,
@@ -140,20 +152,13 @@ class UsersService extends Service
                     'uid'                           => $uid,
                 ]);
             
+            if (isset($person)) $conn->prepare('UPDATE usuarios SET persona=? WHERE id=?')->execute([$person['id'],$userId]);
             if($registerProcess) {
                 $this->usersRepository->insertUserProcess([
                     'user'                          => $userId,
                     'process'                       => $processId,
                     'user_type'                     => $user_type
                 ]);
-            }
-            if (isset($data['person']) && $data['person'] !== '') {
-                $person = (new \App\Repositories\PersonIdentityRepository($conn))->person($this->uuidStringToBinary((string) $data['person']),true);
-                if ($organizationId === null || (int) $person['organizacion']!==$organizationId) throw new InvalidArgumentException('La persona debe pertenecer a la organización de la cuenta.');
-                (new \App\Repositories\ScopeRepository($conn))->assertPerson((int) $person['id'],'usuarios.administrar',$processId ?? \App\Core\Auth::processId());
-                $existing=$conn->prepare('SELECT id FROM usuarios WHERE persona=? FOR UPDATE'); $existing->execute([$person['id']]);
-                if ($existing->fetchColumn()) throw new \App\Core\HttpError('Esta persona ya tiene una cuenta SICRAT.',409);
-                $conn->prepare('UPDATE usuarios SET persona=? WHERE id=?')->execute([$person['id'],$userId]);
             }
             if (!\App\Core\Auth::isSuperAdmin()) {
                 $globalPermissions=new \App\Repositories\PermissionRepository($conn); $base=$globalPermissions->effective($userId,null); $managerGlobal=$globalPermissions->effective(\App\Core\Auth::id(),null);

@@ -50,7 +50,7 @@ class StructureRepository
     {
         if ($ids === []) return [];
         $filter = $ids === null ? '' : ' AND e.id IN (' . implode(',',array_fill(0,count($ids),'?')) . ')';
-        return $this->rows('SELECT e.*,p.uuid persona_uuid,p.codigo_persona,TRIM(CONCAT_WS(" ",p.nombre,p.paterno,p.materno)) nombre,u.uuid usuario_uuid,parent.uuid responsable_uuid FROM estructura e JOIN personas p ON p.id=e.persona LEFT JOIN usuarios u ON u.persona=p.id LEFT JOIN estructura parent ON parent.id=e.nodo_padre WHERE e.contenedor=?' . ($activeOnly ? ' AND e.activo=1' : '') . $filter . ' ORDER BY p.nombre,e.id',[$container,...($ids ?? [])]);
+        return $this->rows('SELECT e.*,p.uuid persona_uuid,p.codigo_persona,p.nombre first_name,p.paterno last_name,TRIM(CONCAT_WS(" ",p.nombre,p.paterno,p.materno)) nombre,u.uuid usuario_uuid,parent.uuid responsable_uuid FROM estructura e JOIN personas p ON p.id=e.persona LEFT JOIN usuarios u ON u.persona=p.id LEFT JOIN estructura parent ON parent.id=e.nodo_padre WHERE e.contenedor=?' . ($activeOnly ? ' AND e.activo=1' : '') . $filter . ' ORDER BY p.nombre,e.id',[$container,...($ids ?? [])]);
     }
     public function descendant(int $ancestor, int $candidate): bool
     {

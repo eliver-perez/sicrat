@@ -15,6 +15,7 @@ class AdministrationController extends Controller
 {
     private function service(): AdministrationService { return new AdministrationService(new AdministrationRepository((new Database())->getConnection())); }
     public function levels(Request $request, Response $response): void { $response->success($this->service()->levels($request->query('election'))); }
+    public function levelRoles(Request $request, Response $response): void { $response->success($this->service()->levelRoles()); }
     public function level(Request $request, Response $response): void { $response->success($this->service()->saveLevel($request->route('level'),$request->input()),'Nivel guardado.'); }
     public function configuration(Request $request, Response $response): void { $response->success($this->service()->configuration($request->method()==='GET' ? null : $request->input())); }
     public function permissions(Request $request, Response $response): void { $response->success($this->service()->permissions()); }

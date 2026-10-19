@@ -1,0 +1,58 @@
+/* Estructura: tarjetas y controles con los tokens visuales de Tailwick. */
+#structure-workspace .structure-toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+#structure-workspace .structure-toolbar #structure-select{flex:1 1 16rem;width:auto;min-width:0;max-width:30rem}
+.structure-labeled-action{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;white-space:nowrap}
+.structure-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;margin:1rem 0}
+.structure-summary .structure-stat{display:flex;flex-direction:row;align-items:flex-start;gap:.75rem;padding:1rem;margin:0;border:1px solid var(--color-default-200,#e2e8f0);box-shadow:none;min-width:0}
+.structure-stat-icon{display:flex;align-items:center;justify-content:center;width:2.5rem;height:2.5rem;border-radius:.65rem;flex-shrink:0;background:color-mix(in srgb,var(--stat-color) 12%,transparent);color:var(--stat-color)}
+.structure-stat-icon svg{width:1.25rem;height:1.25rem}
+.structure-stat-content{min-width:0}
+.structure-stat-label{display:block;font-size:.75rem;color:var(--color-default-500,#64748b);margin-bottom:.2rem}
+.structure-stat-value{display:block;font-size:1.3rem;line-height:1.35;font-weight:600;overflow-wrap:anywhere}
+.structure-stat-name .structure-stat-value{font-size:1rem}
+#structure-members tr[data-member],.structure-person-choice{cursor:pointer}
+#structure-members tr[data-member]:hover,.structure-person-choice:hover{background:var(--color-default-100,#f1f5f9)}
+#structure-members tr[data-member]:focus-visible,.structure-person-choice:focus-visible{outline:2px solid var(--color-primary,#3b82f6);outline-offset:-2px}
+#structure-members td:last-child .ux-actions{flex-wrap:nowrap}
+@media(max-width:1100px){.structure-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.structure-summary{grid-template-columns:minmax(0,1fr)}.structure-summary .structure-stat{padding:.75rem}.structure-stat-value{font-size:1.15rem}}
+#structure-person-results{max-height:min(22rem,45vh);overflow:auto}
+#structure-person-results th,#structure-person-results td,#structure-duplicates th,#structure-duplicates td{padding:.55rem .65rem;font-size:.8125rem}
+@media(max-width:480px){#structure-person-results th:nth-child(4),#structure-person-results td:nth-child(4),#structure-duplicates th:nth-child(4),#structure-duplicates td:nth-child(4){display:none}}
+.structure-summary{align-items:stretch}
+.structure-summary .structure-stat{height:100%;align-self:stretch;box-sizing:border-box}
+.structure-breadcrumb{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.8rem 0;overflow-wrap:anywhere}
+.structure-breadcrumb .btn{white-space:normal;text-align:left}
+#structure-workspace .ux-tabs [aria-pressed=true]{color:var(--color-primary,#3b82f6);border-bottom:2px solid currentColor;background:var(--color-primary-50,#eff6ff)}
+.structure-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:start}
+.structure-panels>section{min-width:0;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.5rem;padding:.75rem}
+.structure-panels h6{overflow-wrap:anywhere}
+.structure-panels.structure-flat{display:block}
+.structure-code-label{display:block;font-size:.7rem;color:var(--color-default-500,#64748b);margin-top:.25rem}
+.structure-flat .structure-code-label{display:none}
+.structure-panels:not(.structure-flat) th:nth-child(1),.structure-panels:not(.structure-flat) td:nth-child(1),.structure-panels:not(.structure-flat) th:nth-child(4),.structure-panels:not(.structure-flat) td:nth-child(4),.structure-panels:not(.structure-flat) th:nth-child(6),.structure-panels:not(.structure-flat) td:nth-child(6){display:none}
+.structure-panels td{padding:.65rem!important}
+.structure-panels tr[data-member]{cursor:pointer}
+.structure-panels tr[data-member]:focus-visible{outline:2px solid var(--color-primary,#3b82f6);outline-offset:-2px}
+#structure-members tr.structure-selected{background:var(--color-primary-50,#eff6ff);box-shadow:inset 3px 0 var(--color-primary,#3b82f6)}
+#structure-preview-members td:last-child .ux-actions{flex-wrap:nowrap}
+@media(max-width:1100px){.structure-panels{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:480px){.structure-panels:not(.structure-flat) th:nth-child(3),.structure-panels:not(.structure-flat) td:nth-child(3){display:none}}
+@media(max-width:480px){
+    .structure-panels:not(.structure-flat) th{white-space:normal;padding:.5rem;font-size:.75rem}
+    .structure-panels:not(.structure-flat) td{padding:.5rem!important}
+    .structure-panels:not(.structure-flat) th:nth-child(5){width:4.5rem}
+    .structure-panels:not(.structure-flat) th:nth-child(7){width:5.25rem}
+    .structure-panels:not(.structure-flat) td .ux-actions{gap:.25rem}
+}
+.structure-crumb-link{padding:0;border:0;background:none;color:var(--color-primary,#3b82f6);cursor:pointer;text-align:left;overflow-wrap:anywhere}
+.structure-crumb-link:hover,.structure-crumb-link:focus-visible{text-decoration:underline}
+.structure-team-card{box-shadow:inset 3px 0 var(--color-primary,#3b82f6);display:flex;align-items:center;gap:.75rem;padding:.85rem;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.5rem;margin-top:.65rem;cursor:pointer}
+.structure-team-card:hover{background:var(--color-primary-50,#eff6ff)}
+.structure-team-card:focus-visible{outline:2px solid var(--color-primary,#3b82f6);outline-offset:2px}
+.structure-team-copy{display:grid;gap:.25rem;min-width:0;flex:1;overflow-wrap:anywhere}
+.structure-initials{display:grid;place-items:center;flex-shrink:0;width:2.75rem;height:2.75rem;border-radius:.5rem;background:var(--color-primary-50,#eff6ff);color:var(--color-primary,#3b82f6);font-weight:600}
+.structure-team-card:nth-child(3n) .structure-initials{background:var(--color-purple-50,#faf5ff);color:var(--color-purple-600,#9333ea)}
+.structure-team-card:nth-child(3n+1) .structure-initials{background:var(--color-green-50,#f0fdf4);color:var(--color-green-600,#16a34a)}
+.structure-team-copy .ux-help{margin:0}
+.structure-team-copy small{font-size:.8125rem;line-height:1.4}

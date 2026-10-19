@@ -21,6 +21,7 @@
     <div id="level-list" class="my-3"></div>
     <form id="level-form" class="ux-form-grid">
         <input name="id" type="hidden"><label>Nombre del nivel<input name="name" class="form-input" maxlength="128" required></label><label>Orden jerárquico<input name="order" type="number" class="form-input" min="1" max="32767" required></label>
+        <label>Rol asociado<select name="associated_role" class="form-input"><option value="">Sin configurar</option></select><small class="ux-help block">Se asigna al crear una cuenta o cambiar el nivel. No modifica los cambios manuales de rol ya realizados.</small></label>
         <label><input name="active" type="checkbox" checked> Nivel activo</label><label><input name="can_recruit" type="checkbox"> Puede incorporar integrantes</label><label><input name="same_level" type="checkbox"> Permite responsables del mismo nivel</label>
         <div class="ux-actions"><button class="btn bg-primary text-white">Guardar nivel</button><button id="level-new" type="button" class="btn">Nuevo nivel</button></div>
     </form>
@@ -47,7 +48,7 @@
             <select name="target" hidden aria-label="Origen del permiso"><option value="role">Rol</option><option value="user">Usuario</option></select>
             <label id="permission-role-field">Rol<select name="role" class="form-input" required></select></label><label id="permission-user-field" hidden>Usuario<select name="user" class="form-input"></select></label>
             <label>Aplicar a<select name="context" class="form-input"><option value="electoral">Esta elección</option><option id="permission-global" value="global">Configuración global</option></select></label>
-            <label>Permiso<select name="permission" class="form-input" required></select></label><label>Alcance de la información<select name="scope" class="form-input"></select></label>
+            <label>Permiso<select name="permission" class="form-input" required></select></label><label>Alcance de la información<select name="scope" class="form-input" aria-describedby="permission-scope-help"></select><small id="permission-scope-help" class="ux-help block" aria-live="polite"></small></label>
             <label>Decisión<select name="value" class="form-input" aria-describedby="permission-decision-help"><option value="1">Conceder</option><option value="0">Revocar</option></select></label>
             <p id="permission-decision-help" class="ux-help ux-full"></p>
             <div class="ux-actions"><button class="btn bg-primary text-white">Guardar permiso</button><button id="permission-inspect" type="button" class="btn">Consultar permisos configurados</button></div>
@@ -56,7 +57,7 @@
     </div>
     <div id="permission-panel-territories" role="tabpanel" aria-labelledby="permission-tab-territories" hidden>
         <form id="territory-form" class="grid gap-3">
-            <h6>Territorios autorizados</h6><label>Usuario<select name="user" class="form-input" required></select></label>
+            <h6>Territorios autorizados</h6><label>Usuario<select name="user" class="form-input" required><option value="">Selecciona una cuenta</option></select></label>
             <div class="ux-multiselect"><label for="territory-search">Buscar sección<input id="territory-search" type="search" class="form-input" placeholder="Número de sección, estado o municipio"></label><div id="territory-options" class="ux-multiselect-list"></div><p id="territory-count" class="ux-help" role="status">0 seleccionadas</p><div class="ux-actions"><button id="territory-previous" type="button" class="btn" disabled>Anterior</button><button id="territory-next" type="button" class="btn" disabled>Siguiente</button><button id="territory-clear" type="button" class="btn">Deseleccionar todas</button></div></div>
             <div class="ux-actions"><button class="btn bg-primary text-white">Guardar territorios de esta elección</button></div>
         </form>

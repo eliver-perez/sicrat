@@ -4,6 +4,7 @@
         <button type="button" id="person-import-open" class="btn bg-primary text-white">Importar personas</button>
         <?php endif; ?>
         <?php if (\App\Auth\Authorization::canAny(['superadmin','admin'])): ?>
+        <button type="button" id="person-map-settings-open" class="btn"><i data-lucide="map-pin" class="size-4"></i>Ubicación inicial del mapa</button>
         <button type="button" id="identity-policy-open" class="btn">Reglas de identidad</button>
         <?php endif; ?>
     </div>
@@ -13,12 +14,12 @@
 <dialog id="person-detail" class="card p-5 w-full max-w-3xl" aria-label="Ficha de persona">
     <div class="flex justify-between mb-4"><h6 class="card-title" id="person-detail-title">Persona</h6><button type="button" class="btn" data-close onclick="document.getElementById('person-detail').close()">Cerrar</button></div>
     <form id="person-edit-form">
-        <div id="person-neighborhood-picker" class="hidden mb-4 ux-full"></div>
         <div id="person-edit-fields" class="ux-full"></div>
         <?php if ($personCapabilities['edit']): ?><button class="btn bg-primary text-white mt-4" type="submit">Guardar información</button><?php endif; ?>
     </form>
-    <section class="ux-section"><h6 class="card-title">Participación electoral</h6>
+    <section class="ux-section"><h6 class="card-title">Participación y estructura</h6>
     <div id="person-participations" class="mb-4 overflow-x-auto"></div>
+    <div id="person-structure" class="ux-section" aria-live="polite"></div>
     <div id="person-operational-activity" class="mb-4"></div>
     <?php if ($personCapabilities['participate']): ?>
     <label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
@@ -63,4 +64,18 @@
     <button type="button" id="person-import-confirm" class="btn bg-primary text-white hidden">Confirmar importación</button>
 </dialog>
 
+<?php endif; ?>
+
+<?php if (\App\Auth\Authorization::canAny(['superadmin','admin'])): ?>
+<dialog id="person-map-settings" class="card p-5 w-full max-w-xl" aria-label="Ubicación inicial del mapa">
+    <form id="person-map-settings-form" class="ux-form-grid">
+        <h6 class="ux-full">Ubicación inicial del mapa de la organización</h6>
+        <p class="ux-help ux-full">Centro para personas sin coordenadas. No se asigna como domicilio.</p>
+        <label>Latitud predeterminada<input name="latitude" class="form-input" type="number" min="-90" max="90" step="any" required></label>
+        <label>Longitud predeterminada<input name="longitude" class="form-input" type="number" min="-180" max="180" step="any" required></label>
+        <label>Zoom predeterminado<input name="zoom" class="form-input" type="number" min="0" max="19" step="1" required></label>
+        <div class="ux-modal-footer ux-actions ux-full"><button type="submit" class="btn bg-primary text-white">Guardar</button><button type="button" class="btn" onclick="document.getElementById('person-map-settings').close()">Cancelar</button></div>
+    </form>
+    <button type="button" data-close class="btn" onclick="document.getElementById('person-map-settings').close()">Cerrar</button>
+</dialog>
 <?php endif; ?>

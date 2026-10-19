@@ -90,7 +90,7 @@ window.SicratOperations = {
 	pager(target,path,columns,actions = null,renderer = null) {
 		const content=this.text('div'); const controls=this.text('div','','ux-pagination mt-4'); let offset=0,hasMore=false,nonce=0;
 		const previous=this.button('Anterior',()=>{offset=Math.max(0,offset-25);return load();}); const next=this.button('Siguiente',()=>{if(hasMore) offset+=25;return load();}); const status=this.text('span'); status.setAttribute('aria-live','polite'); controls.append(previous,status,next); target.replaceChildren(content,controls);
-		const load=async()=>{const request=++nonce; const url=typeof path==='function' ? path() : path; const result=await this.api(url+(url.includes('?') ? '&' : '?')+'limit=25&offset='+offset); if (request!==nonce) return; if(renderer)renderer(content,result.rows,actions);else this.table(content,columns,result.rows,actions); hasMore=!!result.pagination?.has_more; if(window.SicratFeedback){window.SicratFeedback.setDisabled(previous,offset===0);window.SicratFeedback.setDisabled(next,!hasMore);}else{previous.disabled=offset===0;next.disabled=!hasMore;}status.textContent='Página '+(Math.floor(offset/25)+1);};
+		const load=async()=>{const request=++nonce; const url=typeof path==='function' ? path() : path; const result=await this.api(url+(url.includes('?') ? '&' : '?')+'limit=25&offset='+offset); if (request!==nonce) return; if(renderer)renderer(content,result.rows,actions,result);else this.table(content,columns,result.rows,actions); hasMore=!!result.pagination?.has_more; if(window.SicratFeedback){window.SicratFeedback.setDisabled(previous,offset===0);window.SicratFeedback.setDisabled(next,!hasMore);}else{previous.disabled=offset===0;next.disabled=!hasMore;}status.textContent='Página '+(Math.floor(offset/25)+1);};
 		return {load,reset:()=>{offset=0;return load();}};
 	},
 	async approval(uuid) {
@@ -121,6 +121,17 @@ window.SicratOperations = {
 		dialog.showModal();
 	},
 	async open(uuid) {
+		if(this.entity!=='conversaciones')return this.openDetail(uuid);
+		this.chatRequested=uuid;
+		if(this.chatOpening)return this.chatOpening;
+		this.chatOpening=(async()=>{
+			try {while(this.chatRequested){const next=this.chatRequested;this.chatRequested=null;await this.openDetail(next);}}
+			finally {this.chatOpening=null;}
+		})();
+		return this.chatOpening;
+	},
+	async openDetail(uuid) {
+		if(this.entity==='conversaciones'){window.SicratMessaging.stop(this);const composer=this.node('chat-composer');if(composer)composer.hidden=true;}
 		const panel=this.selected===uuid ? this.detailPanel || 'summary' : 'summary';this.selected=uuid; const row=await this.api('operations/'+this.entity+'/'+uuid); this.current=row;
 		this.node('operation-detail-title').textContent=row.titulo || row.title || row.evento || row.encuesta || row.folio || row.persona_nombre || row.resultado || this.definition.title;
 		if(this.entity==='conversaciones' && this.chatOptions)this.node('operation-detail-dialog').append(this.chatOptions);

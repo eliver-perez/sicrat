@@ -23,6 +23,9 @@ async function main() {
     verify(calls.at(-1).showCancelButton && !calls.at(-1).allowOutsideClick,'Decisión explícita');
     let callback; await context.ShowSweetAlertConfirmCancelCallback('warning','Revisar','Motivo','Sí','No',value=>callback=value);
     verify(callback.isConfirmed===false,'Callback compatible');
+    result={isConfirmed:true,value:'  Motivo de retiro  '};
+    verify(await feedback.reason('El contenido será retirado',{title:'Retirar mensaje',confirm:'Retirar mensaje',inputLabel:'Motivo del retiro',customClass:{confirmButton:'btn bg-danger text-white'}})==='Motivo de retiro','Motivo confirmado se normaliza');
+    verify(calls.at(-1).customClass.input==='form-input' && calls.at(-1).customClass.confirmButton.includes('bg-danger') && calls.at(-1).customClass.cancelButton.includes('btn'),'Estilo destructivo conserva controles Tailwick comunes');
     document.querySelectorAll=()=>[modal]; await feedback.toast('Guardado'); verify(calls.at(-1).target===modal,'Toast visible dentro del diálogo nativo');
     const button={tagName:'BUTTON',disabled:false,textContent:'Guardar',setAttribute(){},removeAttribute(){}};
     let resolve, submissions=0;

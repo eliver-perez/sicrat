@@ -7,7 +7,7 @@ const SicratFeedback = (() => {
     const target = () => document.activeElement?.closest?.('dialog[open]')
         || Array.from(document.querySelectorAll('dialog[open]')).at(-1) || document.body;
     const fire = options => Swal.fire({target: target(), buttonsStyling: false,
-        customClass: {confirmButton: 'btn bg-primary text-white', cancelButton: 'btn bg-default-200 text-default-800', actions: 'ux-actions', input:'form-input'}, ...options});
+        ...options, customClass: {confirmButton: 'btn bg-primary text-white', cancelButton: 'btn bg-default-200 text-default-800', actions: 'ux-actions', input:'form-input', ...options.customClass}});
     const toast = (message, type = 'success') => fire({toast: true,
         icon: ['success','warning','error','info'].includes(type) ? type : 'info',
         titleText: String(message), position: 'top-end', showConfirmButton: false,

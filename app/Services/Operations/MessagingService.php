@@ -64,7 +64,6 @@ class MessagingService extends BaseService
 		$where='u.activo=1 AND u.id<>? AND ((u.organizacion=? AND EXISTS (SELECT 1 FROM usuarios_procesos up WHERE up.usuario=u.id AND up.proceso=? AND up.activo=1 AND up.f_baja IS NULL)) OR (t.codigo=\'superadmin\' AND ?=1))';
 		$parameters=[$context['actor'],$context['organization'],$process,$context['effective']['super'] ? 1 : 0];
 		if (!$this->context->broad($context,$permission)) { $where.=" AND ($scope)"; $parameters=[...$parameters,...$params]; }
-		if (($filters['search'] ?? '')!=='') { $where.=' AND (u.nombre LIKE ? OR u.usuario LIKE ?)'; $search='%'.Values::text($filters['search'],100).'%'; $parameters[]=$search; $parameters[]=$search; }
 		// Aplicar la política antes de la paginación mediante las relaciones reales del actor.
 		if ($permission==='mensajes.enviar' && !$context['effective']['super']) {
 			$policy=$this->repository->one('SELECT politica FROM mensajeria_politicas WHERE proceso=?',[$process])['politica'] ?? 'coordinacion';
@@ -82,6 +81,16 @@ class MessagingService extends BaseService
 				}
 			}
 		}
+        if ($permission==='mensajes.enviar') {
+            // Contactos nuevos siguen la política; un participante puede volver a abrir su directa existente.
+            $where="($where) OR (u.activo=1 AND u.id<>? AND EXISTS (
+                SELECT 1 FROM conversaciones existing JOIN conversaciones_tipos ct ON ct.id=existing.tipo
+                JOIN conversaciones_usuarios own ON own.conversacion=existing.id AND own.usuario=? AND own.activo=1
+                JOIN conversaciones_usuarios peer ON peer.conversacion=existing.id AND peer.usuario=u.id AND peer.activo=1
+                WHERE existing.proceso=? AND existing.organizacion=? AND existing.estado='activa' AND ct.codigo='DIRECTA'))";
+            $parameters=[...$parameters,$context['actor'],$context['actor'],$process,$context['organization']];
+        }
+        if (($filters['search'] ?? '')!=='') { $where='('.$where.') AND (u.nombre LIKE ? OR u.usuario LIKE ?)';$search='%'.Values::text($filters['search'],100).'%';$parameters[]=$search;$parameters[]=$search; }
 		$result=$this->repository->page("SELECT u.uuid,u.nombre,u.usuario FROM usuarios u JOIN usuarios_tipos t ON t.id=u.tipo_usuario LEFT JOIN personas p ON p.id=u.persona WHERE $where ORDER BY u.nombre,u.id",$parameters,$filters);
 		foreach ($result['rows'] as &$user) $user['uuid']=Values::uuidText($user['uuid']); return $result;
 	}
@@ -90,15 +99,23 @@ class MessagingService extends BaseService
 		$process=$this->context->process($data['process'] ?? null); $type=Catalog::choice($data['type'] ?? 'DIRECTA',['DIRECTA','GRUPO','ESTRUCTURA']);
 		$permission=['DIRECTA'=>'mensajes.enviar','GRUPO'=>'mensajes.crear_grupos','ESTRUCTURA'=>'mensajes.crear_grupos_estructura'][$type];
 		$context=$this->context->require('conversaciones',$process,$permission);
+        if ($type!=='DIRECTA' && !empty($data['announcements'])) $this->context->require('conversaciones',$process,'mensajes.administrar_grupos');
 		return $this->repository->transaction(function() use($context,$process,$type,$permission,$data) {
 			$this->repository->one('SELECT id FROM organizaciones WHERE id=? FOR UPDATE',[$context['organization']]);
 			$members=[]; $key=null; $structure=null; $level=null; $root=null; $mode=null;
 			if ($type==='DIRECTA') {
-				$user=$this->account($data['recipient'] ?? '',$process,$permission);
-				if ((int) $user['id']===$context['actor'] || !$this->canContact($user,$process)) throw new HttpError('La política de contacto no permite esta conversación directa.',403);
-				$pair=[$context['actor'],(int) $user['id']]; sort($pair); $key=implode(':',$pair);
-				$existing=$this->repository->one('SELECT uuid FROM conversaciones WHERE proceso=? AND clave_directa=?',[$process,$key]);
-				if ($existing) return ['uuid'=>Values::uuidText($existing['uuid'])];
+                $reference=Values::binary($data['recipient'] ?? null);
+                $recipient=$this->repository->one('SELECT id FROM usuarios WHERE uuid=? AND activo=1',[$reference]) ?? throw new HttpError('Cuenta no disponible.',404);
+                if ((int)$recipient['id']===$context['actor']) throw new HttpError('Selecciona otro destinatario.',422);
+                $pair=[$context['actor'],(int)$recipient['id']];sort($pair);$key=implode(':',$pair);
+                $existing=$this->repository->one("SELECT c.uuid FROM conversaciones c JOIN conversaciones_tipos ct ON ct.id=c.tipo WHERE c.proceso=? AND ct.codigo='DIRECTA' AND (c.clave_directa=? OR (c.clave_directa IS NULL AND (SELECT COUNT(*) FROM conversaciones_usuarios all_members WHERE all_members.conversacion=c.id)=2 AND EXISTS(SELECT 1 FROM conversaciones_usuarios a WHERE a.conversacion=c.id AND a.usuario=?) AND EXISTS(SELECT 1 FROM conversaciones_usuarios b WHERE b.conversacion=c.id AND b.usuario=?))) ORDER BY c.clave_directa IS NULL,c.id LIMIT 1",[$process,$key,...$pair]);
+                if ($existing) {
+                    $existing=$this->conversation(Values::uuidText($existing['uuid']),'mensajes.enviar');
+                    $this->assertSending($existing);
+                    return ['uuid'=>$existing['uuid'],'reused'=>true];
+                }
+                $user=$this->account($data['recipient'] ?? '',$process,$permission);
+                if (!$this->canContact($user,$process)) throw new HttpError('La política de contacto no permite esta conversación directa.',403);
 				$members=[(int) $user['id']];
 			} elseif ($type==='GRUPO') foreach (Catalog::list($data['members'] ?? []) as $reference) $members[]=(int) $this->account($reference,$process,$permission)['id'];
 			else {
@@ -118,7 +135,7 @@ class MessagingService extends BaseService
 			$row=$this->newRow('conversaciones',['organizacion'=>$context['organization'],'proceso'=>$process,'tipo'=>$this->repository->one('SELECT id FROM conversaciones_tipos WHERE codigo=?',[$type])['id'],'titulo'=>Values::text($data['title'] ?? ($type==='DIRECTA' ? 'Conversación directa' : ''),150),'creado_por'=>$context['actor'],'f_registro'=>date('Y-m-d H:i:s'),'estado'=>'activa','anuncios'=>$type==='DIRECTA' ? 0 : Values::integer($data['announcements'] ?? 0,0,1),'estructura'=>$structure,'nivel'=>$level,'integrante_raiz'=>is_array($root) ? $root['id'] : null,'modo_estructura'=>$mode,'clave_directa'=>$key,'permite_pdf'=>Values::integer($data['allow_pdf'] ?? 0,0,1)]);
 			if ($type!=='ESTRUCTURA') foreach (array_unique([$context['actor'],...$members]) as $member) $this->repository->execute('INSERT INTO conversaciones_usuarios (conversacion,usuario,administrador,visible_desde_id,incorporado_en) VALUES (?,?,?,0,NOW())',[$row['id'],$member,$member===$context['actor'] ? 1 : 0]);
 			else $this->sync($row);
-			return ['uuid'=>$row['uuid']];
+			return ['uuid'=>$row['uuid'],'reused'=>false];
 		});
 	}
 	private function automaticQuery(array $row): array
@@ -180,8 +197,14 @@ class MessagingService extends BaseService
 	}
 	public function detail(string $uuid): array
 	{
-		$row=$this->conversation($uuid); return ['uuid'=>$uuid,'id'=>$row['id'],'title'=>$row['titulo'],'state'=>$row['estado'],'announcements'=>(bool) $row['anuncios'],'automatic'=>$row['estructura']!==null,'direct'=>$row['direct'],'version'=>$row['version'],'membership'=>$row['membership'],'can_manage'=>(bool) ($row['global'] || $row['owner_admin'] || ($row['membership']['administrador'] ?? false))];
+		$row=$this->conversation($uuid);
+        $title=$row['direct'] ? ($this->repository->one('SELECT '.$this->peerNameSql('c').' title FROM conversaciones c WHERE c.id=?',[$this->context->actor(),$row['id']])['title'] ?? $row['titulo']) : $row['titulo'];
+        return ['uuid'=>$uuid,'id'=>$row['id'],'title'=>$title,'state'=>$row['estado'],'announcements'=>(bool) $row['anuncios'],'allow_pdf'=>(bool)$row['permite_pdf'],'automatic'=>$row['estructura']!==null,'direct'=>$row['direct'],'version'=>$row['version'],'membership'=>$row['membership'],'can_manage'=>(bool) ($row['global'] || $row['owner_admin'] || ($row['membership']['administrador'] ?? false))];
 	}
+    private function peerNameSql(string $alias): string
+    {
+        return "(SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)),''),NULLIF(TRIM(CONCAT_WS(' ',u.nombre,u.paterno,u.materno)),''),u.usuario) FROM conversaciones_usuarios peer JOIN usuarios u ON u.id=peer.usuario LEFT JOIN personas p ON p.id=u.persona WHERE peer.conversacion=$alias.id AND peer.usuario<>? ORDER BY peer.activo DESC,u.id LIMIT 1)";
+    }
 	public function listing(array $filters): array
 	{
 		$process=$this->context->process($filters['process'] ?? null); $context=$this->context->require('conversaciones',$process,'mensajes.ver');
@@ -196,12 +219,15 @@ class MessagingService extends BaseService
 			$owner=$this->context->allowed('mensajes.administrar_grupos',$process) && $this->context->broad($this->context->require('conversaciones',$process,'mensajes.administrar_grupos'),'mensajes.administrar_grupos');
 			$where.=' AND (cu.activo=1 OR (r.creado_por=? AND ?=1))'; $params[]=$context['actor']; $params[]=$owner ? 1 : 0;
 		}
-		if (($filters['search'] ?? '')!=='') { $where.=' AND r.titulo LIKE ?'; $params[]='%'.Values::text($filters['search'],150).'%'; }
-		$result=$this->repository->page("SELECT r.id,r.uuid,r.titulo,r.estado,r.f_registro fecha,r.version,r.anuncios,r.estructura,cu.silenciada,cu.silenciada_hasta,
-            (SELECT IF(m.eliminado=1,'Mensaje moderado',m.mensaje) FROM mensajes m WHERE m.conversacion=r.id AND m.id>=COALESCE(cu.visible_desde_id,0) ORDER BY m.id DESC LIMIT 1) ultimo_mensaje,
+        if (($filters['before'] ?? '')!=='') {$where.=' AND r.id<?';$params[]=Values::integer($filters['before']);$filters['offset']=0;}
+        if (isset($filters['ids'])) {$ids=Catalog::list($filters['ids']);if(!$ids)throw new \InvalidArgumentException('Selecciona conversaciones.');$where.=' AND r.uuid IN ('.implode(',',array_fill(0,count($ids),'?')).')';$params=[...$params,...array_map([Values::class,'binary'],$ids)];}
+        $title="CASE WHEN ct.codigo='DIRECTA' THEN COALESCE(".$this->peerNameSql('r').",r.titulo) ELSE r.titulo END";
+        $search='';if (($filters['search'] ?? '')!=='') {$search=' WHERE chats.titulo LIKE ?';$params[]='%'.Values::text($filters['search'],150).'%';}
+		$result=$this->repository->page("SELECT * FROM (SELECT r.id,r.uuid,$title titulo,r.estado,r.f_registro fecha,r.version,r.anuncios,r.estructura,cu.silenciada,cu.silenciada_hasta,
+            (SELECT IF(m.eliminado=1,'Mensaje retirado',m.mensaje) FROM mensajes m WHERE m.conversacion=r.id AND m.id>=COALESCE(cu.visible_desde_id,0) ORDER BY m.id DESC LIMIT 1) ultimo_mensaje,
             (SELECT m.f_envio FROM mensajes m WHERE m.conversacion=r.id AND m.id>=COALESCE(cu.visible_desde_id,0) ORDER BY m.id DESC LIMIT 1) ultimo_envio,
             (SELECT COUNT(*) FROM mensajes m JOIN mensajes_destinatarios d ON d.mensaje=m.id AND d.usuario=cu.usuario LEFT JOIN mensajes_lecturas l ON l.mensaje=m.id AND l.usuario=cu.usuario WHERE m.conversacion=r.id AND m.id>=COALESCE(cu.visible_desde_id,0) AND m.usuario<>cu.usuario AND l.mensaje IS NULL) no_leidos
-            FROM conversaciones r LEFT JOIN conversaciones_usuarios cu ON cu.conversacion=r.id AND cu.usuario=? WHERE $where ORDER BY r.id DESC",[$context['actor'],...$params],$filters);
+            FROM conversaciones r JOIN conversaciones_tipos ct ON ct.id=r.tipo LEFT JOIN conversaciones_usuarios cu ON cu.conversacion=r.id AND cu.usuario=? WHERE $where) chats$search ORDER BY chats.id DESC",[$context['actor'],$context['actor'],...$params],$filters);
 		foreach ($result['rows'] as &$row) $row['uuid']=Values::uuidText($row['uuid']); return $result;
 	}
 	public function members(string $uuid,array $filters): array
@@ -228,29 +254,63 @@ class MessagingService extends BaseService
 			$this->context->history('conversaciones',$row,'cambiar_integrantes','',null,['integrantes'=>count(array_unique($ids))]);
 		});
 	}
+    private function attachments(int $message,array $conversation): array
+    {
+        $files=$this->repository->rows("SELECT uuid,nombre_original,mime_type,tamanio,ancho,alto FROM archivos WHERE organizacion=? AND proceso=? AND entidad='mensajes' AND entidad_id=? AND estado='activo' ORDER BY id LIMIT 50",[$conversation['organizacion'],$conversation['proceso'],$message]);
+        foreach($files as &$file)$file['uuid']=Values::uuidText($file['uuid']);
+        return $files;
+    }
 	public function messages(string $uuid,array $filters): array
 	{
-		$row=$this->conversation($uuid); $where='m.conversacion=? AND m.id>=?'; $params=[$row['id'],$row['membership']['visible_desde_id'] ?? 0];
+		$row=$this->conversation($uuid);
+        $latest=(int)$this->repository->one('SELECT COALESCE(MAX(id),0) id FROM mensajes WHERE conversacion=?',[$row['id']])['id'];
+        $changes=(int)$this->repository->one("SELECT COALESCE(MAX(id),0) id FROM auditoria WHERE entidad='conversaciones' AND entidad_id=? AND accion='moderar' AND organizacion=? AND proceso=?",[$row['id'],$row['organizacion'],$row['proceso']])['id'];
+        $files=(int)$this->repository->one("SELECT COALESCE(MAX(a.id),0) id FROM archivos a JOIN mensajes m ON m.id=a.entidad_id WHERE a.organizacion=? AND a.proceso=? AND a.entidad='mensajes' AND m.conversacion=? AND m.id>=?",[$row['organizacion'],$row['proceso'],$row['id'],$row['membership']['visible_desde_id'] ?? 0])['id'];
+        $incremental=array_key_exists('after',$filters);$after=$incremental ? Values::integer($filters['after'],0) : 0;
+        $where='m.conversacion=? AND m.id>=? AND m.id<=?';$params=[$row['id'],$row['membership']['visible_desde_id'] ?? 0,$latest];
+        if ($incremental) {$where.=' AND m.id>?';$params[]=$after;$filters['offset']=0;}
+        $order=$incremental ? 'ASC' : 'DESC';
 		if (($filters['before'] ?? '')!=='') { $where.=' AND m.id<?'; $params[]=Values::integer($filters['before']); }
 		if (($filters['search'] ?? '')!=='') { $where.=' AND m.eliminado=0 AND m.mensaje LIKE ?'; $params[]='%'.Values::text($filters['search'],150).'%'; }
-		$result=$this->repository->page("SELECT m.id,m.uuid,m.usuario,m.mensaje,m.f_envio,m.eliminado,u.nombre remitente,l.leido_en FROM mensajes m JOIN usuarios u ON u.id=m.usuario LEFT JOIN mensajes_lecturas l ON l.mensaje=m.id AND l.usuario=? WHERE $where ORDER BY m.id DESC",[$this->context->actor(),...$params],$filters);
+		$result=$this->repository->page("SELECT m.id,m.uuid,m.usuario,m.mensaje,m.f_envio,m.eliminado,u.nombre remitente,l.leido_en FROM mensajes m JOIN usuarios u ON u.id=m.usuario LEFT JOIN mensajes_lecturas l ON l.mensaje=m.id AND l.usuario=? WHERE $where ORDER BY m.id $order",[$this->context->actor(),...$params],$filters);
 		foreach ($result['rows'] as &$message) {
 			$message['uuid']=Values::uuidText($message['uuid']);
-			if ((int) $message['eliminado']) { $message['mensaje']='Mensaje moderado'; $message['attachments']=[]; }
-			else { $message['attachments']=$this->repository->rows("SELECT uuid,nombre_original,mime_type FROM archivos WHERE entidad='mensajes' AND entidad_id=? AND estado='activo' ORDER BY id LIMIT 50",[$message['id']]); foreach ($message['attachments'] as &$file) $file['uuid']=Values::uuidText($file['uuid']); }
+			if ((int) $message['eliminado']) { $message['mensaje']='Mensaje retirado'; $message['attachments']=[]; }
+			else $message['attachments']=$this->attachments((int)$message['id'],$row);
 		}
-		return $result;
+        $result['latest_id']=$latest;
+        $result['latest_change_id']=$changes;$result['message_updates']=[];$result['changes_has_more']=false;
+        if ($incremental && isset($filters['changes_after'])) {
+            $events=$this->repository->rows("SELECT id,datos_nuevos FROM auditoria WHERE entidad='conversaciones' AND entidad_id=? AND accion='moderar' AND organizacion=? AND proceso=? AND id>? AND id<=? ORDER BY id LIMIT 101",[$row['id'],$row['organizacion'],$row['proceso'],Values::integer($filters['changes_after'],0),$changes]);
+            if(count($events)>100){$events=array_slice($events,0,100);$result['latest_change_id']=(int)$events[array_key_last($events)]['id'];$result['changes_has_more']=true;}
+            foreach($events as $event){$reference=json_decode($event['datos_nuevos'],true)['mensaje'] ?? null;if(!$reference)continue;$message=$this->repository->one('SELECT id FROM mensajes WHERE uuid=? AND conversacion=? AND id>=? AND id<=? AND eliminado=1',[Values::binary($reference),$row['id'],$row['membership']['visible_desde_id'] ?? 0,$after]);if($message)$result['message_updates'][]=['id'=>(int)$message['id'],'eliminado'=>1];}
+        }
+        $result['next_after']=$incremental && $result['pagination']['has_more'] ? (int)$result['rows'][array_key_last($result['rows'])]['id'] : max($after,$latest);
+        $result['conversation_state']=$row['estado'];
+        $result['can_send']=false;
+        if ($this->context->allowed('mensajes.enviar',(int)$row['proceso'])) {try {$this->assertSending($row);$result['can_send']=true;}catch(HttpError){}}
+        // Los archivos se guardan después del texto. Delta de metadatos, sin volver a descargar mensajes antiguos.
+
+        $result['latest_file_id']=$files;$result['attachment_updates']=[];
+        if ($incremental && isset($filters['files_after'])) {
+            $updates=$this->repository->rows("SELECT m.id,MAX(a.id) file_cursor FROM archivos a JOIN mensajes m ON m.id=a.entidad_id WHERE a.organizacion=? AND a.proceso=? AND a.entidad='mensajes' AND a.id>? AND a.id<=? AND m.conversacion=? AND m.id>=? AND m.id<=? AND m.eliminado=0 GROUP BY m.id ORDER BY file_cursor LIMIT 101",[$row['organizacion'],$row['proceso'],Values::integer($filters['files_after'],0),$files,$row['id'],$row['membership']['visible_desde_id'] ?? 0,$after]);
+            if(count($updates)>100){$updates=array_slice($updates,0,100);$result['latest_file_id']=(int)$updates[array_key_last($updates)]['file_cursor'];}
+            foreach($updates as $update)$result['attachment_updates'][]=['id'=>(int)$update['id'],'attachments'=>$this->attachments((int)$update['id'],$row)];
+        }
+        return $result;
 	}
+    private function assertSending(array $row): void
+    {
+        if ($row['estado']!=='activa') throw new HttpError('La conversación está cerrada.',409);
+        if ($row['direct'] && !$row['membership']) throw new HttpError('Debes pertenecer a la conversación directa para responder.',403);
+        if ((int)$row['anuncios'] && !$row['global'] && !$row['owner_admin'] && !($row['membership']['administrador'] ?? false)) throw new HttpError('Este grupo permite publicar únicamente a administradores autorizados.',403);
+        // La política y el alcance sobre el destinatario se evalúan al iniciar, no en cada respuesta.
+    }
 	public function send(string $uuid,array $data): array
 	{
 		return $this->repository->transaction(function() use($uuid,$data) {
 			$raw=$this->repository->raw('conversaciones',$uuid,true); $row=$this->conversation((int) $raw['id'],'mensajes.enviar');
-			if ($row['estado']!=='activa') throw new HttpError('La conversación está cerrada.',409);
-			if ((int) $row['anuncios'] && !$row['global'] && !$row['owner_admin'] && !($row['membership']['administrador'] ?? false)) throw new HttpError('Este grupo permite publicar únicamente a administradores autorizados.',403);
-			if ($row['direct']) {
-				$peer=$this->repository->one('SELECT usuario FROM conversaciones_usuarios WHERE conversacion=? AND usuario<>? AND activo=1',[$row['id'],$this->context->actor()]);
-				if (!$peer || !$this->canContact($this->account((int) $peer['usuario'],(int) $row['proceso'],'mensajes.enviar'),(int) $row['proceso'])) throw new HttpError('La política actual no permite este contacto directo.',403);
-			}
+            $this->assertSending($row);
 			$content=Values::text($data['text'] ?? null,8000); $key=isset($data['idempotency']) ? Values::text($data['idempotency'],80) : null;
 			if ($key!==null) {
 				$existing=$this->repository->one('SELECT uuid,mensaje FROM mensajes WHERE conversacion=? AND usuario=? AND idempotencia=?',[$row['id'],$this->context->actor(),$key]);
@@ -302,11 +362,12 @@ class MessagingService extends BaseService
 		$this->repository->transaction(function() use($uuid,$reference,$data) {
 			$row=$this->conversation($uuid,'mensajes.moderar');
 			$this->repository->raw('conversaciones',(int) $row['id'],true);
-			if (!$row['global'] && !$row['owner_admin'] && !($row['membership']['administrador'] ?? false)) throw new HttpError('La moderación requiere administración de la conversación.',403);
-			$message=$this->repository->one('SELECT id FROM mensajes WHERE uuid=? AND conversacion=? AND id>=?',[Values::binary($reference),$row['id'],$row['membership']['visible_desde_id'] ?? 0]) ?? throw new HttpError('Mensaje no disponible.',404);
+			if (!$row['global'] && !$row['owner_admin'] && !($row['membership']['administrador'] ?? false)) throw new HttpError('Retirar mensajes requiere administrar la conversación.',403);
+			$message=$this->repository->one('SELECT id,eliminado FROM mensajes WHERE uuid=? AND conversacion=? AND id>=?',[Values::binary($reference),$row['id'],$row['membership']['visible_desde_id'] ?? 0]) ?? throw new HttpError('Mensaje no disponible.',404);
+            if((int)$message['eliminado'])throw new HttpError('El mensaje ya fue retirado.',409);
 			$reason=Values::text($data['reason'] ?? null,500);
 			$this->repository->execute('UPDATE mensajes SET eliminado=1,moderado_por=?,moderado_en=NOW(),motivo_moderacion=? WHERE id=?',[$this->context->actor(),$reason,$message['id']]);
-			$this->context->history('conversaciones',$row,'moderar',$reason,null,['mensaje'=>$reference]);
+			$this->context->history('conversaciones',$row,'moderar',$reason,null,['mensaje'=>$reference,'motivo'=>$reason,'retirado'=>true]);
 		});
 	}
 	public function notify(int $id): void

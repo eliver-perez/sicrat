@@ -1,0 +1,36 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+module.exports=async({directory,call,evaluate,waitFor,navigate,api,click,shot})=>{
+    const f=JSON.parse(fs.readFileSync(path.join(directory,'own-responsible-level.json'),'utf8'));let checks=0;
+    const check=(condition,message)=>{assert.ok(condition,message);checks++;};
+    const login=async admin=>{await navigate('/autenticacion/');check((await api('auth/login','POST',admin?{username:'administrador',password:' nueva contraseña '}:{username:'contexto-personas',password:'Contexto seguro pruebas'})).status===200,'Sesión de prueba');await navigate('/');check((await api('auth/election','POST',{process:f.election})).status===200,'Elección de prueba');};
+    const same=async value=>check((await api(`structure-levels/${f.levels[1]}`,'PUT',{election:f.election,name:'Coordinador General',order:1,can_recruit:1,same_level:value,active:1})).status===200,'Configuración de mismo nivel');
+    const open=async()=>{await navigate('/persons/');await waitFor('document.querySelector("#table-persons tr.person-open")');await evaluate(`openPerson(${JSON.stringify(f.person)})`);await waitFor('document.getElementById("person-detail").open');await click('#person-assign-structure');await waitFor('document.querySelector("#person-assignment-levels select")');};
+    const assertDefaults=async allowSame=>{
+        check(await evaluate(`document.querySelector('#person-assignment-dialog [name=responsible]').value===${JSON.stringify(f.root)}&&document.querySelector('#person-assignment-dialog .assignment-selected strong').textContent==='Eliver Perez'`),'Cuenta → persona → integrante propio con alcance descendientes');
+        check(await evaluate(`document.querySelector('#person-assignment-levels select').value===${JSON.stringify(f.levels[2])}&&document.querySelector('#person-assignment-levels select').selectedOptions[0].textContent==='Coordinador de Zona'`),'Default siempre Coordinador de Zona');
+        check(await evaluate(`Array.from(document.querySelector('#person-assignment-levels select').options).some(o=>o.value===${JSON.stringify(f.levels[1])})===${allowSame}`),'Mismo nivel disponible sólo cuando se permite');
+    };
+    await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1080,deviceScaleFactor:1,mobile:false});
+    await login(true);
+    for(const permission of ['estructura.ver','estructura.formar','estructura.administrar'])check((await api(`users/${f.user}/permissions`,'PUT',{permission,election:f.election,scope:'descendientes',value:1})).status===200,'Alcance real descendientes');
+    await same(0);check((await api(`structure-levels/${f.levels[2]}`,'PUT',{election:f.election,name:'Coordinador de Zona',order:2,can_recruit:1,same_level:1,active:1})).status===200,'Nombre configurado de Zona');
+    await login(false);await open();await assertDefaults(false);
+    await click('#person-assignment-dialog .assignment-control>button');
+    check(await evaluate(`!!document.querySelector('#person-assignment-dialog .assignment-candidate[data-member="${f.root}"]')`),'Eliver disponible al cambiar responsable');
+    await evaluate(`document.querySelector('#person-assignment-dialog .assignment-candidate[data-member="${f.child}"] button').click()`);
+    check(await evaluate(`document.querySelector('#person-assignment-dialog [name=responsible]').value===${JSON.stringify(f.child)}&&document.querySelector('#person-assignment-levels select').value===${JSON.stringify(f.levels[3])}`),'Cambiar a Zona preselecciona nivel inferior aunque permita mismo nivel');
+    await click('#person-assignment-dialog .assignment-control>button');
+    check(await evaluate(`document.querySelector('#person-assignment-dialog [name=responsible]').value===${JSON.stringify(f.child)}`),'Abrir selector respeta responsable elegido manualmente');
+    await evaluate(`document.querySelector('#person-assignment-dialog .assignment-candidate[data-member="${f.root}"] button').click()`);await assertDefaults(false);await shot('own-level-same-disabled');
+    await login(true);await same(1);await login(false);await open();await assertDefaults(true);await shot('own-level-same-enabled');
+    await evaluate('document.querySelector("#person-assignment-dialog form").requestSubmit()');await waitFor('!document.getElementById("person-assignment-dialog")&&document.querySelector("#person-structure a")');
+    const person=(await api(`persons/${f.person}`)).data;const member=person.structure.members.find(m=>m.structure===f.structure);check(!!member,'Asignación al titular se guarda con alcance descendientes');
+    await navigate(`/structure/?structure=${f.structure}&member=${member.id}`);await waitFor('document.querySelector("#structure-member-levels select")');
+    check(await evaluate(`!Array.from(document.querySelector('#structure-member-levels select').options).some(o=>o.value===''||o.textContent==='Sin nivel')&&document.querySelector('#structure-member-levels select').value===${JSON.stringify(f.levels[2])}`),'Editor activo sin Sin nivel conserva Coordinador de Zona');
+    await login(true);await same(0);await login(false);await navigate(`/structure/?structure=${f.structure}&member=${member.id}`);await waitFor('document.querySelector("#structure-member-levels select")');
+    check(await evaluate(`Array.from(document.querySelector('#structure-member-levels select').options).every(o=>o.value!==''&&o.value!==${JSON.stringify(f.levels[1])})&&document.querySelector('#structure-member-levels select').value===${JSON.stringify(f.levels[2])}`),'Editor excluye mismo nivel prohibido del responsable y conserva actual válido');
+    await evaluate('document.getElementById("structure-administration").open=true');await shot('own-level-member-editor');
+    check((await api(`structures/${f.structure}/members/${member.id}/level`,'PUT',{levels:{[f.election]:null}})).status===422,'Servidor impide quitar nivel a integrante activo');
+    check((await api(`structures/${f.structure}/members/${member.id}/level`,'PUT',{levels:{[f.election]:f.levels[1]}})).status===422,'Servidor rechaza nivel prohibido');
+    console.log(`Responsable propio y niveles: ${checks} comprobaciones Chrome con alcance descendientes y mismo nivel deshabilitado/habilitado.`);return checks;
+};

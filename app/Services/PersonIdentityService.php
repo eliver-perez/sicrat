@@ -148,6 +148,11 @@ class PersonIdentityService extends Service
         foreach (self::FIELDS as $key => [$column]) $data[$key] = $key === 'section' ? ($person['seccion_uuid'] ? $this->uuidBinaryToString($person['seccion_uuid']) : null) : $person[$column];
         $address = $this->repository->address((int) $person['id']);
         foreach (self::ADDRESS_FIELDS as $key => [$column]) $data[$key] = $address[$column] ?? null;
+        if ($data['neighborhood']) {
+            $statement = $this->repository->connection()->prepare('SELECT c.colonia neighborhood,l.id locality,l.localidad,m.id municipality,m.municipio,e.id state,e.estado FROM colonias c JOIN localidades l ON l.id=c.localidad JOIN municipios m ON m.id=l.municipio JOIN estados e ON e.id=m.estado WHERE c.id=?');
+            $statement->execute([$data['neighborhood']]); $data['location'] = $statement->fetch(\PDO::FETCH_ASSOC) ?: null;
+        }
+        $data['structure'] = (new StructureService(new \App\Repositories\StructureRepository($this->repository->connection())))->personContext((int)$person['id']);
         $data['editable']=$this->personAction((int)$person['id'],'personas.editar',Auth::processId());
         $data['participations'] = array_map(fn ($row) => ['id' => $this->uuidBinaryToString($row['uuid']), 'process' => $row['proceso'], 'active' => (int) $row['activo'], 'process_active' => (int) $row['estatus'], 'can_participate'=>$this->personAction((int)$person['id'],'personas.participar',(int)$row['id'])], $this->repository->participations((int) $person['id']));
         $data['participation_choices']=[];
@@ -223,6 +228,24 @@ class PersonIdentityService extends Service
             foreach ($authorized as $process) $this->repository->participate((int) $person['id'], (int) $process['id'], $active);
             if ($ownsTransaction) $db->commit();
         } catch (\Throwable $exception) { if ($ownsTransaction && $db->inTransaction()) $db->rollBack(); throw $exception; }
+    }
+
+    public function mapSettings(string $organization, ?array $data = null): array
+    {
+        Authorization::requireOperation($data===null ? 'persons.read' : 'identity.configure');
+        $id=$this->organization($organization);
+        if ($data!==null) {
+            $settings=[];
+            foreach(['latitude'=>90,'longitude'=>180,'zoom'=>19] as $key=>$bound) {
+                $value=$data[$key] ?? null;
+                if ((!is_string($value)&&!is_numeric($value)) || !is_numeric($value) || !is_finite((float)$value) || (float)$value > $bound || (float)$value < ($key==='zoom' ? 0 : -$bound) || ($key==='zoom' && (float)$value!==(float)(int)$value)) throw new InvalidArgumentException('Centro o zoom del mapa no válido.');
+                $settings[$key]=$key==='zoom' ? (int)$value : round((float)$value,7);
+            }
+            $db=$this->repository->connection();$owns=!$db->inTransaction();if($owns)$db->beginTransaction();
+            try {$this->repository->setMapSettings($id,$settings);if($owns)$db->commit();}
+            catch(\Throwable $error){if($owns&&$db->inTransaction())$db->rollBack();throw $error;}
+        }
+        return $this->repository->mapSettings($id);
     }
 
     public function policy(string $organization, ?array $data = null): array

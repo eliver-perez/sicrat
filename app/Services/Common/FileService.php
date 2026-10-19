@@ -98,7 +98,7 @@ class FileService
 		if (!is_file($path) || filesize($path)!=(int) $row['variante_tamanio'] || !hash_equals($row['variante_hash'],hash_file('sha256',$path))) throw new HttpError('Archivo no disponible o integridad inválida.',404);
 		if ($audit) (new AuditService($this->repository))->record((int) $row['organizacion'],$process,'descargar','archivos',(int) $row['id'],null,null,['variante'=>$variant]);
 		$name=$row['mime']==='image/webp' ? pathinfo($row['nombre_original'],PATHINFO_FILENAME).'.webp' : $row['nombre_original'];
-		return ['path'=>$path,'mime'=>$row['mime'],'size'=>(int) $row['variante_tamanio'],'name'=>$name,'original_name'=>$row['nombre_original'],'attachment'=>!str_starts_with($row['mime'],'image/')];
+		return ['path'=>$path,'mime'=>$row['mime'],'size'=>(int) $row['variante_tamanio'],'name'=>$name,'original_name'=>$row['nombre_original'],'attachment'=>!str_starts_with($row['mime'],'image/') && !($row['entidad']==='mensajes' && $row['mime']==='application/pdf')];
 	}
 	public function packageSources(int $organization,?int $process,array $filters = []): iterable
 	{

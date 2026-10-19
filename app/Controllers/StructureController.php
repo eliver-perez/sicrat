@@ -20,11 +20,12 @@ class StructureController extends Controller
     {
         $limit = $page['limit']-1; $response->json(['success'=>true,'data'=>array_slice($rows,0,$limit),'pagination'=>Pagination::response($rows,$limit,$page['offset'])]);
     }
-    public function index(Request $request, Response $response): void { $page=$this->page($request); $this->paged($response,$this->service()->index($page),$page); }
+    public function index(Request $request, Response $response): void { $page=$this->page($request); $this->paged($response,$this->service()->index($page,$request->query('assignment')==='1'),$page); }
+    public function assignmentOptions(Request $request, Response $response): void { $response->success($this->service()->assignmentOptions($request->route('id'),$this->page($request),(string)$request->query('search',''),$request->query('parent'))); }
     public function store(Request $request, Response $response): void { $response->success($this->service()->create($request->input()),'Estructura creada.',201); }
     public function show(Request $request, Response $response): void
     {
-        $page=$this->page($request); $data=$this->service()->show($request->route('id'),$page); $members=$data['members']; $data['members']=array_slice($members,0,$page['limit']-1);
+        $page=$this->page($request); $data=$this->service()->show($request->route('id'),$page,$request->query('parent'),(string)$request->query('search','')); $members=$data['members']; $data['members']=array_slice($members,0,$page['limit']-1);
         $response->json(['success'=>true,'data'=>$data,'pagination'=>Pagination::response($members,$page['limit']-1,$page['offset'])]);
     }
     public function associate(Request $request, Response $response): void { $this->service()->associate($request->route('id'),$request->input()); $response->success(null,'Asociación actualizada.'); }

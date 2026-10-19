@@ -6,8 +6,9 @@ function InitializeValues(url) {
 	window.SicratPhase3.closeButtons();document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>dialog.querySelector('[data-operation-message]')?.remove()));
 	if(!app.node('operation-filter'))return;
 	app.create=async parent=> {
-		const target=app.node('operation-create-fields');target.replaceChildren();app.node('operation-create-form').reset();app.node('operation-create-title').textContent=parent ? 'Distribuir meta' : app.definition.newLabel;app.createDTO=null;
+		const target=app.node('operation-create-fields');target.replaceChildren();app.node('operation-create-form').reset();app.node('operation-create-title').textContent=app.entity==='conversaciones' ? ({direct:'Nueva conversación',group:'Nuevo grupo',announcement:'Nuevo anuncio'}[app.chatCreateKind || 'direct']) : parent ? 'Distribuir meta' : app.definition.newLabel;app.createDTO=null;
 		const dialog=app.node('operation-create-dialog');if(!dialog.open)dialog.showModal();
+		if(app.entity==='conversaciones')app.node('operation-create-form').querySelector('button:not([type]),button[type=submit]').textContent=app.chatCreateKind==='direct' ? 'Abrir conversación' : app.chatCreateKind==='announcement' ? 'Crear anuncio' : 'Crear grupo';
 		app.createDTO=await window.SicratOperationForms[app.definition.create](app,target,parent || null);app.editingSurvey=null;
 	};
 	app.editSurvey=async row=> {
@@ -17,9 +18,9 @@ function InitializeValues(url) {
 		if(!app.createDTO)throw new Error('Espera a que termine de cargar el formulario.');const data=app.createDTO(event.currentTarget);let result;
 		if(app.editingSurvey){await app.api('operations/encuestas/'+app.editingSurvey.uuid,'PUT',{...data,version:app.editingSurvey.version});result={uuid:app.editingSurvey.uuid};}
 		else result=await app.api('operations/'+app.entity,'POST',data);
-		app.node('operation-create-dialog').close();await app.list.reset();if(result.uuid)await app.open(result.uuid);app.notice(app.editingSurvey ? 'Borrador guardado.' : 'Registro guardado.');
+		app.node('operation-create-dialog').close();await app.list.reset();if(result.uuid)await app.open(result.uuid);app.notice(app.entity==='conversaciones' ? app.chatCreateKind==='direct' ? 'Conversación abierta.' : app.chatCreateKind==='announcement' ? 'Anuncio creado.' : 'Grupo creado.' : app.editingSurvey ? 'Borrador guardado.' : 'Registro guardado.');
 	}));
-	app.node('operation-new').addEventListener('click',app.guard(()=>app.create()));
+	app.node('operation-new').addEventListener('click',app.guard(()=>{if(app.entity==='conversaciones'){app.chatNewMenu.open=!app.chatNewMenu.open;return;}return app.create();}));
 	app.node('operation-filter').addEventListener('submit',app.guard(async event=>{app.filters=app.values(event.currentTarget);await app.list.reset();if(app.entity==='transporte')await transportSummary();}));
 	app.node('operation-refresh').addEventListener('click',app.guard(async()=>{await app.list.load();if(app.entity==='conversaciones')await app.messagePager?.load();}));
 	app.node('operation-export').addEventListener('click',app.guard(()=>app.exportDialog()));
@@ -53,7 +54,7 @@ function InitializeValues(url) {
 		const state=app.node('operation-filter').elements.state;app.definition.states.forEach(value=>window.SicratPhase3.option(state,value,app.label(value)));app.node('operation-state-filter').hidden=!app.definition.states.length;
 		if(app.entity==='conversaciones')window.SicratMessaging.layout(app);
 		const columns=app.entity==='transporte' ? [['Persona','titulo'],['Necesidad',row=>app.label(row.estado)],['Coordinación','coordinador'],['Proveedor','proveedor'],['Confirmación voluntaria',row=>row.confirmado_en || 'Sin registro voluntario']] : [['Registro',row=>row.folio ? row.folio+' · '+row.titulo : row.titulo],['Estado',row=>window.SicratUI.badge(app.label(row.estado),['completada','cerrada','publicada','finalizado'].includes(row.estado))],['Fecha','fecha']];
-		app.list=app.pager(app.node('operation-list'),()=> 'operations/'+app.entity+'?'+new URLSearchParams(app.filters),columns,(cell,row)=>cell.append(app.button(app.entity==='transporte' ? 'Coordinar' : app.entity==='conversaciones' ? 'Abrir conversación' : 'Ver detalle',()=>app.open(row.uuid))),app.entity==='conversaciones' ? (target,rows)=>window.SicratMessaging.conversations(app,target,rows) : null);await app.list.load();
+		app.list=app.entity==='conversaciones' ? window.SicratChatHistory.conversations(app,app.node('operation-list')) : app.pager(app.node('operation-list'),()=> 'operations/'+app.entity+'?'+new URLSearchParams(app.filters),columns,(cell,row)=>cell.append(app.button(app.entity==='transporte' ? 'Coordinar' : 'Ver detalle',()=>app.open(row.uuid))));await app.list.load();
 		if(app.entity==='transporte')await transportSummary();
 		const params=new URLSearchParams(location.search);
 		if(params.get('record'))await app.open(params.get('record'));

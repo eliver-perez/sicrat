@@ -1,0 +1,46 @@
+const assert=require('node:assert/strict');
+module.exports=async({fixture,call,evaluate,waitFor,click,shot})=>{
+    let checks=0;const check=(condition,message)=>{assert.ok(condition,message);checks++;};
+    const ready=()=>waitFor('!document.getElementById("structure-preview").hasAttribute("aria-busy")');
+    const row=id=>`#structure-members tr[data-member="${id}"]`;
+    check(await evaluate(`structureState.id===${JSON.stringify(fixture.structure)}&&document.querySelector('#structure-select option').value!==structureState.id`),'Entrada selecciona estructura propia aunque no sea la primera');
+    check(await evaluate('document.querySelectorAll("#structure-summary .structure-stat").length===4&&!document.getElementById("structure-summary").hidden'),'Cards propias desde entrada');
+    // Forzar dos líneas sin modificar datos: el grid debe estirar toda la fila.
+    await evaluate('window.__originalCardName=document.querySelector(".structure-stat-value").textContent;document.querySelector(".structure-stat-value").textContent="Responsable de organización con nombre y apellidos extensos para comprobar la altura uniforme"');
+    check(await evaluate('(()=>{const r=Array.from(document.querySelectorAll(".structure-stat"),e=>e.getBoundingClientRect());return r.every(e=>Math.abs(e.height-r[0].height)<1&&Math.abs(e.top-r[0].top)<1)})()'),'Altura uniforme con nombre de varias líneas');
+    await evaluate('document.querySelector(".structure-stat-value").textContent=window.__originalCardName');
+    await evaluate('window.__panelRequests=[];window.__panelFetch=window.fetch;window.fetch=function(url,options){window.__panelRequests.push(String(url));return window.__panelFetch.apply(this,arguments)}');
+    await click(row(fixture.members.child)+' td:nth-child(2)');await waitFor('structureState.preview?.name==="Responsable UX"');await ready();
+    check(await evaluate(`document.querySelector(${JSON.stringify(row(fixture.members.child))}).classList.contains('structure-selected')&&structureState.parent==='mine'&&document.getElementById('structure-primary-title').textContent.includes('Coordinador UX')`),'Seleccionar mantiene contexto y resalta fila');
+    check(await evaluate('document.getElementById("structure-preview-members").textContent.includes("Descendiente UX")&&document.querySelector(".structure-stat-value").textContent==="Responsable UX"'),'Equipo y cards de la persona seleccionada');
+    check(await evaluate('window.__panelRequests.length===1&&window.__panelRequests[0].includes("limit=25&offset=0&parent=")'),'Una consulta paginada, sin descargar todo el árbol');
+    check(await evaluate('(()=>{const left=document.querySelector("#structure-panels>section").getBoundingClientRect(),right=document.getElementById("structure-preview").getBoundingClientRect();return right.left>=left.right&&Math.abs(right.top-left.top)<1})()'),'Dos paneles en escritorio');
+    await shot('structure-master-detail-desktop');
+    await click('#structure-preview-enter');await waitFor(`structureState.focus?.id===${JSON.stringify(fixture.members.child)}&&document.querySelector('#structure-members tr')?.textContent.includes('Descendiente UX')`);
+    check(await evaluate('document.getElementById("structure-breadcrumb").textContent.includes("Coordinador UX")&&document.querySelector("#structure-breadcrumb [aria-current]").textContent==="Responsable UX"'),'Descenso conserva ruta de responsables');
+    await click(row(fixture.members.grand)+' td:nth-child(2)');await waitFor('structureState.preview?.name==="Descendiente UX"');
+    check(await evaluate('document.getElementById("structure-preview-status").textContent.includes("no tiene integrantes")'),'Equipo vacío explícito');
+    await click('#structure-preview-enter');await waitFor('document.querySelector("#structure-breadcrumb [aria-current]").textContent==="Descendiente UX"');
+    await evaluate('Array.from(document.querySelectorAll("#structure-breadcrumb button")).find(b=>b.textContent==="Coordinador UX").click()');
+    await waitFor('structureState.focus?.name==="Coordinador UX"&&document.querySelectorAll("#structure-members tr[data-member]").length===2');
+    check(await evaluate('document.getElementById("structure-breadcrumb").textContent.indexOf("Responsable UX")<0'),'Breadcrumb recorta ruta al regresar');
+    // Respuestas invertidas: el último integrante seleccionado debe conservar el panel.
+    await evaluate(`window.__releasePreview=null;window.fetch=async function(url,options){if(String(url).includes('parent=${fixture.members.child}'))await new Promise(resolve=>window.__releasePreview=resolve);return window.__panelFetch.apply(this,arguments);}`);
+    await click(row(fixture.members.child)+' td:nth-child(2)');await waitFor('window.__releasePreview');
+    await evaluate(`Array.from(document.querySelectorAll('#structure-members tr')).find(r=>r.textContent.includes('Persona por incorporar UX')).click()`);await waitFor('structureState.preview?.name==="Persona por incorporar UX"');
+    await evaluate('window.__releasePreview();window.fetch=window.__panelFetch');await evaluate('new Promise(resolve=>setTimeout(resolve,350))');
+    check(await evaluate('structureState.preview.name==="Persona por incorporar UX"&&document.querySelector(".structure-stat-value").textContent==="Persona por incorporar UX"'),'Respuesta anterior no sobrescribe selección posterior');
+    await click('#structure-all');await waitFor('structureState.view==="all"&&document.getElementById("structure-preview").hidden');
+    check(await evaluate('document.getElementById("structure-all").getAttribute("aria-pressed")==="true"&&!document.getElementById("structure-flat-search-form").hidden'),'Modo plano independiente');
+    await evaluate('document.getElementById("structure-flat-search").value="Descendiente UX";document.getElementById("structure-flat-search-form").requestSubmit()');await waitFor('document.querySelectorAll("#structure-members tr[data-member]").length===1');
+    check(await evaluate('document.getElementById("structure-members").textContent.includes("Descendiente UX")'),'Búsqueda plana desde formulario');
+    await evaluate('document.getElementById("structure-flat-search").value="";document.getElementById("structure-flat-search-form").requestSubmit()');await waitFor('document.querySelectorAll("#structure-members tr[data-member]").length===5');
+    await click('#structure-hierarchy');await waitFor('structureState.view==="hierarchy"&&structureState.focus?.name==="Coordinador UX"');
+    await click(row(fixture.members.child)+' td:nth-child(2)');await waitFor('structureState.preview?.name==="Responsable UX"');
+    await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await evaluate('new Promise(resolve=>setTimeout(resolve,400))');
+    check(await evaluate('(()=>{const left=document.querySelector("#structure-panels>section").getBoundingClientRect(),right=document.getElementById("structure-preview").getBoundingClientRect();return right.top>=left.bottom&&right.right<=innerWidth&&document.documentElement.scrollWidth<=innerWidth+1})()'),'Paneles apilados sin desbordamiento móvil');
+    await evaluate('document.getElementById("structure-panels").scrollIntoView({block:"start"})');await shot('structure-master-detail-mobile');
+    await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1080,deviceScaleFactor:1,mobile:false});await evaluate('new Promise(resolve=>setTimeout(resolve,400))');
+    await click('#structure-mine');await waitFor('structureState.parent==="mine"&&structureState.preview===null&&document.querySelector(".structure-stat-value").textContent==="Coordinador UX"');
+    await evaluate('window.scrollTo(0,0)');console.log(`Navegación maestro-detalle: ${checks} comprobaciones Chrome.`);return checks;
+};

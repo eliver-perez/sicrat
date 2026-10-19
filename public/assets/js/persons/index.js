@@ -206,9 +206,9 @@ function GetPersons(force = false) {
 				searching = false;
 				var rows = '';
 				$.each(response.data.persons, function(k, v) {
-					rows += `<tr class="text-default-800 hover:bg-default-100 organization-tr" data-id="${escapeHTML(v.id)}">
+					rows += `<tr class="text-default-800 hover:bg-default-100 cursor-pointer person-open" data-id="${escapeHTML(v.id)}" tabindex="0" aria-label="Abrir ${escapeHTML(v.name)}">
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.section)}</td>
-									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"><button type="button" class="btn person-open" data-id="${escapeHTML(v.id)}">${escapeHTML(v.code)} · ${escapeHTML(v.name)}</button></td>
+									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.code)}</td><td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.name)}</td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.birth_date)}</td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm"></td>
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.gender)}</td>
@@ -217,7 +217,7 @@ function GetPersons(force = false) {
 									<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.email)}</td>
 								</tr>`;
 				});
-				if (!rows) rows = '<tr><td colspan="8" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
+				if (!rows) rows = '<tr><td colspan="9" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 				$('#table-persons tbody').append(rows);
 			},
 			error: function(XMLHttpRequest, textStatus, errorThrown) { 

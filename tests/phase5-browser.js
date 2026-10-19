@@ -38,7 +38,7 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) 
             if(['encuestas','transporte','conversaciones'].includes(entity))await capture(entity+'-'+size);
             await evaluate('document.getElementById("operation-detail-dialog").close()');
             if(entity!=='transporte'){
-                await evaluate('document.getElementById("operation-new").click()');await waitFor('!!window.SicratOperations.createDTO');
+                await evaluate('document.getElementById("operation-new").click()');if(entity==='conversaciones'){await evaluate('document.getElementById("chat-new-direct").click()');}await waitFor('!!window.SicratOperations.createDTO');
                 await bounds(entity+'/'+size+' alta','operation-create-dialog');
                 verify(await evaluate('!document.getElementById("operation-create-dialog").querySelector("[data-operation-message]")'),entity+': formulario cargado');
                 verify(await evaluate('document.querySelector("#operation-create-fields input, #operation-create-fields select")!==null'),entity+': controles comprensibles');

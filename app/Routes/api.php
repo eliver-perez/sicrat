@@ -97,6 +97,8 @@ $router->put('/api/persons/{id}', [\App\Controllers\PersonIdentityController::cl
 $router->post('/api/persons/{id}/participations', [\App\Controllers\PersonIdentityController::class, 'participation'], 'persons.participate');
 $router->post('/api/persons/duplicates', [\App\Controllers\PersonIdentityController::class, 'duplicates'], 'persons.read');
 $router->get('/api/organizations/{id}/identity-policy', [\App\Controllers\PersonIdentityController::class, 'policy'], 'persons.read');
+$router->get('/api/organizations/{id}/person-map', [\App\Controllers\PersonIdentityController::class, 'mapSettings'], 'persons.read');
+$router->put('/api/organizations/{id}/person-map', [\App\Controllers\PersonIdentityController::class, 'mapSettings'], 'identity.configure');
 $router->put('/api/organizations/{id}/identity-policy', [\App\Controllers\PersonIdentityController::class, 'policy'], 'identity.configure');
 
 $router->get('/api/users/{id}/accesses', [\App\Controllers\UserAccessController::class, 'show'], 'users.read');
@@ -122,6 +124,7 @@ $router->post('/api/structures', [\App\Controllers\StructureController::class,'s
 $router->get('/api/structures/{id}', [\App\Controllers\StructureController::class,'show'], 'structure.read');
 $router->post('/api/structures/{id}/elections', [\App\Controllers\StructureController::class,'associate'], 'structure.admin');
 $router->post('/api/structures/{id}/clone', [\App\Controllers\StructureController::class,'clone'], 'structure.admin');
+$router->get('/api/structures/{id}/assignment-options', [\App\Controllers\StructureController::class,'assignmentOptions'], 'structure.form');
 $router->post('/api/structures/{id}/members', [\App\Controllers\StructureController::class,'add'], 'structure.form');
 $router->get('/api/structures/{id}/members/{member}', [\App\Controllers\StructureController::class,'detail'], 'structure.read');
 $router->put('/api/structures/{id}/members/{member}/level', [\App\Controllers\StructureController::class,'level'], 'structure.admin');
@@ -130,6 +133,7 @@ $router->post('/api/structures/{id}/members/{member}/transfers', [\App\Controlle
 $router->get('/api/structures/{id}/transfers', [\App\Controllers\StructureController::class,'requests'], 'structure.read');
 $router->put('/api/structures/{id}/transfers/{transfer}', [\App\Controllers\StructureController::class,'resolve'], 'structure.approve');
 $router->get('/api/structures/{id}/history', [\App\Controllers\StructureController::class,'history'], 'structure.admin');
+$router->get('/api/structure-level-roles', [\App\Controllers\AdministrationController::class,'levelRoles'], 'levels.admin');
 $router->get('/api/structure-levels', [\App\Controllers\AdministrationController::class,'levels'], 'levels.read');
 $router->post('/api/structure-levels', [\App\Controllers\AdministrationController::class,'level'], 'levels.admin');
 $router->put('/api/structure-levels/{level}', [\App\Controllers\AdministrationController::class,'level'], 'levels.admin');

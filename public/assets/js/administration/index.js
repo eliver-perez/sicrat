@@ -6,7 +6,17 @@ function InitializeValues(url) {
     const element = id => document.getElementById(id); const form = id => element(id).elements;
     const state = {me: null, election: null, organizations: [], permissions: [], modules: [], changes: new Map(), territories: new Map(), sectionOffset: 0, sectionRequest: 0, territoryRequest: 0};
     const visual = window.SicratUI;
-    const scopes = {propio:'Información propia',directos:'Equipo directo',descendientes:'Equipo a cargo completo',territorio:'Territorio autorizado',eleccion:'Esta elección',organizacion:'Toda la organización'};
+    const scopes = {propio:'Sólo mi información',directos:'Mi equipo directo',descendientes:'Toda mi estructura',territorio:'Territorio autorizado',eleccion:'Toda la elección',organizacion:'Toda la organización'};
+    const scopeDescriptions = {
+        propio:'Registros propios definidos por el permiso. En Personas y Estructura, corresponde a la persona vinculada a la cuenta.',
+        directos:'Integrantes activos que dependen directamente del usuario en esta elección. Requiere una persona vinculada a la cuenta.',
+        descendientes:'Equipo directo y todos sus descendientes activos en esta elección. La ficha propia se autoriza por separado.',
+        territorio:'Información de las personas cuya sección electoral está asignada al usuario en esta elección.',
+        eleccion:'Información vinculada a la elección seleccionada, según el permiso concedido.',
+        organizacion:'Información de la organización del usuario, incluidas otras elecciones cuando el permiso lo admite.'
+    };
+    const scopeHelp = () => {element('permission-scope-help').textContent=scopeDescriptions[form('permission-form').scope.value] || '';};
+    form('permission-form').scope.addEventListener('change',scopeHelp);
     const submit = (id, work) => element(id).addEventListener('submit', event => { event.preventDefault(); const values = new FormData(event.target); ui.run(() => work(values),event.currentTarget); });
     const action = (id, work) => element(id).addEventListener('click',event => ui.run(work,id === 'module-save' ? null : event.currentTarget));
     async function modules() {
@@ -63,8 +73,10 @@ function InitializeValues(url) {
         } finally { controls.forEach((control,index) => control.disabled = disabled[index]); }
     });
     async function levels() {
+        const roleSelect=form('level-form').associated_role; const selectedRole=roleSelect.value;
+        const roleRows=(await ui.request('structure-level-roles')).data; roleSelect.replaceChildren(); ui.option(roleSelect,'','Sin configurar'); roleRows.forEach(role=>ui.option(roleSelect,role.id,role.name)); roleSelect.value=selectedRole;
         const rows = (await ui.request('structure-levels')).data; element('level-list').replaceChildren();
-        rows.forEach(level => { const button = ui.text('button',`${level.order}. ${level.name} · ${level.active ? 'Activo' : 'Inactivo'}`,'btn block text-primary'); button.type='button'; button.addEventListener('click',() => { const fields=form('level-form'); fields.id.value=level.id; fields.name.value=level.name; fields.order.value=level.order; ['active','can_recruit','same_level'].forEach(key => fields[key].checked=Boolean(level[key])); }); element('level-list').append(button); });
+        rows.forEach(level => { const button = ui.text('button',`${level.order}. ${level.name} · ${level.active ? 'Activo' : 'Inactivo'}`,'btn block text-primary'); button.type='button'; button.addEventListener('click',() => { const fields=form('level-form'); fields.id.value=level.id; fields.name.value=level.name; fields.order.value=level.order; fields.associated_role.value=level.associated_role ?? ''; ['active','can_recruit','same_level'].forEach(key => fields[key].checked=Boolean(level[key])); }); element('level-list').append(button); });
         const config=(await ui.request('structure-config')).data; ['auto_promote','approval_required'].forEach(key => form('structure-config-form')[key].checked=Boolean(config[key])); const approver=form('structure-config-form').approver;if(config.approver && !Array.from(approver.options).some(option=>option.value===config.approver))ui.option(approver,config.approver,config.approver_name || 'Cuenta que autoriza las transferencias');approver.value=config.approver || '';
     }
     async function roles() {
@@ -99,9 +111,9 @@ function InitializeValues(url) {
         }
         if (ui.allowed(state.me,'permisos.administrar')) {
             await roles(); const catalog=(await ui.request('permissions')).data; state.permissions = catalog.permissions; permissionOptions();
-            const names={propio:'Información propia',directos:'Equipo directo',descendientes:'Equipo a cargo completo',territorio:'Territorio autorizado',eleccion:'Toda la elección',organizacion:'Toda la organización'}; catalog.scopes.forEach(scope => ui.option(form('permission-form').scope,scope,names[scope]));
+            catalog.scopes.forEach(scope => ui.option(form('permission-form').scope,scope,scopes[scope])); scopeHelp();
             element('permission-global').hidden=!state.me.is_superadmin;
-            await loadTerritories();
+            element('territory-form').querySelector('button:not([type])').disabled=true;
         }
     }
     let previousOrganization; let previousContext = 'election';
@@ -164,7 +176,9 @@ function InitializeValues(url) {
     element('permission-search').addEventListener('input',renderPermissions); element('permission-state-filter').addEventListener('change',renderPermissions);
     form('permission-form').context.addEventListener('change',permissionOptions); form('permission-form').value.addEventListener('change',decisionHelp);
     visual.tabs(element('permission-tabs'),button => {
-        const target = button.dataset.target; const editor = element('permission-editor'); editor.hidden = !['role','user'].includes(target);
+        const target = button.dataset.target;
+        if (target === 'territories' && state.election && !state.territoriesLoaded) {state.territoriesLoaded=true;ui.run(async()=>{try{await loadTerritories();}catch(error){state.territoriesLoaded=false;throw error;}});}
+        const editor = element('permission-editor'); editor.hidden = !['role','user'].includes(target);
         if (!editor.hidden) {
             element('permission-panel-' + target).append(editor); form('permission-form').target.value = target;
             element('permission-role-field').hidden = target !== 'role'; element('permission-user-field').hidden = target !== 'user';

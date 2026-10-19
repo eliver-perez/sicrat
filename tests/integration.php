@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/app/Support/helpers.php';
 loadEnv(dirname(__DIR__) . '/.env');
 date_default_timezone_set('America/Mexico_City');
+if(in_array('--messaging',$argv,true) && !in_array('--post7',$argv,true))$argv[]='--post7';
 if (in_array('--post7',$argv,true) && !in_array('--phase7',$argv,true)) $argv[]='--phase7';
 if (in_array('--phase7',$argv,true) && !in_array('--phase6',$argv,true)) $argv[]='--phase6';
 if (in_array('--phase6',$argv,true) && !in_array('--phase5',$argv,true)) $argv[]='--phase5';
@@ -19,6 +20,7 @@ $databaseName = 'sicrat_phase1_test_' . bin2hex(random_bytes(6));
 $connection = new PDO('mysql:host=' . env('DB_HOST') . ';port=' . env('DB_PORT', 3306) . ';charset=utf8mb4', env('DB_USERNAME'), env('DB_PASSWORD'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $checks = 0;
 $process = null;
+$nginxProcesses = [];
 $temporaryDirectory = sys_get_temp_dir() . '/' . $databaseName;
 mkdir($temporaryDirectory, 0700);
 $baseUrl = '';
@@ -128,7 +130,8 @@ try {
     $environment['BACKUP_STORAGE_PATH'] = $temporaryDirectory . '/backups';
     $environment['SMTP_HOST'] = '';
     $environment['WHATSAPP_TOKEN'] = '';
-    $process = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $temporaryDirectory, '-S', $address, '-t', dirname(__DIR__) . '/public', __DIR__ . '/router.php'], [0 => ['pipe', 'r'], 1 => ['file', $temporaryDirectory . '/server.log', 'a'], 2 => ['file', $temporaryDirectory . '/server.log', 'a']], $pipes, dirname(__DIR__), $environment);
+    if(in_array('--messaging-nginx',$argv,true)){require __DIR__.'/nginx-local.php';$nginxProcesses=startMessagingNginx($temporaryDirectory,$address,$environment);}
+    else $process = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $temporaryDirectory, '-S', $address, '-t', dirname(__DIR__) . '/public', __DIR__ . '/router.php'], [0 => ['pipe', 'r'], 1 => ['file', $temporaryDirectory . '/server.log', 'a'], 2 => ['file', $temporaryDirectory . '/server.log', 'a']], $pipes, dirname(__DIR__), $environment);
     for ($attempt = 0; $attempt < 50; $attempt++) {
         $socket = @stream_socket_client('tcp://' . $address, $errorCode, $errorMessage, 0.1);
         if ($socket) { fclose($socket); break; }
@@ -242,13 +245,17 @@ try {
     if (in_array('--phase6',$argv,true)) require __DIR__.'/phase6.php';
     if (in_array('--phase7',$argv,true)) require __DIR__.'/phase7.php';
     if(in_array('--post7',$argv,true))require __DIR__.'/post7.php';
+    if(in_array('--messaging',$argv,true))require __DIR__.'/messaging.php';
+    if (in_array('--persons-structure',$argv,true)) require __DIR__.'/persons-structure.php';
+    if (in_array('--level-role',$argv,true)) require __DIR__.'/level-role.php';
     if (in_array('--browser', $argv, true)) {
         if (!(in_array('--phase3',$argv,true) || in_array('--phase4',$argv,true))) throw new RuntimeException('--browser requiere --phase3.');
-        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : []),...(in_array('--phase6',$argv,true) ? ['--phase6'] : []),...(in_array('--phase6-browser-only',$argv,true) ? ['--only-phase6'] : []),...(in_array('--phase7',$argv,true) ? ['--phase7'] : []),...(in_array('--phase7-browser-only',$argv,true) ? ['--only-phase7'] : []),...(in_array('--post7',$argv,true) ? ['--post7'] : []),...(in_array('--post7-browser-only',$argv,true) ? ['--only-post7'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
+        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--level-role',$argv,true) ? ['--level-role'] : []),...(in_array('--persons-structure',$argv,true) ? ['--only-persons-structure'] : []),...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : []),...(in_array('--phase6',$argv,true) ? ['--phase6'] : []),...(in_array('--phase6-browser-only',$argv,true) ? ['--only-phase6'] : []),...(in_array('--phase7',$argv,true) ? ['--phase7'] : []),...(in_array('--phase7-browser-only',$argv,true) ? ['--only-phase7'] : []),...(in_array('--post7',$argv,true) ? ['--post7'] : []),...(in_array('--post7-browser-only',$argv,true) ? ['--only-post7'] : []),...(in_array('--messaging',$argv,true) ? ['--messaging'] : []),...(in_array('--messaging-browser-only',$argv,true) ? ['--only-messaging'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
         fclose($browserPipes[0]); verify(proc_close($browserProcess)===0,'Validación de las pantallas en navegador real.');
     }
     echo "OK: {$checks} comprobaciones HTTP/BD (" . $connection->query('SELECT VERSION()')->fetchColumn() . ").\n";
 } finally {
+    foreach(array_reverse($nginxProcesses) as $nginxProcess)if(is_resource($nginxProcess)){proc_terminate($nginxProcess);proc_close($nginxProcess);}
     if (is_resource($process)) { proc_terminate($process); proc_close($process); }
     if (preg_match('/^sicrat_phase1_test_[a-f0-9]{12}$/', $databaseName)) {
         $connection->exec('DROP DATABASE IF EXISTS `' . $databaseName . '`');

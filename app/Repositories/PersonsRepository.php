@@ -57,7 +57,8 @@ class PersonsRepository
                             COALESCE(p.materno, '')
                         )
                     )",
-                    'p.codigo_persona',
+                    // Mantener la comparación binaria del código sin forzar a ASCII la búsqueda por nombre.
+                    'CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_bin',
                     'p.nombre',
                     'p.paterno',
                     'p.materno',

@@ -53,8 +53,8 @@ $catalog=phase3Ok('/api/organizations/' . $organizationIds[0] . '/modules');
 verify(count(array_filter($catalog,static fn ($row) => (int) $row['esencial']===1 && !$row['habilitado']))===0,'Componentes esenciales siempre disponibles.');
 phase3Status(422,'/api/organizations/' . $organizationIds[0] . '/modules/personas','PUT',['authorized'=>0]);
 $levels=[];
-foreach ($elections as $election) foreach ([1=>['Dirección',1,1],2=>['Enlace',1,1],3=>['Integrante',0,1]] as $order=>[$name,$recruit,$same]) $levels[$election][$order]=phase3Ok('/api/structure-levels','POST',['election'=>$election,'name'=>$name,'order'=>$order,'can_recruit'=>$recruit,'same_level'=>$same])['id'];
-phase3Status(409,'/api/structure-levels','POST',['election'=>$elections[0],'name'=>'Duplicado','order'=>1]);
+foreach ($elections as $election) foreach ([1=>['Dirección',1,1],2=>['Enlace',1,1],3=>['Integrante',0,1]] as $order=>[$name,$recruit,$same]) $levels[$election][$order]=phase3Ok('/api/structure-levels','POST',['associated_role'=>8,'election'=>$election,'name'=>$name,'order'=>$order,'can_recruit'=>$recruit,'same_level'=>$same])['id'];
+phase3Status(409,'/api/structure-levels','POST',['associated_role'=>8,'election'=>$elections[0],'name'=>'Duplicado','order'=>1]);
 foreach ($elections as $election) phase3Ok('/api/structure-config','PUT',['election'=>$election,'approval_required'=>0,'auto_promote'=>0]);
 $shared=phase3Ok('/api/structures','POST',['name'=>'Equipo compartido','elections'=>[$elections[0],$elections[1]]])['id'];
 $membership=[]; $personIds=[];
@@ -218,7 +218,7 @@ verify((int) $connection->query('SELECT ep.activo FROM estructura_integrantes_pr
 // Promoción únicamente por primera incorporación exitosa y autorizada.
 $promotionElection=phase3Ok('/api/organizations/' . $organizationIds[0] . '/electoral-process','POST',['process'=>'Promoción Fase 3','type'=>1,'character'=>1,'status'=>1])['id'];
 $promotionLevels=[];
-foreach ([1=>['Dirección',1],2=>['Primer nivel de reclutamiento',1],3=>['Integrante',0]] as $order=>[$name,$capacity]) $promotionLevels[$order]=phase3Ok('/api/structure-levels','POST',['election'=>$promotionElection,'name'=>$name,'order'=>$order,'can_recruit'=>$capacity,'same_level'=>1])['id'];
+foreach ([1=>['Dirección',1],2=>['Primer nivel de reclutamiento',1],3=>['Integrante',0]] as $order=>[$name,$capacity]) $promotionLevels[$order]=phase3Ok('/api/structure-levels','POST',['associated_role'=>8,'election'=>$promotionElection,'name'=>$name,'order'=>$order,'can_recruit'=>$capacity,'same_level'=>1])['id'];
 $promotionStructure=phase3Ok('/api/structures','POST',['name'=>'Equipo de incorporación','elections'=>[$promotionElection]])['id'];
 $promoterPerson=phase3Ok('/api/persons','POST',['organization'=>$organizationIds[0],'name'=>'Persona autorizada para incorporar'])['id'];
 $promoterMember=phase3Ok('/api/structures/' . $promotionStructure . '/members','POST',['person'=>$promoterPerson,'levels'=>[$promotionElection=>$promotionLevels[3]]])['id'];

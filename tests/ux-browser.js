@@ -143,9 +143,11 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
     for (const [button,name] of [['structure-history','structure-history'],['structure-requests','transfer-requests']]) {
         await evaluate(`document.getElementById(${JSON.stringify(button)}).click()`); await waitFor('document.getElementById("structure-list-dialog").open'); await dialogReview('structure-list-dialog',name);
     }
-    await evaluate(`(() => { const buttons=Array.from(document.querySelectorAll('#structure-members button')); buttons.find(button=>button.textContent.includes('Primera incorporación')).click(); })()`);
+    await evaluate('document.getElementById("structure-all").click()');
+    await waitFor('Array.from(document.querySelectorAll("#structure-members tr")).some(row=>row.textContent.includes("Primera incorporación"))');
+    await evaluate(`(() => { const rows=Array.from(document.querySelectorAll('#structure-members tr')); rows.find(row=>row.textContent.includes('Primera incorporación')).querySelector('button[title="Ver ficha"]').click(); })()`);
     await waitFor('document.getElementById("structure-member-dialog").open && !document.getElementById("structure-create-account").hidden');
-    await evaluate('document.getElementById("structure-create-account").click()'); await waitFor('document.getElementById("structure-account-dialog").open'); await dialogReview('structure-account-dialog','create-account');
+    await evaluate('document.getElementById("structure-administration").open=true;document.getElementById("structure-create-account").click()'); await waitFor('document.getElementById("structure-account-dialog").open'); await dialogReview('structure-account-dialog','create-account');
     await evaluate('document.getElementById("structure-member-dialog").close()'); await election('Proceso 1');
     await size(1600,1000); await navigate('/services/');
     await waitFor('document.querySelectorAll("#notifications-list tr").length > 0 || document.getElementById("notifications-list").textContent.includes("Sin registros")');

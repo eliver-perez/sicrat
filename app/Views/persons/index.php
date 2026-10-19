@@ -44,7 +44,7 @@
                                             <thead class="bg-default-150">
                                                 <tr class="text-default-600">
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Sección</th>
-                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Nombre</th>
+                                                    <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Clave</th><th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Nombre</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Fecha de Nacimiento</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Dirección</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Género</th>
@@ -146,6 +146,13 @@
 <script>window.SicratPersonCapabilities=<?= json_script($personCapabilities); ?>;</script>
 <?php require __DIR__ . '/phase2.php'; ?>
 <script src="<?= escape_html(asset('js/persons/index.js')); ?>"></script>
+<link rel="stylesheet" href="<?= escape_html(base_url('template/assets/maps-leaflet-CIGW-MKW.css')); ?>">
+<link rel="stylesheet" href="<?= escape_html(asset('css/persons-context.css')); ?>">
+<script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>
+<link rel="stylesheet" href="<?= escape_html(asset('css/structure-assignment.css')); ?>">
+<script src="<?= escape_html(asset('js/structure/assignment.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/persons/map.js')); ?>" data-library="<?= escape_html(base_url('template/assets/maps-leaflet-kSd10Sau.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/persons/structure-assignment.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/identity.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/activity.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/import.js')); ?>"></script>
