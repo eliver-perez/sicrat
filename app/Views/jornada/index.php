@@ -22,12 +22,23 @@
         <h6>Totales derivados por candidatura</h6><div id="jornada-candidate-table"></div><h6 class="mt-5">Votos crudos por opción exacta del acta</h6><div id="jornada-option-table"></div><p id="jornada-denominator" class="ux-help my-3"></p>
         <div class="ux-actions"><button id="jornada-show-pending" type="button" class="btn">Ver casillas sin captura</button><button id="jornada-show-proposals" type="button" class="btn">Ver casillas con propuestas pendientes</button></div>
     </section>
-    <section id="jornada-configuration" role="tabpanel" aria-labelledby="jornada-tab-configuration" class="card p-5" hidden><div id="jornada-config-content"></div><div id="jornada-assign-content" class="ux-section"></div></section>
+    <section
+        id="jornada-configuration"
+        role="tabpanel"
+        aria-labelledby="jornada-tab-configuration"
+        class="card p-5"
+        hidden
+    >
+        <div id="jornada-config-content"></div>
+        <div id="jornada-assign-content"></div>
+    </section>
     <section id="jornada-reports" role="tabpanel" aria-labelledby="jornada-tab-reports" class="card p-5" hidden><p class="ux-help">Los informes respetan los permisos y filtros del concentrado o listado. Se generan en segundo plano y se descargan desde Servicios y notificaciones.</p><div id="jornada-export-content"></div></section>
 </div>
 <dialog id="jornada-booth-dialog" class="ux-dialog" aria-labelledby="jornada-booth-title"><div class="ux-actions"><h6 id="jornada-booth-title"></h6><button type="button" class="btn" data-close>Volver</button></div><div id="jornada-booth-content"></div></dialog>
 <dialog id="jornada-version-dialog" class="ux-dialog" aria-labelledby="jornada-version-title"><div class="ux-actions"><h6 id="jornada-version-title"></h6><button type="button" class="btn" data-close>Volver</button></div><div id="jornada-version-content"></div></dialog>
 <script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/operations/core.js')); ?>"></script>
+<link rel="stylesheet" href="<?= escape_html(asset('css/jornada.css')); ?>">
+<script src="<?= escape_html(asset('js/jornada/presentation.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/jornada/index.js')); ?>"></script>
 <script>var currentLink=<?= json_script(base_url('/jornada')); ?>;</script>

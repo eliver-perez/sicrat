@@ -119,7 +119,17 @@ $race=phase5Race([['actor'=>$accountNumbers[0],'action'=>'send','uuid'=>$phase5C
 (new WorkerService($phase5Repository))->run(100,30,'mensaje_notificar');verify($phase5Repository->one('SELECT usuario FROM mensajes_avisos WHERE mensaje=(SELECT id FROM mensajes WHERE uuid=?) AND usuario=?',[Values::binary($race[0]['data']['uuid']),$accountNumbers[1]])===null,'Mute indefinido suprime avisos sin quitar membresía.');
 phase5Api('conversaciones/'.$phase5Conversation.'/mute','POST',['muted'=>0],'phase5-1');$noticeMessage=phase5Api('conversaciones/'.$phase5Conversation.'/send','POST',['text'=>'Aviso sin datos privados'],'phase5-0')['uuid'];(new WorkerService($phase5Repository))->run(100,30,'mensaje_notificar');verify($phase5Repository->one('SELECT usuario FROM mensajes_avisos WHERE mensaje=(SELECT id FROM mensajes WHERE uuid=?) AND usuario=?',[Values::binary($noticeMessage),$accountNumbers[1]])!==null,'Cola genera aviso interno al destinatario vigente.');
 $noticeId=(int) $phase5Repository->one('SELECT id FROM mensajes WHERE uuid=?',[Values::binary($noticeMessage)])['id'];$phase5Actor->run($accountNumbers[0],$phase5Process,fn()=>(new App\Services\Operations\MessagingService($phase5Repository))->notify($noticeId));verify((int) $phase5Repository->one('SELECT COUNT(*) n FROM mensajes_avisos WHERE mensaje=? AND usuario=?',[$noticeId,$accountNumbers[1]])['n']===1,'Aviso idempotente.');
-$opLevels=[];foreach ([1=>'Coordinación operativa',2=>'Enlace operativo'] as $order=>$name) $opLevels[$order]=phase5Api('/api/structure-levels','POST',['election'=>$phase5ElectionUuid,'name'=>$name,'order'=>$order,'can_recruit'=>1,'same_level'=>1])['id'];
+$opLevels = [];
+foreach ([1 => 'Coordinación operativa', 2 => 'Enlace operativo'] as $order => $name) {
+    $opLevels[$order] = phase5Api('/api/structure-levels', 'POST', [
+        'election' => $phase5ElectionUuid,
+        'name' => $name,
+        'order' => $order,
+        'can_recruit' => 1,
+        'same_level' => 1,
+        'associated_role' => 2,
+    ])['id'];
+}
 $opStructure=phase5Api('/api/structures','POST',['name'=>'Equipo automático operacional','elections'=>[$phase5ElectionUuid]])['id'];$opMembers=[];foreach ([0,1,4] as $index)$opMembers[$index]=phase5Api('/api/structures/'.$opStructure.'/members','POST',['person'=>$phase5People[$index],'responsible'=>$index ? $opMembers[0] : null,'levels'=>[$phase5ElectionUuid=>$opLevels[$index ? 2 : 1]],'participations'=>[$phase5ElectionUuid]])['id'];
 $automaticGroup=phase5Api('conversaciones','POST',['type'=>'ESTRUCTURA','title'=>'Grupo de estructura','structure'=>$opStructure,'structure_mode'=>'estructura'])['uuid'];verify(count(phase5Api('conversaciones/'.$automaticGroup.'/members')['rows'])===2,'Grupo automático incluye sólo dos cuentas reales, sin persona sin cuenta.');phase5Api('conversaciones/'.$automaticGroup.'/send','POST',['text'=>'Antes de incorporar cuenta'],'phase5-0');
 $lateAccount=phase5Api('/api/users','POST',['organization'=>$organizationIds[0],'username'=>'fase5-late','password'=>'Cuenta posterior segura','type'=>2,'name'=>'Elena posterior','person'=>$phase5People[4]])['id'];phase5Api('/api/users/'.$lateAccount.'/accesses','POST',['process'=>$phase5ElectionUuid,'type'=>2]);$phase3Tokens['phase5-late']=login('phase5-late','fase5-late','Cuenta posterior segura');verify(count(phase5Api('conversaciones/'.$automaticGroup.'/messages','GET',null,'phase5-late')['rows'])===0,'Cuenta creada posteriormente entra sin historial antiguo.');phase5Api('conversaciones/'.$automaticGroup.'/send','POST',['text'=>'Después de incorporar cuenta'],'phase5-0');verify(count(phase5Api('conversaciones/'.$automaticGroup.'/messages','GET',null,'phase5-late')['rows'])===1,'Cuenta posterior recibe mensajes nuevos.');

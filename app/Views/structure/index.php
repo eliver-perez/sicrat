@@ -35,10 +35,66 @@
     <details id="structure-administration" class="ux-section"><summary>Operaciones administrativas</summary>
     <form id="structure-level-form" class="grid gap-3 mt-4"><div id="structure-member-levels"></div><button class="btn bg-primary text-white">Guardar niveles</button></form>
     <form id="structure-transfer-form" class="grid gap-3 ux-section"><h6>Transferir</h6><select name="mode" class="form-input" aria-label="Personas a transferir"><option value="integrante">Sólo integrante</option><option value="equipo">Integrante y equipo completo</option></select><label>Nuevo responsable directo<select name="destination" class="form-input"></select></label><label>Quién asumirá el equipo si mueves sólo al integrante<select name="replacement" class="form-input"></select></label><input name="reason" class="form-input" placeholder="Motivo de la transferencia" maxlength="500" required><button class="btn bg-primary text-white">Solicitar transferencia</button></form>
-    <form id="structure-state-form" class="grid gap-3 ux-section"><h6>Estado del integrante</h6><select name="active" class="form-input" aria-label="Cambiar estado del integrante"><option value="0">Desactivar</option><option value="1">Reactivar</option></select><label>Quién asumirá el equipo directo al desactivar<select name="replacement" class="form-input"></select></label><label>Responsable directo al reactivar<select name="responsible" class="form-input"></select></label><button class="btn">Guardar estado</button></form>
+        <form id="structure-state-form" class="grid gap-3 ux-section">
+            <h6>Estado del integrante</h6>
+
+            <label>
+                Estado
+                <select name="active" class="form-input" aria-label="Cambiar estado del integrante">
+                    <option value="0">Desactivar</option>
+                    <option value="1">Reactivar</option>
+                </select>
+            </label>
+            <label>
+                Quién asumirá el equipo directo al desactivar
+                <select name="replacement" class="form-input"></select>
+            </label>
+            <label>
+                Responsable directo al reactivar
+                <select name="responsible" class="form-input"></select>
+            </label>
+
+            <button type="submit" class="btn">Guardar estado</button>
+        </form>
     <button id="structure-create-account" class="btn text-primary mt-4" type="button">Crear cuenta para esta persona</button></details><button type="button" data-close class="btn">Cerrar</button>
 </dialog>
-<dialog id="structure-account-dialog" class="card p-5 w-full max-w-xl"><form id="structure-account-form" class="grid gap-3"><h6>Crear cuenta para la persona existente</h6><input name="username" class="form-input" placeholder="Usuario" maxlength="60" required><input name="password" type="password" class="form-input" placeholder="Contraseña" autocomplete="new-password" required><div><span>Rol asociado al nivel</span><p id="structure-account-role" class="ux-help" role="status"></p></div><button class="btn bg-primary text-white">Crear y vincular</button><button type="button" data-close class="btn">Cerrar</button></form></dialog>
+<dialog id="structure-account-dialog" class="card p-5 w-full max-w-xl">
+    <form id="structure-account-form" class="grid gap-3">
+        <h6>Crear cuenta para la persona existente</h6>
+
+        <label class="ux-full">
+            Usuario
+            <input
+                name="username"
+                class="form-input"
+                placeholder="Usuario"
+                maxlength="60"
+                required
+            >
+        </label>
+        <label class="ux-full">
+            Contraseña
+            <input
+                name="password"
+                type="password"
+                class="form-input"
+                placeholder="Contraseña"
+                autocomplete="new-password"
+                required
+            >
+        </label>
+        <div class="ux-full">
+            <span class="ux-field-label">Rol</span>
+            <p id="structure-account-role" class="ux-help" role="status"></p>
+        </div>
+
+        <div class="ux-modal-footer">
+            <button id="structure-account-cancel" type="button" class="btn">Cancelar</button>
+            <button type="submit" class="btn bg-primary text-white">Crear y vincular</button>
+        </div>
+        <button type="button" data-close class="btn">Cerrar</button>
+    </form>
+</dialog>
 <dialog id="structure-list-dialog" class="card p-5 w-full max-w-2xl"><h6 id="structure-list-title" class="mb-4">Historial</h6><div id="structure-list-content" class="overflow-x-auto"></div><button id="structure-list-more" class="btn" type="button">Ver más</button><button type="button" data-close class="btn">Cerrar</button></dialog>
 <link rel="stylesheet" href="<?= escape_html(asset('css/structure.css')); ?>">
 <script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>

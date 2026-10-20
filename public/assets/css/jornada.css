@@ -1,0 +1,298 @@
+/* Jornada Electoral: cards, formularios y acciones con los tokens de Tailwick. */
+#jornada-app .btn,
+#jornada-booth-dialog .btn,
+#jornada-version-dialog .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    width: auto;
+    max-width: 100%;
+    min-height: 2.25rem;
+    padding: .45rem .75rem;
+    font-size: .8125rem;
+    line-height: 1.25;
+    justify-self: start;
+}
+
+#jornada-app .btn svg,
+#jornada-version-dialog .btn svg {
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+}
+
+#jornada-configuration {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+#jornada-app .jornada-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+#jornada-app .jornada-wide {
+    grid-column: 1 / -1;
+}
+
+#jornada-assign-content:not(:empty) {
+    margin-top: 1rem;
+}
+
+#jornada-app .jornada-settings-card {
+    min-width: 0;
+    padding: 1rem;
+    margin: 0;
+    border: 1px solid var(--color-default-200, #e2e8f0);
+    border-radius: .5rem;
+}
+
+#jornada-app .jornada-section-header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+#jornada-app .jornada-section-header > div {
+    flex: 1 1 15rem;
+}
+
+#jornada-app .jornada-section-header h6,
+#jornada-app .jornada-subsection h6 {
+    font-size: .9375rem;
+    font-weight: 600;
+}
+
+#jornada-app .jornada-section-header p,
+#jornada-app .jornada-subsection > p {
+    margin: .35rem 0 0;
+}
+
+#jornada-app .jornada-form,
+#jornada-app .jornada-field-group > .op-form-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .85rem 1rem;
+    align-items: end;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+#jornada-app .jornada-form > h6,
+#jornada-app .jornada-form-actions,
+#jornada-app .jornada-form .ux-full {
+    grid-column: 1 / -1;
+}
+
+#jornada-app .jornada-form label {
+    display: block;
+    min-width: 0;
+    font-size: .8125rem;
+}
+
+#jornada-app .jornada-form .form-input {
+    min-height: 2.5rem;
+    margin-top: .35rem;
+}
+
+#jornada-app .jornada-form label:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    line-height: 1.4;
+}
+
+#jornada-app .jornada-form input[type="checkbox"] {
+    flex-shrink: 0;
+    margin: 0;
+}
+
+#jornada-app .jornada-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin: .25rem 0 0;
+    padding-top: .75rem;
+}
+
+#jornada-app .jornada-field-group {
+    min-width: 0;
+    margin: 0;
+    padding: .85rem;
+    border: 1px solid var(--color-default-200, #e2e8f0);
+    border-radius: .375rem;
+}
+
+#jornada-app .jornada-field-group legend {
+    padding: 0 .3rem;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+#jornada-app .jornada-catalog-editor,
+#jornada-app .jornada-acta-preview {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-default-200, #e2e8f0);
+}
+
+#jornada-app .jornada-acta-preview ol {
+    display: grid;
+    gap: .35rem;
+    margin-top: .65rem;
+    padding: .75rem;
+    border-radius: .375rem;
+    background: var(--color-default-50, #f8fafc);
+    font-size: .8125rem;
+}
+
+#jornada-app .jornada-table-actions {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: nowrap;
+}
+
+#jornada-app .jornada-icon-button {
+    width: 2rem;
+    min-height: 2rem;
+    padding: .4rem;
+}
+
+#jornada-app .jornada-section-content table th,
+#jornada-app .jornada-section-content table td {
+    padding: .6rem .65rem;
+    font-size: .8125rem;
+}
+
+#jornada-app .jornada-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 1rem;
+}
+
+#jornada-app .jornada-picker-grid > .op-picker {
+    grid-column: auto;
+}
+
+#jornada-app .jornada-subsection {
+    min-width: 0;
+    padding: .85rem;
+    border: 1px solid var(--color-default-200, #e2e8f0);
+    border-radius: .375rem;
+}
+
+#jornada-app .jornada-subsection .jornada-form {
+    margin-top: 1rem;
+}
+
+#jornada-app .jornada-form .ux-search-row {
+    display: flex;
+    flex-direction: row;
+    align-items: end;
+    gap: .5rem;
+    flex-wrap: nowrap;
+}
+
+#jornada-app .jornada-form .ux-search-row > label {
+    min-width: 0;
+    flex: 1;
+}
+
+#jornada-app .jornada-form .ux-search-row .form-input {
+    margin: 0;
+}
+
+#jornada-app .jornada-form .ux-search-row > button {
+    min-height: 2.5rem;
+    flex-shrink: 0;
+}
+
+#jornada-app .jornada-form select[multiple] {
+    height: 8.5rem;
+    min-height: 8.5rem;
+}
+
+#jornada-app .jornada-selection-summary {
+    margin: 0;
+    padding: .65rem .75rem;
+    border-radius: .375rem;
+    background: var(--color-primary-50, #eff6ff);
+    font-size: .8125rem;
+}
+
+#jornada-app .jornada-checklist {
+    padding: .85rem 1rem;
+    border: 1px solid var(--color-default-200, #e2e8f0);
+    border-radius: .5rem;
+    background: var(--color-card, white);
+}
+
+#jornada-app .jornada-checklist h6 {
+    margin-bottom: .65rem;
+}
+
+#jornada-app .jornada-checklist .ux-actions {
+    gap: .5rem;
+}
+
+#jornada-app .jornada-badge-pending {
+    color: var(--color-amber-700, #b45309);
+    background: var(--color-amber-50, #fffbeb);
+}
+
+#jornada-app .jornada-privacy-note {
+    font-size: .75rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+#jornada-app .jornada-form-panel > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+#jornada-app .jornada-form-panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+#jornada-app .jornada-form-panel > form {
+    margin-top: 1rem;
+}
+
+#jornada-app .jornada-notification-list {
+    margin-top: 1rem;
+}
+
+@media (max-width: 1100px) {
+    #jornada-app .jornada-settings-grid,
+    #jornada-app .jornada-picker-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 639px) {
+    #jornada-app .jornada-form,
+    #jornada-app .jornada-field-group > .op-form-fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #jornada-app .jornada-settings-card {
+        padding: .85rem;
+    }
+
+    #jornada-app .jornada-section-header > .btn {
+        align-self: start;
+    }
+}

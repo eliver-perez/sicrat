@@ -56,3 +56,15 @@
 .structure-team-card:nth-child(3n+1) .structure-initials{background:var(--color-green-50,#f0fdf4);color:var(--color-green-600,#16a34a)}
 .structure-team-copy .ux-help{margin:0}
 .structure-team-copy small{font-size:.8125rem;line-height:1.4}
+
+#structure-account-dialog {
+    max-width: 34rem;
+}
+
+#structure-account-dialog form {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+#structure-state-form {
+    align-items: end;
+}

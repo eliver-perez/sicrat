@@ -6,7 +6,8 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate}) {
     const api=(url,method='GET',data=null)=>evaluate(`(async()=>{const r=await fetch('/api/'+${JSON.stringify(url)},{method:${JSON.stringify(method)},headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content},body:${data===null?'undefined':JSON.stringify(JSON.stringify(data))}});return {...await r.json(),status:r.status};})()`);
     await navigate('/autenticacion/');check((await api('auth/login','POST',{username:'administrador',password:' nueva contraseña '})).status===200,'Login administrador');
     await navigate('/');check((await api('auth/election','POST',{process:fixture.election})).status===200,'Seleccionar elección');
-    await navigate('/administration/');await waitFor('document.querySelectorAll("#level-list button").length===4');
+    await navigate('/administration/');
+    await waitFor('document.querySelectorAll("#level-list button").length === 5');
     await evaluate('document.getElementById("administration-tab-levels").click();Array.from(document.querySelectorAll("#level-list button")).find(b=>b.textContent.includes("Coordinador General")).click()');
     check(await evaluate(`document.querySelector('#level-form [name=associated_role]').value===${JSON.stringify(String(fixture.roles.general))}`),'Configuración muestra rol asociado a General');
     await evaluate('Array.from(document.querySelectorAll("#level-list button")).find(b=>b.textContent.includes("Coordinador de Zona")).click()');
@@ -35,7 +36,13 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate}) {
     }
     await evaluate('Array.from(document.querySelectorAll("#structure-members tr")).find(b=>b.textContent.includes("Persona sin rol configurado")).querySelector("button").click()');await waitFor('document.getElementById("structure-member-dialog").open');
     await evaluate('document.getElementById("structure-administration").open=true;document.getElementById("structure-create-account").click()');await waitFor('document.getElementById("structure-account-dialog").open');
-    check(await evaluate('document.getElementById("structure-account-role").textContent.includes("Este nivel no tiene un rol asociado")&&document.querySelector("#structure-account-form button:not([type=button])").disabled'),'Sin asociación: mensaje inline y alta bloqueada');
+    check(
+        await evaluate(`document.getElementById("structure-account-role").textContent.includes("No hay un rol configurado")
+            && document.querySelector('#structure-account-form button[type="submit"]').disabled`),
+        'Sin configuración: mensaje inline y alta bloqueada'
+    );
     await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1080,deviceScaleFactor:1,mobile:false});
+    checks += await require('./account-creation-browser.js')({ directory, call, evaluate, waitFor, navigate });
+
     console.log('Nivel → Rol: '+checks+' comprobaciones Chrome escritorio/móvil.');return checks;
 };

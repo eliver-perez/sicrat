@@ -312,21 +312,43 @@ function InitializeValues(url) {
     submit('structure-level-form',async () => { await ui.request(`structures/${structureState.id}/members/${structureState.member.id}/level`,'PUT',{levels:selectedLevels('structure-member-levels')}); element('structure-member-dialog').close(); await loadMembers(); });
     submit('structure-transfer-form',async form => { const result = (await ui.request(`structures/${structureState.id}/members/${structureState.member.id}/transfers`,'POST',Object.fromEntries(form))).data; element('structure-member-dialog').close(); await loadMembers(); ui.message(result.state === 'pendiente' ? 'Solicitud enviada para aprobación.' : 'Transferencia aplicada.'); });
     submit('structure-state-form',async form => { await ui.request(`structures/${structureState.id}/members/${structureState.member.id}/state`,'PUT',{...Object.fromEntries(form),levels:selectedLevels('structure-member-levels')}); element('structure-member-dialog').close(); await loadMembers(); });
-    action('structure-create-account',async () => {
-        const member=(await ui.request(`structures/${structureState.id}/members/${structureState.member.id}`)).data;
-        element('structure-account-role').textContent=member.associated_role_name || 'Este nivel no tiene un rol asociado. Configura el rol correspondiente antes de continuar.';
-        element('structure-account-form').querySelector('button:not([type="button"])').disabled=!member.associated_role;
+    action('structure-create-account', async () => {
+        const response = await ui.request(
+            `structures/${structureState.id}/members/${structureState.member.id}`
+        );
+        const member = response.data;
+        const form = element('structure-account-form');
+
+        element('structure-account-role').textContent = member.associated_role_name
+            || 'No hay un rol configurado. Solicita su configuración a un administrador.';
+        form.querySelector('button[type="submit"]').disabled = !member.associated_role;
         element('structure-account-dialog').showModal();
+    });
+    action('structure-account-cancel', () => {
+        element('structure-account-dialog').close();
     });
     action('structure-coordination-more',async () => {
         const data = (await ui.request(`structures/${structureState.id}/members/${structureState.member.id}?limit=25&offset=${structureState.coordinationOffset}`)).data;
         renderCoordination(data,false);
         structureState.coordinationOffset += 25; element('structure-coordination-more').hidden = !data.team_pagination.has_more && !data.superiors_pagination.has_more;
     });
-    submit('structure-account-form',async form => {
+    submit('structure-account-form', async form => {
         const person = (await ui.request(`persons/${structureState.member.person}`)).data;
-        await ui.request('users','POST',{...Object.fromEntries(form),person:person.id,organization:person.organization,name:person.name,last_name:person.last_name,second_last_name:person.last_name_2,process:structureState.selected.id,status:1});
-        element('structure-account-dialog').close(); element('structure-member-dialog').close(); await loadMembers(); ui.message('Cuenta vinculada a la persona existente.');
+        await ui.request('users', 'POST', {
+            ...Object.fromEntries(form),
+            person: person.id,
+            organization: person.organization,
+            name: person.name,
+            last_name: person.last_name,
+            second_last_name: person.last_name_2,
+            process: structureState.selected.id,
+            status: 1
+        });
+
+        element('structure-account-dialog').close();
+        element('structure-member-dialog').close();
+        await loadMembers();
+        ui.message('Cuenta vinculada a la persona existente.');
     });
     async function listRecords(reset = false) {
         if (reset) { structureState.listOffset = 0; element('structure-list-content').replaceChildren(); }

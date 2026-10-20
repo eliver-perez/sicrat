@@ -122,8 +122,16 @@ class UsersService extends Service
             $derivedRole = null;
             if (isset($person)) {
                 $targetProcess = $processId ?? \App\Core\Auth::processId();
-                if ($targetProcess !== null) $derivedRole = (new LevelRoleService($conn))->roleForPerson((int)$person['id'],$targetProcess);
-                if ($derivedRole !== null && $processId === null) { $processId = $targetProcess; $registerProcess = true; }
+                if ($targetProcess !== null) {
+                    $derivedRole = (new LevelRoleService($conn))->roleForPerson(
+                        (int) $person['id'],
+                        $targetProcess
+                    );
+                }
+                if ($derivedRole !== null && $processId === null) {
+                    $processId = $targetProcess;
+                    $registerProcess = true;
+                }
             }
             $user_type = $derivedRole ?? $this->normalizeRequiredInt($data['user_type'] ?? null, 'Es necesario seleccionar el tipo de usuario.');
             if (!$this->usersRepository->userTypeExists($user_type)) throw new InvalidArgumentException('El tipo de usuario no es válido.');
@@ -160,15 +168,38 @@ class UsersService extends Service
                     'user_type'                     => $user_type
                 ]);
             }
-            if (!\App\Core\Auth::isSuperAdmin()) {
-                $globalPermissions=new \App\Repositories\PermissionRepository($conn); $base=$globalPermissions->effective($userId,null); $managerGlobal=$globalPermissions->effective(\App\Core\Auth::id(),null);
-                foreach ($base['rights'] as $permission) if (!in_array($permission,$managerGlobal['rights'],true)) throw new \App\Core\HttpError('No puedes asignar un tipo de cuenta con permisos globales superiores a los tuyos.',403);
-            }
-            if (!\App\Core\Auth::isSuperAdmin() && $processId !== null) {
-                $permissions=new \App\Repositories\PermissionRepository($conn); $manager=$permissions->effective(\App\Core\Auth::id(),$processId); $assigned=$permissions->effective($userId,$processId);
-                foreach (\App\Repositories\PermissionRepository::delegableRights($assigned['rights']) as $permission) {
-                    if (!in_array($permission,$manager['rights'],true)) throw new \App\Core\HttpError('No puedes asignar un rol con permisos superiores a los tuyos.',403);
-                    foreach ($assigned['scopes'][$permission] as $scope) if (!in_array('organizacion',$manager['scopes'][$permission],true) && !in_array($scope,$manager['scopes'][$permission],true)) throw new \App\Core\HttpError('No puedes asignar un rol con mayor alcance.',403);
+            // El rol automático proviene exclusivamente del nivel validado en servidor.
+            // La comparación de privilegios sigue aplicándose a la selección manual.
+            $hasManualRole = $derivedRole === null;
+            if (!\App\Core\Auth::isSuperAdmin() && $hasManualRole) {
+                $permissions = new \App\Repositories\PermissionRepository($conn);
+                $base = $permissions->effective($userId, null);
+                $managerGlobal = $permissions->effective(\App\Core\Auth::id(), null);
+
+                foreach ($base['rights'] as $permission) {
+                    if (!in_array($permission, $managerGlobal['rights'], true)) {
+                        throw new \App\Core\HttpError(
+                            'No puedes asignar un tipo de cuenta con permisos globales superiores a los tuyos.',
+                            403
+                        );
+                    }
+                }
+
+                if ($processId !== null) {
+                    $manager = $permissions->effective(\App\Core\Auth::id(), $processId);
+                    $assigned = $permissions->effective($userId, $processId);
+
+                    foreach (\App\Repositories\PermissionRepository::delegableRights($assigned['rights']) as $permission) {
+                        if (!in_array($permission, $manager['rights'], true)) {
+                            throw new \App\Core\HttpError('No puedes asignar un rol con permisos superiores a los tuyos.', 403);
+                        }
+                        foreach ($assigned['scopes'][$permission] as $scope) {
+                            $managerScopes = $manager['scopes'][$permission];
+                            if (!in_array('organizacion', $managerScopes, true) && !in_array($scope, $managerScopes, true)) {
+                                throw new \App\Core\HttpError('No puedes asignar un rol con mayor alcance.', 403);
+                            }
+                        }
+                    }
                 }
             }
             (new \App\Services\Common\AuditService(new \App\Repositories\CommonRepository($conn)))->record($organizationId,$processId,'alta','usuarios',$userId,null,['tipo'=>$user_type,'activo'=>$status,'persona'=>$person['id'] ?? null]);

@@ -64,53 +64,274 @@ function InitializeValues(url) {
         app.charts=[chart,advance];await chart.render();await advance.render();
     }
     async function configuration() {
-        const result=await app.api('jornada/configuration');app.catalogs=result.catalogs;
-        const target=app.node('jornada-config-content');target.replaceChildren();
-        if(can('jornada.configurar')) {
-            const checklist=app.text('div','','ux-section');checklist.append(app.text('h6','Checklist antes de abrir'));
-            for(const [key,title] of [['opciones','Opciones exactas activas del acta'],['casillas','Casillas asociadas'],['asignaciones','Capturistas con acceso'],['permisos','Permisos de captura vigentes']]) checklist.append(window.SicratUI.badge(title+': '+(result.checklist[key] ? 'Completo' : 'Pendiente'),result.checklist[key]));target.append(checklist);
-            const config=result.configuration;
-            if(result.locked)target.append(app.text('p','La configuración del acta está protegida porque existen capturas. Puedes consultar el acta, gestionar asignaciones y revisar versiones con los permisos correspondientes.','ux-help my-3'));
-            if(app.enabled && !result.locked) app.form(target,'Fecha y política de Jornada Electoral',form=>{
-                form.id='jornada-config-form';app.field(form,'fecha_eleccion','Fecha de la elección','date',config?.fecha_eleccion || '',true);app.field(form,'zona','Zona horaria IANA','text',config?.zona || 'America/Monterrey',true);app.field(form,'captura_local','Permitir captura desde (hora de la zona elegida)','datetime-local',config?.captura_local || '',true);
-                app.field(form,'politica_inicial','Primera captura','select',config?.politica_inicial || 'validar',true,{validar:'Pendiente de validación',preliminar:'Publicar como preliminar interno'});app.field(form,'denominador','Denominador para porcentajes','select',config?.denominador || 'total_acta',true,{total_acta:'Todas las filas del acta',candidaturas:'Filas que suman a candidaturas',seleccionadas:'Filas seleccionadas explícitamente'});app.check(form,'foto_obligatoria','Exigir fotografía del acta',Boolean(Number(config?.foto_obligatoria)));
-                form.append(app.text('p','La hora se almacena en UTC. La configuración del acta queda protegida cuando existen capturas. El cierre bloquea capturas y correcciones; las propuestas pendientes pueden ser revisadas por quien conserva el permiso de validación.','ux-full ux-help'));
-            },async data=>{await app.api('jornada/configuration','PUT',{...data,version:config?.version || 1,foto_obligatoria:data.foto_obligatoria ? 1 : 0});await refresh();await configuration();app.notice('Configuración guardada correctamente.');});
-            if(config) {
-                for(const [type,title] of [['partidos','Partidos'],['candidaturas','Candidaturas'],['coaliciones','Coaliciones'],['opciones','Opciones exactas del acta']]) {
-                    const box=app.text('div','','ux-section');box.append(app.text('h6',title));target.append(box);
-                    app.table(box.appendChild(app.text('div')),[['Nombre','nombre'],['Activo',row=>Number(row.activo) ? 'Sí' : 'No'],...(type==='opciones' ? [['Orden','orden'],['Tipo',row=>optionType(row.tipo)]] : ['partidos','candidaturas'].includes(type) ? [['Imagen',row=>{if(!row.imagen_uuid || !can('archivos.ver'))return row.imagen_uuid ? 'Imagen privada' : 'Sin imagen';const image=document.createElement('img');image.src=ui.base+'/media/'+row.imagen_uuid+'?size=thumb';image.alt=row.nombre;image.width=60;return image;}]] : [])],app.catalogs[type],(cell,row)=>{if(app.enabled && !result.locked){cell.append(app.button('Editar',()=>catalogForm(type,box,row)));if(['partidos','candidaturas'].includes(type) && can('archivos.subir'))cell.append(app.button('Imagen',()=>catalogImage(type,row)));}});
-                    if(app.enabled && !result.locked)box.append(app.button('Agregar '+title.toLowerCase(),()=>catalogForm(type,box)));
+        const result = await app.api('jornada/configuration');
+        app.catalogs = result.catalogs;
+        const target = app.node('jornada-config-content');
+        target.replaceChildren();
+        target.className = 'jornada-settings-grid';
+        const presentation = window.SicratJornadaUI;
+
+        if (can('jornada.configurar')) {
+            const checklist = app.text('section', '', 'jornada-checklist jornada-wide');
+            checklist.setAttribute('aria-label', 'Checklist antes de abrir');
+            checklist.append(app.text('h6', 'Checklist antes de abrir'));
+            const badges = app.text('div', '', 'ux-actions');
+            for (const [key, title] of [
+                ['opciones', 'Opciones exactas activas del acta'],
+                ['casillas', 'Casillas asociadas'],
+                ['asignaciones', 'Capturistas con acceso'],
+                ['permisos', 'Permisos de captura vigentes']
+            ]) {
+                const complete = result.checklist[key];
+                const badge = window.SicratUI.badge(title + ': ' + (complete ? 'Completo' : 'Pendiente'), complete);
+                if (!complete) badge.classList.add('jornada-badge-pending');
+                badges.append(badge);
+            }
+            checklist.append(badges);
+            target.append(checklist);
+
+            const config = result.configuration;
+            const policy = presentation.section(
+                app, target, 'policy', 'Fecha y política de Jornada Electoral',
+                'Configura la fecha de la elección, el inicio de captura y cómo se publicará la primera captura.', true
+            );
+            if (result.locked) {
+                policy.content.append(app.text('p',
+                    'La configuración del acta está protegida porque existen capturas. Puedes consultar el acta, gestionar asignaciones y revisar versiones con los permisos correspondientes.',
+                    'ux-help'
+                ));
+            }
+            if (app.enabled && !result.locked) {
+                presentation.form(app, policy.content, '', form => {
+                    form.id = 'jornada-config-form';
+                    app.field(form, 'fecha_eleccion', 'Fecha de la elección', 'date', config?.fecha_eleccion || '', true);
+                    app.field(form, 'zona', 'Zona horaria', 'text', config?.zona || 'America/Monterrey', true);
+                    app.field(form, 'captura_local', 'Permitir captura desde (hora de la zona elegida)', 'datetime-local', config?.captura_local || '', true);
+                    app.field(form, 'politica_inicial', 'Primera captura', 'select', config?.politica_inicial || 'validar', true, {
+                        validar: 'Pendiente de validación',
+                        preliminar: 'Publicar como preliminar interno'
+                    });
+                    app.field(form, 'denominador', 'Denominador para porcentajes', 'select', config?.denominador || 'total_acta', true, {
+                        total_acta: 'Todas las filas del acta',
+                        candidaturas: 'Filas que suman a candidaturas',
+                        seleccionadas: 'Filas seleccionadas explícitamente'
+                    });
+                    app.check(form, 'foto_obligatoria', 'Exigir fotografía del acta', Boolean(Number(config?.foto_obligatoria)));
+                    form.append(app.text('p',
+                        'La configuración del acta queda protegida al registrar capturas. El cierre impide nuevas capturas y correcciones; las propuestas pendientes pueden seguir revisándose con el permiso de validación.',
+                        'ux-full ux-help'
+                    ));
+                }, async data => {
+                    await app.api('jornada/configuration', 'PUT', {
+                        ...data,
+                        version: config?.version || 1,
+                        foto_obligatoria: data.foto_obligatoria ? 1 : 0
+                    });
+                    await refresh();
+                    await configuration();
+                    app.notice('Configuración guardada correctamente.');
+                });
+            }
+            if (config) {
+                const catalogs = [
+                    ['partidos', 'Partidos', 'Administra los partidos que se utilizarán como referencia en la Jornada Electoral.'],
+                    ['candidaturas', 'Candidaturas', 'Registra las candidaturas y el cargo por el que participan en esta elección.'],
+                    ['coaliciones', 'Coaliciones', 'Define las coaliciones, los partidos que las integran y su candidatura.'],
+                    ['opciones', 'Opciones exactas del acta', 'Configura las filas en el mismo orden y con las mismas etiquetas que aparecen impresas en el acta.']
+                ];
+                for (const [type, title, description] of catalogs) {
+                    const wide = ['coaliciones', 'opciones'].includes(type);
+                    const section = presentation.section(app, target, type, title, description, wide);
+                    section.card.dataset.catalog = type;
+                    if (app.enabled && !result.locked) {
+                        const add = app.button('Agregar ' + title.toLowerCase(), () => catalogForm(type, section.content));
+                        add.dataset.catalogAdd = type;
+                        section.header.append(presentation.decorate(add, 'plus'));
+                    }
+                    const columns = [
+                        ['Nombre', 'nombre'],
+                        ['Estado', row => Number(row.activo) ? 'Activo' : 'Inactivo']
+                    ];
+                    if (type === 'opciones') {
+                        columns.push(['Orden', 'orden'], ['Tipo', row => optionType(row.tipo)]);
+                    } else if (['partidos', 'candidaturas'].includes(type)) {
+                        columns.push(['Imagen', row => {
+                            if (!row.imagen_uuid || !can('archivos.ver')) {
+                                return row.imagen_uuid ? 'Imagen privada' : 'Sin imagen';
+                            }
+                            const image = document.createElement('img');
+                            image.src = ui.base + '/media/' + row.imagen_uuid + '?size=thumb';
+                            image.alt = row.nombre;
+                            image.width = 60;
+                            return image;
+                        }]);
+                    }
+                    const list = app.text('div');
+                    section.content.append(list);
+                    app.table(list, columns, app.catalogs[type], (cell, row) => {
+                        if (!app.enabled || result.locked) return;
+                        const actions = app.text('div', '', 'jornada-table-actions');
+                        actions.append(presentation.decorate(
+                            app.button('Editar', () => catalogForm(type, section.content, row)), 'pencil', true
+                        ));
+                        if (['partidos', 'candidaturas'].includes(type) && can('archivos.subir')) {
+                            actions.append(presentation.decorate(
+                                app.button('Imagen', () => catalogImage(type, row)), 'image', true
+                            ));
+                        }
+                        cell.append(actions);
+                    });
+                    if (type === 'opciones') {
+                        const preview = app.text('section', '', 'jornada-acta-preview');
+                        preview.id = 'jornada-acta-preview';
+                        preview.append(app.text('h6', 'Vista previa: filas exactas del acta en orden'));
+                        const rows = app.text('ol');
+                        for (const row of app.catalogs.opciones.filter(row => Number(row.activo))) {
+                            rows.append(app.text('li', row.orden + '. ' + row.nombre + ' · ' + optionType(row.tipo)));
+                        }
+                        preview.append(rows);
+                        section.content.append(preview);
+                    }
                 }
-                const preview=app.text('div','','ux-section');preview.id='jornada-acta-preview';preview.append(app.text('h6','Vista previa: filas exactas del acta en orden'));
-                for(const row of app.catalogs.opciones.filter(row=>Number(row.activo)))preview.append(app.text('p',row.orden+'. '+row.nombre+' · '+row.tipo));target.append(preview);
-                if(app.enabled && !result.locked) await associateForms(target);
+                if (app.enabled && !result.locked) {
+                    await associateForms(target);
+                } else {
+                    const booths = presentation.section(
+                        app, target, 'physical-booths', 'Casillas físicas',
+                        'Consulta las casillas asociadas a la elección desde Mis casillas y capturas.', true
+                    );
+                    booths.content.append(app.text('p', result.locked
+                        ? 'Las asociaciones están protegidas porque existen capturas.'
+                        : 'El módulo está deshabilitado; las casillas se conservan para consulta.', 'ux-help'));
+                }
             }
         }
-        const assign=app.node('jornada-assign-content');assign.replaceChildren();
-        if(app.enabled && result.configuration && can('jornada.asignar_capturistas')) {
-            let users,booths;
-            const form=app.form(assign,'Asignar o retirar capturistas',fields=>{fields.id='jornada-assign-form';app.field(fields,'activo','Decisión','select','1',true,{'1':'Asignar / reactivar','0':'Retirar asignación'});fields.append(app.text('p','Selecciona cuentas con acceso y permiso de captura. Una asignación no otorga permisos. Puedes seleccionar varias casillas y varios capturistas. Retirar una asignación conserva sus versiones.','ux-full ux-help'));},async data=>{if(data.activo==='0' && !await feedback.confirm('¿Retirar las asignaciones seleccionadas conservando las capturas?',{confirm:'Retirar asignaciones'}))return;await app.api('jornada/assignments','PUT',{usuarios:users.values(),casillas:booths.values(),activo:Number(data.activo)});await configuration();app.notice('Asignaciones actualizadas correctamente.');});
-            users=await app.picker(form,'Capturistas por nombre o cuenta','jornada/accounts',true,[],true);booths=await app.picker(form,'Casillas por sección','jornada/booths?administrar=1',true,[],true);
-            if(can('jornada.configurar') && can('notificaciones.administrar'))await notificationForm(assign);
+
+        const assign = app.node('jornada-assign-content');
+        assign.replaceChildren();
+        assign.className = 'jornada-settings-grid';
+        if (app.enabled && result.configuration && can('jornada.asignar_capturistas')) {
+            const section = presentation.section(
+                app, assign, 'assignments', 'Capturistas',
+                'Asigna o retira capturistas en una o varias casillas. Cada cuenta debe tener acceso y permiso de captura.', true
+            );
+            let users;
+            let booths;
+            const form = presentation.form(app, section.content, '', fields => {
+                fields.id = 'jornada-assign-form';
+                app.field(fields, 'activo', 'Decisión', 'select', '1', true, {
+                    '1': 'Asignar / reactivar',
+                    '0': 'Retirar asignación'
+                });
+            }, async data => {
+                if (data.activo === '0' && !await feedback.confirm(
+                    '¿Retirar las asignaciones seleccionadas conservando las capturas?',
+                    { confirm: 'Retirar asignaciones' }
+                )) return;
+                await app.api('jornada/assignments', 'PUT', {
+                    usuarios: users.values(),
+                    casillas: booths.values(),
+                    activo: Number(data.activo)
+                });
+                await configuration();
+                app.notice('Asignaciones actualizadas correctamente.');
+            }, 'Guardar asignaciones', 'users');
+            const selectors = app.text('div', '', 'jornada-picker-grid ux-full');
+            app.place(form, selectors);
+            users = presentation.picker(await app.picker(selectors, 'Capturistas por nombre o cuenta', 'jornada/accounts', true, [], true));
+            booths = presentation.picker(await app.picker(selectors, 'Casillas por sección', 'jornada/booths?administrar=1', true, [], true));
+            const selected = app.text('p', '', 'jornada-selection-summary ux-full');
+            selected.setAttribute('role', 'status');
+            app.place(form, selected);
+            const updateSelection = () => {
+                selected.textContent = 'Seleccionados: ' + users.values().length + ' capturistas y ' + booths.values().length + ' casillas.';
+            };
+            selectors.addEventListener('change', updateSelection);
+            selectors.addEventListener('click', () => queueMicrotask(updateSelection));
+            updateSelection();
+            app.place(form, app.text('p', 'La asignación no concede permisos. Al retirarla se conservan las capturas y sus versiones.', 'ux-full ux-help'));
+            if (can('jornada.configurar') && can('notificaciones.administrar')) await notificationForm(assign);
         }
     }
-    async function catalogForm(type,target,row={}) {
-        target.querySelector('form')?.remove();let partyChoices=[];
-        const form=app.form(target,row.uuid ? 'Editar '+row.nombre : 'Nuevo registro',fields=>{
-            app.field(fields,'nombre','Nombre / etiqueta exacta','text',row.nombre || '',true).maxLength=180;app.field(fields,'activo','Estado','select',row.activo ?? 1,true,{'1':'Activo','0':'Inactivo'});
-            if(type==='partidos'){app.field(fields,'siglas','Siglas','text',row.siglas || '',true).maxLength=40;app.field(fields,'color','Color opcional (#RRGGBB)','text',row.color || '').maxLength=7;}
-            if(type==='candidaturas')app.field(fields,'cargo','Cargo','text',row.cargo || '',true).maxLength=120;
-            if(['coaliciones','opciones'].includes(type))app.field(fields,'candidatura','Candidatura','select',reference('candidaturas',row.candidatura),false,{'':'Sin candidatura',...Object.fromEntries(app.catalogs.candidaturas.filter(item=>Number(item.activo)).map(item=>[item.uuid,item.nombre+' · '+item.cargo]))});
-            if(type==='coaliciones') for(const party of app.catalogs.partidos.filter(item=>Number(item.activo))) {const control=app.check(fields,'party_'+party.uuid,party.nombre,(row.partidos || []).map(Number).includes(Number(party.id)));partyChoices.push([party.uuid,control]);}
-            if(type==='opciones') {
-                app.field(fields,'tipo','Tipo de fila','select',row.tipo || 'partido',true,{partido:'Partido',coalicion:'Coalición',combinacion:'Combinación exacta',independiente:'Independiente',nulos:'Nulos',no_registrados:'No registrados',otro:'Otro'});app.field(fields,'orden','Orden impreso','number',row.orden || '',true);
-                for(const [key,catalog,title] of [['partido','partidos','Partido de referencia'],['coalicion','coaliciones','Coalición de referencia']])app.field(fields,key,title,'select',reference(catalog,row[key]),false,{'':'Sin referencia',...Object.fromEntries(app.catalogs[catalog].filter(item=>Number(item.activo)).map(item=>[item.uuid,item.nombre]))});
-                app.check(fields,'suma_candidatura','Sumar esta fila a la candidatura seleccionada',Boolean(Number(row.suma_candidatura)));app.check(fields,'en_denominador','Incluir en denominador de filas seleccionadas',row.en_denominador===undefined || Boolean(Number(row.en_denominador)));app.field(fields,'clasificacion','Clasificación de la fila','select',row.clasificacion || 'valido',true,{valido:'Válido',nulo:'Nulo',otro:'Otro'});
+
+    async function catalogForm(type, target, row = {}) {
+        target.querySelector('.jornada-catalog-editor')?.remove();
+        const presentation = window.SicratJornadaUI;
+        const names = { partidos: 'partido', candidaturas: 'candidatura', coaliciones: 'coalición', opciones: 'opción del acta' };
+        const editor = app.text('section', '', 'jornada-catalog-editor');
+        target.insertBefore(editor, target.querySelector('#jornada-acta-preview'));
+        const title = row.uuid ? 'Editar ' + names[type] + ': ' + row.nombre : 'Agregar ' + names[type];
+        const partyChoices = [];
+        const form = presentation.form(app, editor, title, fields => {
+            let main = fields;
+            if (type === 'opciones') main = presentation.group(app, fields, 'Datos principales');
+            app.field(main, 'nombre', 'Nombre / etiqueta exacta', 'text', row.nombre || '', true).maxLength = 180;
+            app.field(main, 'activo', 'Estado', 'select', row.activo ?? 1, true, { '1': 'Activo', '0': 'Inactivo' });
+            if (type === 'partidos') {
+                app.field(main, 'siglas', 'Siglas', 'text', row.siglas || '', true).maxLength = 40;
+                app.field(main, 'color', 'Color opcional (#RRGGBB)', 'text', row.color || '').maxLength = 7;
             }
-        },async data=>{if(type==='coaliciones')data.partidos=partyChoices.filter(([,control])=>control.checked).map(([uuid])=>uuid);if(type==='opciones'){data.suma_candidatura=data.suma_candidatura ? 1 : 0;data.en_denominador=data.en_denominador ? 1 : 0;}await app.api('jornada/catalogs/'+type+(row.uuid ? '/'+row.uuid : ''),row.uuid ? 'PUT' : 'POST',data);await configuration();app.notice('Catálogo guardado correctamente.');});
+            if (type === 'candidaturas') {
+                app.field(main, 'cargo', 'Cargo', 'text', row.cargo || '', true).maxLength = 120;
+            }
+            if (['coaliciones', 'opciones'].includes(type)) {
+                const choices = Object.fromEntries(app.catalogs.candidaturas
+                    .filter(item => Number(item.activo)).map(item => [item.uuid, item.nombre + ' · ' + item.cargo]));
+                app.field(main, 'candidatura', 'Candidatura', 'select', reference('candidaturas', row.candidatura), false, {
+                    '': 'Sin candidatura', ...choices
+                });
+            }
+            if (type === 'coaliciones') {
+                const parties = presentation.group(app, fields, 'Partidos integrantes');
+                for (const party of app.catalogs.partidos.filter(item => Number(item.activo))) {
+                    const control = app.check(parties, 'party_' + party.uuid, party.nombre,
+                        (row.partidos || []).map(Number).includes(Number(party.id)));
+                    partyChoices.push([party.uuid, control]);
+                }
+            }
+            if (type === 'opciones') {
+                app.field(main, 'tipo', 'Tipo de fila', 'select', row.tipo || 'partido', true, {
+                    partido: 'Partido', coalicion: 'Coalición', combinacion: 'Combinación exacta',
+                    independiente: 'Independiente', nulos: 'Nulos', no_registrados: 'No registrados', otro: 'Otro'
+                });
+                app.field(main, 'orden', 'Orden impreso', 'number', row.orden || '', true);
+                const references = presentation.group(app, fields, 'Referencias');
+                for (const [key, catalog, title] of [
+                    ['partido', 'partidos', 'Partido de referencia'],
+                    ['coalicion', 'coaliciones', 'Coalición de referencia']
+                ]) {
+                    const choices = Object.fromEntries(app.catalogs[catalog]
+                        .filter(item => Number(item.activo)).map(item => [item.uuid, item.nombre]));
+                    app.field(references, key, title, 'select', reference(catalog, row[key]), false, {
+                        '': 'Sin referencia', ...choices
+                    });
+                }
+                const behavior = presentation.group(app, fields, 'Comportamiento');
+                app.check(behavior, 'suma_candidatura', 'Sumar esta fila a la candidatura seleccionada', Boolean(Number(row.suma_candidatura)));
+                app.check(behavior, 'en_denominador', 'Incluir en denominador de filas seleccionadas',
+                    row.en_denominador === undefined || Boolean(Number(row.en_denominador)));
+                app.field(behavior, 'clasificacion', 'Clasificación de la fila', 'select', row.clasificacion || 'valido', true, {
+                    valido: 'Válido', nulo: 'Nulo', otro: 'Otro'
+                });
+            }
+        }, async data => {
+            if (type === 'coaliciones') {
+                data.partidos = partyChoices.filter(([, control]) => control.checked).map(([uuid]) => uuid);
+            }
+            if (type === 'opciones') {
+                data.suma_candidatura = data.suma_candidatura ? 1 : 0;
+                data.en_denominador = data.en_denominador ? 1 : 0;
+            }
+            await app.api('jornada/catalogs/' + type + (row.uuid ? '/' + row.uuid : ''), row.uuid ? 'PUT' : 'POST', data);
+            await configuration();
+            app.notice('Catálogo guardado correctamente.');
+        });
+        const cancel = app.button('Cancelar', () => editor.remove());
+        form.querySelector('.jornada-form-actions').prepend(cancel);
+        editor.scrollIntoView({ block: 'nearest' });
         form.querySelector('input')?.focus();
     }
+
     async function upload(file,entity,record) {
         const data=new FormData();data.append('file',file);data.append('entity',entity);data.append('record',record);data.append('process',String(app.me.process_id));
         const response=await fetch(ui.base+'/api/files',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content},body:data});const result=await response.json();if(!response.ok){const error=new Error(result.message || 'No fue posible subir la fotografía.');error.status=response.status;throw error;}return result.data;
@@ -120,17 +341,100 @@ function InitializeValues(url) {
         app.form(target,'Subir imagen privada',form=>{const file=app.field(form,'imagen','JPEG, PNG o WebP','file','',true);file.accept='image/jpeg,image/png,image/webp';},async(data,form)=>{const file=await upload(form.elements.imagen.files[0],'jornada_'+type,row.uuid);const values={nombre:row.nombre,activo:row.activo,[type==='partidos' ? 'logo' : 'foto']:file.uuid};if(type==='candidaturas')values.cargo=row.cargo;else {values.siglas=row.siglas;values.color=row.color;}await app.api('jornada/catalogs/'+type+'/'+row.uuid,'PUT',values);app.node('jornada-version-dialog').close();await configuration();app.notice('Imagen electoral guardada.');});app.node('jornada-version-dialog').showModal();
     }
     async function associateForms(target) {
-        let section,physical;const types=Object.fromEntries((await app.api('polling-booth-types')).map(type=>[type.codigo,type.nombre]));
-        const form=app.form(target,'Registrar y asociar casilla física',fields=>{app.field(fields,'nombre','Nombre de casilla','text','',true);app.field(fields,'tipo','Tipo de casilla','select','',true,types);app.field(fields,'ubicacion','Ubicación','text');app.field(fields,'domicilio','Domicilio','text');},async data=>{await app.api('jornada/booths','POST',{...data,seccion:section.values()});await configuration();app.notice('Casilla asociada correctamente.');});
-        section=await app.picker(form,'Sección electoral','jornada/territories?type=seccion&catalogue=1',false,[],true);
-        const existing=app.form(target,'Asociar una casilla del catálogo existente',()=>{},async()=>{await app.api('jornada/booths','POST',{fisica:physical.values()});await configuration();app.notice('Casilla existente asociada.');});physical=await app.picker(existing,'Casilla física por sección','jornada/physical-booths',false,[],true);
+        const presentation = window.SicratJornadaUI;
+        const section = presentation.section(
+            app, target, 'physical-booths', 'Casillas físicas',
+            'Registra una casilla nueva o asocia una del catálogo para capturar sus resultados en esta elección.', true
+        );
+        const panels = app.text('div', '', 'jornada-picker-grid');
+        section.content.append(panels);
+        let physical;
+        let electoralSection;
+        const types = Object.fromEntries((await app.api('polling-booth-types')).map(type => [type.codigo, type.nombre]));
+        const create = app.text('section', '', 'jornada-subsection');
+        create.append(app.text('h6', 'Registrar y asociar una casilla física nueva'));
+        create.append(app.text('p', 'Captura sus datos y elige la sección electoral a la que pertenece.', 'ux-help'));
+        panels.append(create);
+        const form = presentation.form(app, create, '', fields => {
+            fields.id = 'jornada-physical-create-form';
+            app.field(fields, 'nombre', 'Nombre de casilla', 'text', '', true);
+            app.field(fields, 'tipo', 'Tipo de casilla', 'select', '', true, types);
+            app.field(fields, 'ubicacion', 'Ubicación', 'text');
+            app.field(fields, 'domicilio', 'Domicilio', 'text');
+        }, async data => {
+            await app.api('jornada/booths', 'POST', { ...data, seccion: electoralSection.values() });
+            await configuration();
+            app.notice('Casilla asociada correctamente.');
+        }, 'Guardar casilla');
+        electoralSection = presentation.picker(await app.picker(form, 'Sección electoral', 'jornada/territories?type=seccion&catalogue=1', false, [], true));
+
+        const associate = app.text('section', '', 'jornada-subsection');
+        associate.append(app.text('h6', 'Asociar una casilla del catálogo existente'));
+        associate.append(app.text('p', 'Busca por sección o nombre y elige la casilla que deseas utilizar.', 'ux-help'));
+        panels.append(associate);
+        const existing = presentation.form(app, associate, '', fields => {
+            fields.id = 'jornada-physical-associate-form';
+        }, async () => {
+            await app.api('jornada/booths', 'POST', { fisica: physical.values() });
+            await configuration();
+            app.notice('Casilla existente asociada.');
+        }, 'Asociar casilla', 'link');
+        physical = presentation.picker(await app.picker(existing, 'Casilla física por sección', 'jornada/physical-booths', false, [], true));
     }
+
     async function notificationForm(target) {
-        let recipient;const form=app.form(target,'Resúmenes administrativos opcionales',fields=>{
-            app.field(fields,'canal','Canal','select','email',true,{email:'Correo',whatsapp:'WhatsApp autorizado'});app.field(fields,'modo','Contenido','select','validado',true,{validado:'Validado interno',preliminar:'Preliminar interno'});app.field(fields,'frecuencia','Frecuencia mínima (minutos)','number','30',true);app.field(fields,'activo','Estado','select','1',true,{'1':'Habilitado','0':'Deshabilitado'});app.check(fields,'incluir_totales','Incluir totales agregados',true);app.check(fields,'incluir_avance','Incluir avance de captura y validación',true);app.check(fields,'incluir_estado','Incluir estado de Jornada',true);app.field(fields,'plantilla','Plantilla WhatsApp autorizada','text');app.field(fields,'idioma','Idioma WhatsApp','text','es_MX');fields.append(app.text('p','Sólo destinatarios administrativos con alcance de elección y un canal verificado con consentimiento. El resumen contiene progreso y totales; no incluye personas, preferencias ni listas de votantes.','ux-full ux-help'));
-        },async data=>{await app.api('jornada/notifications','PUT',{...data,usuario:recipient.values(),incluir_totales:data.incluir_totales ? 1 : 0,incluir_avance:data.incluir_avance ? 1 : 0,incluir_estado:data.incluir_estado ? 1 : 0});app.notice('Aviso administrativo configurado.');});recipient=await app.picker(form,'Destinatario administrativo','jornada/accounts',false,[],true);
-        const list=app.text('div');target.append(list);const pager=app.pager(list,'jornada/notifications',[['Destinatario','nombre'],['Canal','canal'],['Modo','modo'],['Minutos','frecuencia'],['Estado',row=>Number(row.activo) ? 'Activo' : 'Deshabilitado']]);await pager.load();
+        const presentation = window.SicratJornadaUI;
+        const section = presentation.section(
+            app, target, 'notifications', 'Resúmenes administrativos',
+            'Elige qué información de la Jornada recibirán los usuarios administrativos y con qué frecuencia.', true
+        );
+        const panel = app.text('details', '', 'jornada-form-panel');
+        const toggle = app.text('summary', 'Configurar resumen administrativo', 'btn');
+        toggle.prepend(presentation.icon('settings'));
+        panel.append(toggle);
+        section.content.append(panel);
+        let recipient;
+        const form = presentation.form(app, panel, '', fields => {
+            fields.id = 'jornada-notification-form';
+            const config = presentation.group(app, fields, 'Configuración');
+            app.field(config, 'canal', 'Canal', 'select', 'email', true, { email: 'Correo', whatsapp: 'WhatsApp autorizado' });
+            app.field(config, 'modo', 'Contenido', 'select', 'validado', true, { validado: 'Validado interno', preliminar: 'Preliminar interno' });
+            app.field(config, 'frecuencia', 'Frecuencia mínima (minutos)', 'number', '30', true);
+            app.field(config, 'activo', 'Estado', 'select', '1', true, { '1': 'Habilitado', '0': 'Deshabilitado' });
+            const contents = presentation.group(app, fields, 'Contenido del resumen');
+            app.check(contents, 'incluir_totales', 'Incluir totales agregados', true);
+            app.check(contents, 'incluir_avance', 'Incluir avance de captura y validación', true);
+            app.check(contents, 'incluir_estado', 'Incluir estado de Jornada', true);
+            const whatsapp = presentation.group(app, fields, 'WhatsApp');
+            app.field(whatsapp, 'plantilla', 'Plantilla autorizada', 'text');
+            app.field(whatsapp, 'idioma', 'Idioma', 'text', 'es_MX');
+        }, async data => {
+            await app.api('jornada/notifications', 'PUT', {
+                ...data,
+                usuario: recipient.values(),
+                incluir_totales: data.incluir_totales ? 1 : 0,
+                incluir_avance: data.incluir_avance ? 1 : 0,
+                incluir_estado: data.incluir_estado ? 1 : 0
+            });
+            app.notice('Aviso administrativo configurado.');
+        }, 'Guardar resumen');
+        const recipientFields = presentation.group(app, form, 'Destinatario');
+        const recipientGroup = recipientFields.parentElement;
+        app.place(form, recipientGroup);
+        recipient = presentation.picker(await app.picker(recipientFields, 'Destinatario administrativo', 'jornada/accounts', false, [], true));
+        app.place(form, app.text('p',
+            'Sólo usuarios administrativos con alcance de elección y un canal verificado con consentimiento. El resumen incluye avance y totales; no contiene personas, preferencias ni listas de votantes.',
+            'ux-help ux-full jornada-privacy-note'
+        ));
+        const list = app.text('div', '', 'jornada-notification-list');
+        section.content.append(list);
+        const pager = app.pager(list, 'jornada/notifications', [
+            ['Destinatario', 'nombre'], ['Canal', 'canal'], ['Modo', 'modo'],
+            ['Minutos', 'frecuencia'], ['Estado', row => Number(row.activo) ? 'Activo' : 'Deshabilitado']
+        ]);
+        await pager.load();
     }
+
     async function openBooth(uuid) {
         await refresh();const booth=await app.api('jornada/booths/'+uuid);app.currentBooth=booth;
         const target=app.node('jornada-booth-content');target.replaceChildren();app.node('jornada-booth-title').textContent='Sección '+booth.seccion+' · '+booth.nombre+' · '+booth.tipo;

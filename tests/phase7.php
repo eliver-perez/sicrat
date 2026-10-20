@@ -70,4 +70,5 @@ phase7Api('configuration','PUT',['zona'=>'UTC','captura_local'=>'2026-10-13T12:0
 verify(count(phase7Api('booths/'.$phase7Booths[0].'/history')['rows'])===4,'El historial mantiene las cuatro versiones y sus votos originales.');
 file_put_contents($temporaryDirectory.'/phase7-fixtures.json',json_encode(['election'=>$phase7Election,'process'=>$phase7Process,'booths'=>$phase7Booths,'options'=>$phase7Options,'accounts'=>$phase7Accounts,'current'=>$phase7Correction['uuid']],JSON_PRETTY_PRINT));
 require __DIR__.'/phase7-coverage.php';
+require __DIR__ . '/jornada-interface.php';
 echo 'Fase 7: '.($checks-$phase7Start)." comprobaciones adicionales correctas.\n";

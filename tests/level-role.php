@@ -68,4 +68,6 @@ $accesses=phase3Ok('/api/users/'.$lrUser.'/accesses')['accesses'];
 verify($member()['level']===$lrLevels['zona'] && array_values(array_filter($accesses,fn($a)=>$a['process']===$lrElection))[0]['type']===$lrRoles['zona'],'Error jerárquico revierte incluso el rol ya escrito');
 phase3Ok('/api/structure-levels/'.$lrInvalid,'PUT',['name'=>'Nivel inferior temporal','order'=>4,'active'=>0,'can_recruit'=>1,'same_level'=>1]);
 file_put_contents($temporaryDirectory.'/level-role.json',json_encode(['election'=>$lrElection,'structure'=>$lrStructure,'roles'=>$lrRoles,'levels'=>$lrLevels,'people'=>$lrPeople,'members'=>$lrMembers],JSON_THROW_ON_ERROR));
+require __DIR__ . '/account-creation.php';
+
 echo 'Nivel → Rol: '.($checks-$levelRoleStart)." comprobaciones HTTP/BD.\n";

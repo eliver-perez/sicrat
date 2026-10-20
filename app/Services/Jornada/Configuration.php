@@ -195,25 +195,58 @@ class Configuration
     }
     public function assign(array $data): array
     {
-        $ctx=$this->context;$ctx->broad('jornada.asignar_capturistas',true);
-        $casillas=$data['casillas'] ?? []; $users=$data['usuarios'] ?? [];
-        if(!is_array($casillas) || !is_array($users) || !$casillas || !$users || count($casillas)>100 || count($users)>100) throw new \InvalidArgumentException('Selecciona entre una y cien casillas y cuentas.');
-        $active=Values::integer($data['activo'] ?? 1,0,1);
-        return $this->repository->transaction(function() use($ctx,$casillas,$users,$active) {
-            $ctx->lock('jornada.asignar_capturistas');$ctx->broad('jornada.asignar_capturistas',true);$count=0;
-            foreach(array_unique($users) as $uuid) {
-                $user=$this->repository->one('SELECT u.id FROM usuarios u JOIN usuarios_procesos up ON up.usuario=u.id WHERE u.uuid=? AND u.organizacion=? AND u.activo=1 AND up.proceso=? AND up.activo=1 AND up.f_baja IS NULL FOR UPDATE',[Values::binary($uuid),$ctx->organization,$ctx->process]) ?? throw new HttpError('La cuenta requiere acceso activo a esta elección.',404);
-                if($active) $ctx->require('resultados.capturar',false,(int)$user['id']);
-                foreach(array_unique($casillas) as $booth) {
-                    $casilla=$ctx->casilla($booth,'jornada.asignar_capturistas');
-                    $before=$this->repository->one('SELECT * FROM jornada_capturistas WHERE casilla=? AND usuario=?',[$casilla['id'],$user['id']]);
-                    $this->repository->execute('INSERT INTO jornada_capturistas(uuid,organizacion,proceso,casilla,usuario,activo,asignado_por,fecha,retirado_en) VALUES(?,?,?,?,?,?,?,UTC_TIMESTAMP(),IF(?=0,UTC_TIMESTAMP(),NULL)) ON DUPLICATE KEY UPDATE activo=VALUES(activo),asignado_por=VALUES(asignado_por),retirado_en=VALUES(retirado_en)',[random_bytes(16),$ctx->organization,$ctx->process,$casilla['id'],$user['id'],$active,$ctx->actor,$active]);
-                    if($active) { [$where,$params]=$ctx->predicate('resultados.capturar','jc',(int)$user['id']);if(!$this->repository->one("SELECT id FROM jornada_casillas jc WHERE jc.id=? AND ($where)",[$casilla['id'],...$params])) throw new HttpError('El permiso de captura no cubre la casilla seleccionada.',403); }
-                    $id=(int)$this->repository->one('SELECT id FROM jornada_capturistas WHERE casilla=? AND usuario=?',[$casilla['id'],$user['id']])['id'];
-                    $this->audit($active ? 'asignar' : 'retirar','jornada_capturistas',$id,$before,['usuario'=>$user['id'],'casilla'=>$casilla['id'],'activo'=>$active]);$count++;
+        $ctx = $this->context;
+        $ctx->broad('jornada.asignar_capturistas', true);
+        $casillas = $data['casillas'] ?? [];
+        $users = $data['usuarios'] ?? [];
+        if (!is_array($casillas) || !is_array($users) || !$casillas || !$users
+            || count($casillas) > 100 || count($users) > 100) {
+            throw new \InvalidArgumentException('Selecciona entre una y cien casillas y cuentas.');
+        }
+        $active = Values::integer($data['activo'] ?? 1, 0, 1);
+
+        return $this->repository->transaction(function () use ($ctx, $casillas, $users, $active) {
+            $ctx->lock('jornada.asignar_capturistas');
+            $ctx->broad('jornada.asignar_capturistas', true);
+            $count = 0;
+            foreach (array_unique($users) as $uuid) {
+                $user = $this->repository->one(
+                    'SELECT u.id FROM usuarios u JOIN usuarios_procesos up ON up.usuario=u.id
+                     WHERE u.uuid=? AND u.organizacion=? AND u.activo=1
+                       AND up.proceso=? AND up.activo=1 AND up.f_baja IS NULL FOR UPDATE',
+                    [Values::binary($uuid), $ctx->organization, $ctx->process]
+                ) ?? throw new HttpError('La cuenta requiere acceso activo a esta elección.', 404);
+
+                // La autorización de asignar corresponde al actor autenticado.
+                // Captures conserva la validación del permiso y alcance del capturista al capturar.
+                foreach (array_unique($casillas) as $booth) {
+                    $casilla = $ctx->casilla($booth, 'jornada.asignar_capturistas');
+                    $before = $this->repository->one(
+                        'SELECT * FROM jornada_capturistas WHERE casilla=? AND usuario=?',
+                        [$casilla['id'], $user['id']]
+                    );
+                    $this->repository->execute(
+                        'INSERT INTO jornada_capturistas
+                            (uuid,organizacion,proceso,casilla,usuario,activo,asignado_por,fecha,retirado_en)
+                         VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(),IF(?=0,UTC_TIMESTAMP(),NULL))
+                         ON DUPLICATE KEY UPDATE activo=VALUES(activo),asignado_por=VALUES(asignado_por),
+                            retirado_en=VALUES(retirado_en)',
+                        [random_bytes(16), $ctx->organization, $ctx->process, $casilla['id'],
+                            $user['id'], $active, $ctx->actor, $active]
+                    );
+                    $id = (int) $this->repository->one(
+                        'SELECT id FROM jornada_capturistas WHERE casilla=? AND usuario=?',
+                        [$casilla['id'], $user['id']]
+                    )['id'];
+                    $this->audit($active ? 'asignar' : 'retirar', 'jornada_capturistas', $id, $before, [
+                        'usuario' => $user['id'],
+                        'casilla' => $casilla['id'],
+                        'activo' => $active,
+                    ]);
+                    $count++;
                 }
             }
-            return ['asignaciones'=>$count];
+            return ['asignaciones' => $count];
         });
     }
 }

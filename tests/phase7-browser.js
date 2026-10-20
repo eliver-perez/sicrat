@@ -58,5 +58,7 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
     await evaluate('Swal.close();document.getElementById("jornada-booth-dialog").close()');
     await login('administrador',' nueva contraseña ',fixtures.election_b);await size(390,844);
     await evaluate('document.getElementById("jornada-tab-booths").click()');await waitFor('document.querySelector("#jornada-booth-list table button")');await evaluate('document.querySelector("#jornada-booth-list table button").click()');await waitFor('document.querySelector("#jornada-booth-content table button")');await evaluate('document.querySelector("#jornada-booth-content table button").click()');await waitFor('document.querySelector("#jornada-version-content img")?.naturalWidth>0');verify(true,'Fotografía obligatoria visible con acceso autorizado');await screenshot('private-acta-mobile');
+    checks += await require('./jornada-interface-browser.js')({ directory, call, evaluate, waitFor, navigate, pause });
+
     console.log(`Fase 7 Chrome: ${checks} comprobaciones correctas.`);return checks;
 };
