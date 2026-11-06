@@ -5,6 +5,7 @@ window.SicratJornadaUI = {
     icon(name) {
         const icon = window.SicratUI.icon(name);
         const paths = {
+            'chevron-down': [['path', { d: 'm6 9 6 6 6-6' }]],
             save: [
                 ['path', { d: 'M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z' }],
                 ['path', { d: 'M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7M7 3v4a1 1 0 0 0 1 1h7' }]
@@ -79,6 +80,58 @@ window.SicratJornadaUI = {
         group.append(fields);
         target.append(group);
         return fields;
+    },
+
+    photoPreview(app, form, input) {
+        const preview = app.text('figure', '', 'jornada-photo-preview ux-full');
+        preview.hidden = true;
+        const image = document.createElement('img');
+        image.alt = 'Previsualización de la fotografía del acta seleccionada';
+        const dialog = app.node('jornada-photo-dialog');
+        let url = null;
+        const thumbnail = app.button('Ampliar fotografía', () => {
+            if (!url) return;
+            dialog.querySelector('img').src = url;
+            dialog.showModal();
+        });
+        thumbnail.classList.add('jornada-photo-thumbnail');
+        thumbnail.setAttribute('aria-label', 'Ampliar fotografía');
+        thumbnail.replaceChildren(image);
+        const caption = app.text('figcaption');
+        const name = app.text('p', '', 'jornada-photo-name');
+        const size = app.text('p', '', 'ux-help');
+        const actions = app.text('div', '', 'ux-actions');
+        const clear = () => {
+            if (dialog.open) dialog.close();
+            dialog.querySelector('img').removeAttribute('src');
+            image.removeAttribute('src');
+            if (url) URL.revokeObjectURL(url);
+            url = null;
+            preview.hidden = true;
+        };
+        actions.append(
+            this.decorate(app.button('Cambiar', () => input.click()), 'image'),
+            this.decorate(app.button('Quitar', () => {
+                input.value = '';
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }), 'x')
+        );
+        caption.append(name, size, app.text('p', 'Se adjuntará al registrar la captura.', 'ux-help'), actions);
+        preview.append(thumbnail, caption);
+        form.append(preview);
+        const update = () => {
+            clear();
+            const file = input.files[0];
+            if (!file) return;
+            url = URL.createObjectURL(file);
+            image.src = url;
+            name.textContent = file.name;
+            size.textContent = (file.size / (file.size >= 1048576 ? 1048576 : 1024))
+                .toLocaleString('es-MX', { maximumFractionDigits: 1 }) + (file.size >= 1048576 ? ' MB' : ' KB');
+            preview.hidden = false;
+        };
+        input.addEventListener('change', update);
+        return () => { clear(); input.removeEventListener('change', update); };
     },
 
     picker(picker) {

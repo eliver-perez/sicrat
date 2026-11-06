@@ -120,7 +120,11 @@ class Queries
         foreach($booth['opciones'] as &$option) $option['uuid']=Values::uuidText($option['uuid']);unset($option);
         $booth['vigente']=$booth['actual_esperada'] ? $this->version($booth['actual_esperada']) : null;
         $booth['puede_capturar']=false;
-        try { $ctx->captureAllowed([...$booth,'uuid'=>Values::binary($uuid)]);$ctx->open($this->repository->one('SELECT * FROM jornada_config WHERE proceso=?',[$ctx->process]) ?? []);$booth['puede_capturar']=true; } catch(HttpError) { }
+        try {
+            $ctx->captureAllowed([...$booth, 'uuid'=>Values::binary($uuid)]);
+            $ctx->open($this->repository->one('SELECT * FROM jornada_config WHERE proceso=?', [$ctx->process]) ?? []);
+            $booth['puede_capturar'] = $booth['capturas'] === 0;
+        } catch (HttpError) { }
         return $booth;
     }
     public function version(string $uuid): array

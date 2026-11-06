@@ -6,6 +6,10 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/app/Support/helpers.php';
 loadEnv(dirname(__DIR__) . '/.env');
 date_default_timezone_set('America/Mexico_City');
+if (in_array('--jornada-media',$argv,true)) {
+    if (!in_array('--jornada-rules',$argv,true)) $argv[]='--jornada-rules';
+    if (!in_array('--phase3',$argv,true)) $argv[]='--phase3';
+}
 if(in_array('--messaging',$argv,true) && !in_array('--post7',$argv,true))$argv[]='--post7';
 if (in_array('--post7',$argv,true) && !in_array('--phase7',$argv,true)) $argv[]='--phase7';
 if (in_array('--phase7',$argv,true) && !in_array('--phase6',$argv,true)) $argv[]='--phase6';
@@ -248,12 +252,16 @@ try {
     if(in_array('--messaging',$argv,true))require __DIR__.'/messaging.php';
     if (in_array('--persons-structure',$argv,true)) require __DIR__.'/persons-structure.php';
     if (in_array('--level-role',$argv,true)) require __DIR__.'/level-role.php';
+    if (in_array('--jornada-rules', $argv, true)) {
+        require __DIR__ . '/jornada-rules.php';
+        if (in_array('--jornada-media',$argv,true)) require __DIR__ . '/jornada-media.php';
+    }
     if (in_array('--jornada-assignments', $argv, true)) {
         require __DIR__ . '/jornada-assignments.php';
     }
     if (in_array('--browser', $argv, true)) {
         if (!(in_array('--phase3',$argv,true) || in_array('--phase4',$argv,true))) throw new RuntimeException('--browser requiere --phase3.');
-        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--level-role',$argv,true) ? ['--level-role'] : []),...(in_array('--persons-structure',$argv,true) ? ['--only-persons-structure'] : []),...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : []),...(in_array('--phase6',$argv,true) ? ['--phase6'] : []),...(in_array('--phase6-browser-only',$argv,true) ? ['--only-phase6'] : []),...(in_array('--phase7',$argv,true) ? ['--phase7'] : []),...(in_array('--phase7-browser-only',$argv,true) ? ['--only-phase7'] : []),...(in_array('--post7',$argv,true) ? ['--post7'] : []),...(in_array('--post7-browser-only',$argv,true) ? ['--only-post7'] : []),...(in_array('--messaging',$argv,true) ? ['--messaging'] : []),...(in_array('--messaging-browser-only',$argv,true) ? ['--only-messaging'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
+        $browserProcess=proc_open(['node',__DIR__ . '/phase3-browser.js',$baseUrl,$temporaryDirectory,...(in_array('--jornada-rules',$argv,true) ? ['--only-jornada-rules'] : []),...(in_array('--level-role',$argv,true) ? ['--level-role'] : []),...(in_array('--persons-structure',$argv,true) ? ['--only-persons-structure'] : []),...(in_array('--phase4',$argv,true) ? ['--phase4'] : []),...(in_array('--ux',$argv,true) ? ['--ux'] : []),...(in_array('--phase5',$argv,true) ? ['--phase5'] : []),...(in_array('--phase5-browser-only',$argv,true) ? ['--only-phase5'] : []),...(in_array('--phase6',$argv,true) ? ['--phase6'] : []),...(in_array('--phase6-browser-only',$argv,true) ? ['--only-phase6'] : []),...(in_array('--phase7',$argv,true) ? ['--phase7'] : []),...(in_array('--phase7-browser-only',$argv,true) ? ['--only-phase7'] : []),...(in_array('--post7',$argv,true) ? ['--post7'] : []),...(in_array('--post7-browser-only',$argv,true) ? ['--only-post7'] : []),...(in_array('--messaging',$argv,true) ? ['--messaging'] : []),...(in_array('--messaging-browser-only',$argv,true) ? ['--only-messaging'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes,dirname(__DIR__));
         fclose($browserPipes[0]); verify(proc_close($browserProcess)===0,'Validación de las pantallas en navegador real.');
     }
     echo "OK: {$checks} comprobaciones HTTP/BD (" . $connection->query('SELECT VERSION()')->fetchColumn() . ").\n";

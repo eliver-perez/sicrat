@@ -16,13 +16,14 @@ final class Resources
         $registry->register('jornada_borradores',static function(int $id,int $organization,?int $process,string $operation,int $actor,?string $permission=null) use($repository) {
             $draft=$repository->one('SELECT b.*,jc.uuid casilla_uuid FROM jornada_borradores b JOIN jornada_casillas jc ON jc.id=b.casilla WHERE b.id=? AND b.organizacion=? AND b.proceso=?',[$id,$organization,$process]) ?? throw new HttpError('Acta no disponible.',404);
             $ctx=new Context($repository);
-            if($ctx->process!==$process) throw new HttpError('Selecciona la elección del acta.',404);
+            if($ctx->process!==$process || $ctx->organization!==$organization || $ctx->actor!==$actor) throw new HttpError('Selecciona la elección del acta.',404);
             $booth=Values::uuidText($draft['casilla_uuid']);
             if($operation==='write') {
                 if((int)$draft['usuario']!==$actor || $draft['estado']!=='abierto' || $repository->one("SELECT v.id FROM jornada_versiones v JOIN archivos a ON a.id=v.foto WHERE a.entidad='jornada_borradores' AND a.entidad_id=? LIMIT 1",[$id])) throw new HttpError('La fotografía de una versión enviada no puede alterarse.',403);
                 $config=$repository->one('SELECT * FROM jornada_config WHERE proceso=?',[$process]);$ctx->open($config ?? []);
-                if($ctx->allowed('resultados.corregir',$actor)) $ctx->casilla($booth,'resultados.corregir');
-                else $ctx->captureAllowed($repository->one('SELECT * FROM jornada_casillas WHERE id=?',[$draft['casilla']]));
+                $history=$repository->one('SELECT v.id FROM jornada_versiones v JOIN jornada_resultados r ON r.id=v.resultado WHERE r.casilla=? AND r.proceso=? LIMIT 1',[$draft['casilla'],$process]);
+                if($history) $ctx->casilla($booth,'resultados.corregir');
+                else $ctx->captureAllowed($repository->one('SELECT * FROM jornada_casillas WHERE id=? AND proceso=?',[$draft['casilla'],$process]) ?? throw new HttpError('Casilla no disponible.',404));
                 if(!$ctx->enabled()) throw new HttpError('Jornada Electoral está deshabilitada.',403);
             } else {
                 $query=new Queries($repository);$ctx->casilla($booth,$query->permission());

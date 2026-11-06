@@ -42,6 +42,11 @@ class JornadaController extends Controller
     public function assignments(Request $request,Response $response): void { $response->success((new Configuration($this->repository))->assign($this->input($request))); }
     public function state(Request $request,Response $response): void { $response->success((new Configuration($this->repository))->state($request->route('action'),$this->input($request))); }
     public function draft(Request $request,Response $response): void { $response->success((new Captures($this->repository))->draft($this->input($request))); }
+    public function photo(Request $request,Response $response): void
+    {
+        $this->input($request);
+        $response->success((new Captures($this->repository))->uploadPhoto($request->route('id'),$request->file('file') ?? []),'Fotografía procesada.');
+    }
     public function capture(Request $request,Response $response): void {
         if(!in_array($request->route('action'),['captures','corrections'],true)) throw new \InvalidArgumentException('Operación de Jornada Electoral no disponible.');
         $response->success((new Captures($this->repository))->submit($this->input($request),$request->route('action')==='corrections'),'Versión registrada.',201);

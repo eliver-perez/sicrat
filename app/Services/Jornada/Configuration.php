@@ -171,7 +171,9 @@ class Configuration
     {
         $ctx=$this->context;$ctx->broad('jornada.configurar',true);
         return $this->repository->transaction(function() use($ctx,$data) {
-            $ctx->lock('jornada.configurar');$ctx->broad('jornada.configurar',true);$this->mutable();
+            $config = $ctx->lock('jornada.configurar');
+            $ctx->broad('jornada.configurar', true);
+            // Incorporar una casilla es aditivo; el acta y las asociaciones previas siguen protegidas.
             if(isset($data['fisica'])) {
                 $numeric=is_int($data['fisica']) || (is_string($data['fisica']) && ctype_digit($data['fisica']));
                 $physical=$this->repository->one('SELECT id FROM casillas WHERE '.($numeric ? 'id' : 'uuid').'=? FOR UPDATE',[$numeric ? Values::integer($data['fisica']) : Values::binary($data['fisica'])]) ?? throw new HttpError('Casilla física no disponible.',404);
@@ -189,7 +191,11 @@ class Configuration
             if($existing) return ['uuid'=>Values::uuidText($existing['uuid'])];
             $uuid=Values::uuid();
             $link=$this->repository->insert('INSERT INTO jornada_casillas(uuid,organizacion,proceso,casilla) VALUES(?,?,?,?)',[Values::binary($uuid),$ctx->organization,$ctx->process,$id]);
-            $this->audit('asociar','jornada_casillas',$link,null,['casilla'=>$id]);
+            $this->audit('asociar', 'jornada_casillas', $link, null, [
+                'casilla' => $id,
+                'estado_jornada' => $config['estado'],
+                'incorporada_iniciada' => $config['abierto_en'] !== null || $config['estado'] !== 'preparacion',
+            ]);
             return ['uuid'=>$uuid];
         });
     }

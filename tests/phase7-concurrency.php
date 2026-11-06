@@ -10,14 +10,23 @@ function phase7Race(array $requests): array {
 }
 function phase7Statuses(array $rows,array $expected,string $label): void {$actual=array_column($rows,'status');sort($actual);sort($expected);verify($actual===$expected,$label.': '.json_encode($rows));}
 $initial=phase7Race([['actor'=>$phase7AccountIds[0],'action'=>'capture','data'=>phase7CaptureData($phase7Booths[1],[100,50,20,0])],['actor'=>$phase7AccountIds[1],'action'=>'capture','data'=>phase7CaptureData($phase7Booths[1],[100,60,20,0],'phase7-1')]]);
-phase7Statuses($initial,[200,200],'Dos primeras capturas simultáneas se conservan');$states=array_column(array_column($initial,'data'),'estado');sort($states);verify($states===['pendiente','preliminar'],'Una sola captura inicial es vigente y la otra queda pendiente.');
-$booth=phase7Api('booths/'.$phase7Booths[1]);$pending=array_values(array_filter($initial,static fn($row)=>$row['data']['estado']==='pendiente'))[0]['data']['uuid'];
+phase7Statuses($initial, [200,409], 'Sólo una primera captura simultánea se registra');
+$winner = array_values(array_filter($initial, static fn($row) => $row['status'] === 200))[0];
+$loser = array_values(array_filter($initial, static fn($row) => $row['status'] === 409))[0];
+verify(str_contains($loser['message'], 'Ya existe una captura'), 'El segundo capturista recibe una explicación para actualizar.');
+verify($winner['data']['numero'] === 1 && $winner['data']['estado'] === 'preliminar', 'La única primera versión conserva la política inicial.');
+$booth = phase7Api('booths/'.$phase7Booths[1]);
+$pending = $winner['data']['uuid'];
 $decision=['aprobar'=>1,'motivo'=>'Revisión simultánea del acta','actual_esperada'=>$booth['actual_esperada']];phase7Statuses(phase7Race(array_fill(0,2,['action'=>'decide','uuid'=>$pending,'data'=>$decision])),[200,409],'Dos validaciones no resuelven dos veces la versión.');
-$base=phase7Api('captures','POST',phase7CaptureData($phase7Booths[3]),'phase7-0');$proposals=[];foreach([210,220] as $amount)$proposals[]=phase7Api('captures','POST',phase7CaptureData($phase7Booths[3],[$amount,0,0,0]),'phase7-0')['uuid'];
+$base=phase7Api('captures','POST',phase7CaptureData($phase7Booths[3]),'phase7-0');$proposals=[];foreach([210,220] as $amount)$proposals[]=phase7Api('corrections','POST',phase7CorrectionData($phase7Booths[3],[$amount,0,0,0]),'phase7-0')['uuid'];
 $race=phase7Race(array_map(static fn($uuid)=>['action'=>'decide','uuid'=>$uuid,'data'=>['aprobar'=>1,'motivo'=>'Publicación simultánea','actual_esperada'=>$base['uuid']]],$proposals));phase7Statuses($race,[200,409],'Dos propuestas que sustituyen la misma vigente no se sobrescriben.');
 $base=phase7Api('captures','POST',phase7CaptureData($phase7Booths[4]),'phase7-0');
 $correction=['casilla'=>$phase7Booths[4],'clave'=>Values::uuid(),'votos'=>array_combine($phase7Options,[330,0,0,0]),'actual_esperada'=>$base['uuid'],'motivo'=>'Corrección simultánea a captura','validar'=>1];
-phase7Statuses(phase7Race([['actor'=>$phase7AccountIds[0],'action'=>'capture','data'=>phase7CaptureData($phase7Booths[4],[310,0,0,0])],['action'=>'correct','data'=>$correction]]),[200,200],'Captura y corrección conservan ambas versiones.');verify(phase7Api('booths/'.$phase7Booths[4])['vigente']['total']===330,'La propuesta no reemplaza la corrección validada.');
+$correctionRace = phase7Race([['actor'=>$phase7AccountIds[0],'action'=>'correct','data'=>phase7CorrectionData($phase7Booths[4],[310,0,0,0])],['action'=>'correct','data'=>$correction]]);
+$statuses = array_column($correctionRace, 'status');
+sort($statuses);
+verify(in_array($statuses, [[200,200],[200,409]], true), 'Las correcciones concurrentes respetan la versión vigente revisada.');
+verify(phase7Api('booths/'.$phase7Booths[4])['vigente']['total']===330,'La propuesta no reemplaza la corrección validada.');
 foreach([5,6] as $index) {
     $base=phase7Api('captures','POST',phase7CaptureData($phase7Booths[$index]),'phase7-0');$requests=[];
     foreach([210,220] as $amount)$requests[]=['action'=>'correct','data'=>['casilla'=>$phase7Booths[$index],'clave'=>Values::uuid(),'actual_esperada'=>$base['uuid'],'votos'=>array_combine($phase7Options,[$amount,0,0,0]),'motivo'=>'Corrección concurrente '.$amount,'validar'=>$index===5 ? 1 : 0]];

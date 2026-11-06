@@ -36,6 +36,11 @@
 </div>
 <dialog id="jornada-booth-dialog" class="ux-dialog" aria-labelledby="jornada-booth-title"><div class="ux-actions"><h6 id="jornada-booth-title"></h6><button type="button" class="btn" data-close>Volver</button></div><div id="jornada-booth-content"></div></dialog>
 <dialog id="jornada-version-dialog" class="ux-dialog" aria-labelledby="jornada-version-title"><div class="ux-actions"><h6 id="jornada-version-title"></h6><button type="button" class="btn" data-close>Volver</button></div><div id="jornada-version-content"></div></dialog>
+<dialog id="jornada-photo-dialog" class="ux-dialog" aria-labelledby="jornada-photo-title">
+    <div class="ux-actions"><h6 id="jornada-photo-title">Fotografía seleccionada</h6><button type="button" class="btn" data-close>Cerrar</button></div>
+    <img alt="Previsualización ampliada de la fotografía del acta">
+    <p class="ux-help">La fotografía se adjuntará al registrar la captura.</p>
+</dialog>
 <script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/operations/core.js')); ?>"></script>
 <link rel="stylesheet" href="<?= escape_html(asset('css/jornada.css')); ?>">

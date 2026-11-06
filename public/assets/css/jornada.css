@@ -1,7 +1,8 @@
 /* Jornada Electoral: cards, formularios y acciones con los tokens de Tailwick. */
 #jornada-app .btn,
 #jornada-booth-dialog .btn,
-#jornada-version-dialog .btn {
+#jornada-version-dialog .btn,
+#jornada-photo-dialog .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -16,7 +17,8 @@
 }
 
 #jornada-app .btn svg,
-#jornada-version-dialog .btn svg {
+#jornada-version-dialog .btn svg,
+#jornada-booth-dialog .btn svg {
     flex-shrink: 0;
     width: 1rem;
     height: 1rem;
@@ -195,6 +197,83 @@
 
 #jornada-app .jornada-subsection .jornada-form {
     margin-top: 1rem;
+}
+
+#jornada-app .jornada-booth-accordion {
+    display: grid;
+    gap: .75rem;
+    margin-top: .75rem;
+}
+
+#jornada-app .jornada-booth-accordion summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    cursor: pointer;
+    list-style: none;
+    font-size: .9375rem;
+    font-weight: 600;
+}
+
+#jornada-app .jornada-booth-accordion summary::-webkit-details-marker {
+    display: none;
+}
+
+#jornada-app .jornada-booth-accordion summary svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+#jornada-app .jornada-booth-accordion details[open] > summary svg {
+    transform: rotate(180deg);
+}
+
+#jornada-booth-dialog .jornada-photo-preview:not([hidden]) {
+    display: flex;
+    align-items: start;
+    flex-wrap: wrap;
+    gap: .75rem;
+    padding: .75rem;
+    border: 1px solid var(--color-default-200, #e2e8f0);
+    border-radius: .375rem;
+}
+
+#jornada-booth-dialog .jornada-photo-thumbnail {
+    padding: 0;
+    overflow: hidden;
+    border-radius: .375rem;
+    flex-shrink: 0;
+}
+
+#jornada-booth-dialog .jornada-photo-thumbnail img {
+    width: 7rem;
+    height: 6rem;
+    object-fit: cover;
+}
+
+#jornada-booth-dialog .jornada-photo-preview figcaption {
+    min-width: 0;
+    flex: 1 1 12rem;
+    font-size: .8125rem;
+}
+
+#jornada-booth-dialog .jornada-photo-name {
+    overflow-wrap: anywhere;
+    font-weight: 600;
+}
+
+#jornada-booth-dialog .jornada-photo-preview .ux-actions {
+    margin-top: .5rem;
+}
+
+#jornada-photo-dialog img {
+    display: block;
+    max-width: 100%;
+    max-height: 70vh;
+    margin: 1rem auto;
+    object-fit: contain;
 }
 
 #jornada-app .jornada-form .ux-search-row {

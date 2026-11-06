@@ -34,6 +34,15 @@ async function main() {
     }
     async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if (process.argv.includes('--only-jornada-rules')) {
+        checks += await require('./jornada-rules-browser.js')({ directory, call, evaluate, waitFor, navigate, pause });
+        if (fs.existsSync(path.join(directory,'jornada-media.json'))) {
+            checks += await require('./jornada-media-browser.js')({ directory, call, evaluate, waitFor, navigate, pause });
+        }
+        assert.deepEqual(failures, []);
+        console.log('Chrome reglas de Jornada sin excepciones JavaScript.');
+        return;
+    }
     if(process.argv.includes('--only-persons-structure')){checks+=await require('./persons-structure-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});if(process.argv.includes('--level-role'))checks+=await require('./level-role-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Personas/Estructura sin excepciones JavaScript.');return;}
     if(process.argv.includes('--level-role')){checks+=await require('./level-role-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Nivel → Rol sin excepciones JavaScript.');return;}
     if(process.argv.includes('--only-messaging')){checks+=await require('./messaging-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause});assert.deepEqual(failures,[]);console.log('Chrome Mensajería sin excepciones JavaScript.');return;}

@@ -7,6 +7,8 @@ function InitializeValues(url) {
     app.entity='jornada';app.filters={};app.charts=[];
     app.notice=(message,type='success')=>feedback.toast(message,type);
     const can=permission=>app.me.rights?.includes(permission);
+    let releasePhotoPreview = () => {};
+    app.node('jornada-booth-dialog').addEventListener('close', () => releasePhotoPreview());
     const optionType=value=>({partido:'Partido',coalicion:'Coalición',combinacion:'Combinación exacta',independiente:'Independiente',nulos:'Nulos',no_registrados:'No registrados',otro:'Otro'})[value] || value;
     const label=state=>({preparacion:'En preparación',abierta:'Abierta',cerrada:'Cerrada',pendiente:'Pendiente de validación',preliminar:'Preliminar interno',validada:'Validada',rechazada:'Rechazada',sustituida:'Sustituida',sin_captura:'Sin captura'})[state] || state;
     const safeFields=form=>Object.fromEntries(new FormData(form));
@@ -193,16 +195,14 @@ function InitializeValues(url) {
                         section.content.append(preview);
                     }
                 }
-                if (app.enabled && !result.locked) {
+                if (app.enabled) {
                     await associateForms(target);
                 } else {
                     const booths = presentation.section(
                         app, target, 'physical-booths', 'Casillas físicas',
                         'Consulta las casillas asociadas a la elección desde Mis casillas y capturas.', true
                     );
-                    booths.content.append(app.text('p', result.locked
-                        ? 'Las asociaciones están protegidas porque existen capturas.'
-                        : 'El módulo está deshabilitado; las casillas se conservan para consulta.', 'ux-help'));
+                    booths.content.append(app.text('p', 'El módulo está deshabilitado; las casillas se conservan para consulta.', 'ux-help'));
                 }
             }
         }
@@ -333,28 +333,72 @@ function InitializeValues(url) {
     }
 
     async function upload(file,entity,record) {
-        const data=new FormData();data.append('file',file);data.append('entity',entity);data.append('record',record);data.append('process',String(app.me.process_id));
-        const response=await fetch(ui.base+'/api/files',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content},body:data});const result=await response.json();if(!response.ok){const error=new Error(result.message || 'No fue posible subir la fotografía.');error.status=response.status;throw error;}return result.data;
+        const data=new FormData();data.append('file',file);
+        const acta=entity==='jornada_borradores';
+        if(!acta){data.append('entity',entity);data.append('record',record);data.append('process',String(app.me.process_id));}
+        const route=acta ? '/api/jornada/drafts/'+encodeURIComponent(record)+'/photo' : '/api/files';
+        const response=await fetch(ui.base+route,{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content},body:data});const result=await response.json();if(!response.ok){const error=new Error(result.message || 'No fue posible subir la fotografía.');error.status=response.status;throw error;}return result.data;
     }
     async function catalogImage(type,row) {
         const target=app.node('jornada-version-content');target.replaceChildren();app.node('jornada-version-title').textContent='Imagen de '+row.nombre;
         app.form(target,'Subir imagen privada',form=>{const file=app.field(form,'imagen','JPEG, PNG o WebP','file','',true);file.accept='image/jpeg,image/png,image/webp';},async(data,form)=>{const file=await upload(form.elements.imagen.files[0],'jornada_'+type,row.uuid);const values={nombre:row.nombre,activo:row.activo,[type==='partidos' ? 'logo' : 'foto']:file.uuid};if(type==='candidaturas')values.cargo=row.cargo;else {values.siglas=row.siglas;values.color=row.color;}await app.api('jornada/catalogs/'+type+'/'+row.uuid,'PUT',values);app.node('jornada-version-dialog').close();await configuration();app.notice('Imagen electoral guardada.');});app.node('jornada-version-dialog').showModal();
     }
+    async function confirmAdditionalBooth() {
+        if (app.config?.estado === 'preparacion' && !app.config.abierto_en) return true;
+        return feedback.confirm(
+            'Esta casilla se incorporará al seguimiento de la elección y actualizará los indicadores de avance.',
+            { title: 'Agregar casilla a la Jornada', confirm: 'Agregar casilla' }
+        );
+    }
+
+    async function refreshBooths() {
+        await configuration();
+        await app.list.reset();
+        if (can('resultados.ver')) await summary();
+    }
+
     async function associateForms(target) {
         const presentation = window.SicratJornadaUI;
         const section = presentation.section(
             app, target, 'physical-booths', 'Casillas físicas',
             'Registra una casilla nueva o asocia una del catálogo para capturar sus resultados en esta elección.', true
         );
-        const panels = app.text('div', '', 'jornada-picker-grid');
+        section.content.append(app.text('p',
+            'Las asociaciones con historial están protegidas. Puedes incorporar nuevas casillas.', 'ux-help'
+        ));
+        const panels = app.text('div', '', 'jornada-booth-accordion');
         section.content.append(panels);
+        const panel = (key, title, description, open = false) => {
+            const item = app.text('details', '', 'jornada-subsection');
+            item.id = 'jornada-physical-' + key;
+            item.name = 'jornada-physical-booths';
+            item.open = open;
+            const heading = app.text('summary');
+            heading.append(app.text('span', title), presentation.icon('chevron-down'));
+            item.append(heading, app.text('p', description, 'ux-help'));
+            item.addEventListener('toggle', () => {
+                if (item.open) for (const other of panels.children) if (other !== item) other.open = false;
+            });
+            panels.append(item);
+            return item;
+        };
         let physical;
         let electoralSection;
         const types = Object.fromEntries((await app.api('polling-booth-types')).map(type => [type.codigo, type.nombre]));
-        const create = app.text('section', '', 'jornada-subsection');
-        create.append(app.text('h6', 'Registrar y asociar una casilla física nueva'));
-        create.append(app.text('p', 'Captura sus datos y elige la sección electoral a la que pertenece.', 'ux-help'));
-        panels.append(create);
+        const associate = panel('associate', 'Asociar casilla existente',
+            'Busca una casilla del catálogo y asígnala a esta elección.', true);
+        const existing = presentation.form(app, associate, '', fields => {
+            fields.id = 'jornada-physical-associate-form';
+        }, async () => {
+            if (!await confirmAdditionalBooth()) return;
+            await app.api('jornada/booths', 'POST', { fisica: physical.values() });
+            await refreshBooths();
+            app.notice('Casilla existente asociada.');
+        }, 'Asociar casilla', 'link');
+        physical = presentation.picker(await app.picker(existing, 'Casilla física por sección', 'jornada/physical-booths', false, [], true));
+
+        const create = panel('create', 'Registrar nueva casilla',
+            'Registra una casilla que todavía no existe en el catálogo y asígnala a esta elección.');
         const form = presentation.form(app, create, '', fields => {
             fields.id = 'jornada-physical-create-form';
             app.field(fields, 'nombre', 'Nombre de casilla', 'text', '', true);
@@ -362,24 +406,13 @@ function InitializeValues(url) {
             app.field(fields, 'ubicacion', 'Ubicación', 'text');
             app.field(fields, 'domicilio', 'Domicilio', 'text');
         }, async data => {
+            if (!await confirmAdditionalBooth()) return;
             await app.api('jornada/booths', 'POST', { ...data, seccion: electoralSection.values() });
-            await configuration();
+            await refreshBooths();
             app.notice('Casilla asociada correctamente.');
         }, 'Guardar casilla');
         electoralSection = presentation.picker(await app.picker(form, 'Sección electoral', 'jornada/territories?type=seccion&catalogue=1', false, [], true));
 
-        const associate = app.text('section', '', 'jornada-subsection');
-        associate.append(app.text('h6', 'Asociar una casilla del catálogo existente'));
-        associate.append(app.text('p', 'Busca por sección o nombre y elige la casilla que deseas utilizar.', 'ux-help'));
-        panels.append(associate);
-        const existing = presentation.form(app, associate, '', fields => {
-            fields.id = 'jornada-physical-associate-form';
-        }, async () => {
-            await app.api('jornada/booths', 'POST', { fisica: physical.values() });
-            await configuration();
-            app.notice('Casilla existente asociada.');
-        }, 'Asociar casilla', 'link');
-        physical = presentation.picker(await app.picker(existing, 'Casilla física por sección', 'jornada/physical-booths', false, [], true));
     }
 
     async function notificationForm(target) {
@@ -437,17 +470,20 @@ function InitializeValues(url) {
 
     async function openBooth(uuid) {
         await refresh();const booth=await app.api('jornada/booths/'+uuid);app.currentBooth=booth;
+        releasePhotoPreview();
         const target=app.node('jornada-booth-content');target.replaceChildren();app.node('jornada-booth-title').textContent='Sección '+booth.seccion+' · '+booth.nombre+' · '+booth.tipo;
         const dialog=app.node('jornada-booth-dialog');if(!dialog.open)dialog.showModal();
         app.description(target,{'Elección':app.config?.eleccion,'Capturas conservadas':booth.capturas,'Versión vigente':booth.vigente ? 'v'+booth.vigente.numero+' · '+label(booth.vigente.estado) : 'Sin versión vigente','Capturistas':booth.asignaciones.filter(row=>Number(row.activo)).map(row=>row.nombre).join(', ')});
-        if(booth.capturas)target.append(app.text('p','Esta casilla ya tiene capturas. Toda captura adicional queda como propuesta pendiente de validación y conserva la versión vigente.','ux-help my-4'));
+        if (booth.capturas) target.append(app.text('p', 'Esta casilla ya tiene una captura. Los cambios se registran como correcciones con motivo e historial.', 'ux-help my-4'));
         if(booth.puede_capturar) await captureForm(target,booth,false);
-        else target.append(app.text('p','La captura requiere Jornada abierta, horario iniciado, permiso y asignación activa a esta casilla (o autorización específica para capturar fuera de asignaciones).','ux-help my-4'));
-        if(app.enabled && app.config?.estado==='abierta' && can('resultados.corregir'))target.append(app.button('Crear corrección con historial',()=>captureForm(target,booth,true)));
+        else if (!booth.capturas) target.append(app.text('p','La captura requiere Jornada abierta, horario iniciado, permiso y asignación activa a esta casilla (o autorización específica para capturar fuera de asignaciones).','ux-help my-4'));
+        if(app.enabled && booth.capturas > 0 && app.config?.estado==='abierta' && can('resultados.corregir'))target.append(app.button('Crear corrección con historial',()=>captureForm(target,booth,true)));
         const history=app.text('div','','ux-section');target.append(history);history.append(app.text('h6','Versiones y propuestas pendientes'));const list=app.text('div');history.append(list);
         const pager=app.pager(list,'jornada/booths/'+uuid+'/history',[['Versión','numero'],['Origen','origen'],['Estado',row=>label(row.estado)],['Capturista','capturista'],['Fecha UTC','fecha'],['Total','total']],(cell,row)=>cell.append(app.button('Ver / comparar',()=>version(row.uuid))));await pager.load();
     }
     async function captureForm(target,booth,correction) {
+        if (correction && !booth.capturas) return;
+        releasePhotoPreview();
         target.querySelector('[data-capture-form]')?.remove();
         const key=window.SicratSecurity.uuid();let draft=null,photo=null,uploadedFile=null;
         const votes=new Map();const original=new Map((booth.vigente?.votos || []).map(row=>[row.uuid,row.votos]));
@@ -455,8 +491,9 @@ function InitializeValues(url) {
             fields.dataset.captureForm='1';fields.append(app.text('p','Introduce enteros no negativos en cada fila, respetando el orden del acta.','ux-full ux-help'));
             for(const option of booth.opciones) {const field=app.field(fields,'vote_'+option.uuid,option.nombre,'number',correction ? original.get(option.uuid) ?? 0 : 0,true);field.min='0';field.max='2147483647';field.step='1';field.inputMode='numeric';field.classList.add('text-lg');votes.set(option.uuid,field);}
             const image=app.field(fields,'imagen',app.config?.foto_obligatoria ? 'Fotografía del acta (obligatoria)' : 'Fotografía del acta (opcional)','file');image.accept='image/jpeg,image/png,image/webp';image.required=Boolean(Number(app.config?.foto_obligatoria)) && !(correction && booth.vigente?.foto_uuid);
+            releasePhotoPreview = window.SicratJornadaUI.photoPreview(app, fields, image);
             if(correction && booth.vigente?.foto_uuid){const reuse=app.check(fields,'reutilizar','Utilizar la fotografía de la versión vigente',true);reuse.addEventListener('change',()=>image.required=Boolean(Number(app.config?.foto_obligatoria)) && !reuse.checked);}
-            app.field(fields,'notas','Observaciones','textarea').maxLength=2000;if(correction){app.field(fields,'motivo','Motivo obligatorio de la corrección','textarea','',true).maxLength=500;if(can('resultados.validar'))app.check(fields,'validar','Validar esta corrección explícitamente',false);}
+            app.field(fields,'notas','Observaciones','textarea').maxLength=2000;if(correction){app.field(fields,'motivo','Motivo de la corrección','textarea','',true).maxLength=500;if(can('resultados.validar'))app.check(fields,'validar','Validar esta corrección explícitamente',false);}
             const total=app.text('p','Total del acta: 0','ux-full font-semibold');total.dataset.captureTotal='1';fields.append(total);
             const calculate=()=>{let count=0;for(const field of votes.values())if(/^\d+$/.test(field.value))count+=Number(field.value);total.textContent='Total del acta: '+count.toLocaleString('es-MX');};for(const field of votes.values())field.addEventListener('input',()=>{field.setCustomValidity(/^\d+$/.test(field.value) ? '' : 'Introduce un entero no negativo, sin decimales ni separadores.');calculate();});calculate();
         },async(data,fields)=>{
@@ -483,10 +520,43 @@ function InitializeValues(url) {
             const table=app.text('div');target.append(table);app.table(table,[['Opción exacta','nombre'],['Versión revisada','votos'],['Versión vigente','vigente'],['Diferencia','diferencia']],comparison);
             if(row.foto_uuid && can('archivos.ver')){const link=app.text('a','Abrir acta privada','btn');link.href=ui.base+'/media/'+row.foto_uuid;link.target='_blank';link.rel='noopener';const image=document.createElement('img');image.src=ui.base+'/media/'+row.foto_uuid+'?size=thumb';image.alt='Acta de sección '+row.seccion+' · '+row.casilla;image.width=200;target.append(image,link);}
             for(const decision of row.decisiones)app.description(target.appendChild(app.text('div','', 'ux-section')),{'Decisión':decision.accion,'Revisor':decision.revisor,'Fecha UTC':decision.fecha,'Motivo':decision.motivo,'Cambios':decision.cambios});
-            if(app.enabled && can('resultados.validar') && ['pendiente','preliminar'].includes(row.estado))app.form(target,'Resolver versión revisada',fields=>{app.field(fields,'aprobar','Decisión','select','1',true,row.estado==='pendiente' ? {'1':'Validar y publicar como vigente','0':'Rechazar propuesta'} : {'1':'Validar preliminar vigente'});app.field(fields,'motivo','Motivo de la decisión','textarea','',true).maxLength=500;},async data=>{
-                if(!await feedback.confirm('¿'+(data.aprobar==='1' ? 'Validar' : 'Rechazar')+' la versión '+row.numero+' después de revisar las diferencias con la vigente?',{confirm:data.aprobar==='1' ? 'Validar versión' : 'Rechazar propuesta'}))return;
-                await app.api('jornada/versions/'+uuid,'PUT',{...data,actual_esperada:booth.actual_esperada});app.node('jornada-version-dialog').close();await openBooth(booth.uuid);app.notice('Decisión registrada correctamente.');
-            },'Confirmar decisión');
+            if (app.enabled && can('resultados.validar') && ['pendiente', 'preliminar'].includes(row.estado)) {
+                app.form(target, 'Resolver versión revisada', fields => {
+                    fields.id = 'jornada-decision-form';
+                    const decision = app.field(fields, 'aprobar', 'Decisión', 'select', '1', true,
+                        row.estado === 'pendiente'
+                            ? { '1': 'Validar y publicar como vigente', '0': 'Rechazar propuesta' }
+                            : { '1': 'Validar preliminar vigente' }
+                    );
+                    const reason = app.field(fields, 'motivo', 'Observaciones', 'textarea');
+                    reason.maxLength = 500;
+                    const reasonLabel = reason.closest('label').firstChild;
+                    const updateDecision = () => {
+                        const rejecting = decision.value === '0';
+                        reasonLabel.textContent = rejecting ? 'Motivo del rechazo' : 'Observaciones';
+                        reason.required = rejecting;
+                        reason.setCustomValidity('');
+                    };
+                    decision.addEventListener('change', updateDecision);
+                    reason.addEventListener('input', () => {
+                        reason.setCustomValidity(decision.value === '0' && !reason.value.trim()
+                            ? 'Indica el motivo del rechazo.' : '');
+                    });
+                    updateDecision();
+                }, async data => {
+                    if (data.aprobar === '0' && !data.motivo.trim()) {
+                        throw new Error('Indica el motivo del rechazo.');
+                    }
+                    if (!await feedback.confirm(
+                        '¿' + (data.aprobar === '1' ? 'Validar' : 'Rechazar') + ' la versión ' + row.numero + ' después de revisar las diferencias con la vigente?',
+                        { confirm: data.aprobar === '1' ? 'Validar versión' : 'Rechazar propuesta' }
+                    )) return;
+                    await app.api('jornada/versions/' + uuid, 'PUT', { ...data, actual_esperada: booth.actual_esperada });
+                    app.node('jornada-version-dialog').close();
+                    await openBooth(booth.uuid);
+                    app.notice('Decisión registrada correctamente.');
+                }, 'Confirmar decisión');
+            }
         }
         const dialog=app.node('jornada-version-dialog');if(!dialog.open)dialog.showModal();
     }

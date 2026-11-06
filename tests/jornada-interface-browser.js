@@ -158,6 +158,7 @@ module.exports = async function ({ directory, call, evaluate, waitFor, navigate 
     await submit(selector, 'Catálogo guardado correctamente.');
     check(await evaluate('document.getElementById("jornada-acta-preview").textContent.includes("1. Fila exacta editada")'), 'Vista previa refleja etiqueta y orden guardados');
 
+    await click('#jornada-physical-create > summary');
     await select('#jornada-physical-create-form .op-picker select', [fixture.section]);
     await fill('#jornada-physical-create-form', { nombre: 'Casilla interfaz nueva', tipo: 'BASICA', ubicacion: 'Ubicación interfaz', domicilio: 'Domicilio interfaz' });
     await submit('#jornada-physical-create-form', 'Casilla asociada correctamente.');
@@ -198,7 +199,7 @@ module.exports = async function ({ directory, call, evaluate, waitFor, navigate 
         await call('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 500 });
         const layout = await evaluate(`(() => {
             const section = document.getElementById('jornada-configuration');
-            const forms = Array.from(section.querySelectorAll('form'));
+            const forms = Array.from(section.querySelectorAll('form')).filter(form => form.getBoundingClientRect().height > 0);
             return {
                 overflow: document.documentElement.scrollWidth > innerWidth + 2,
                 buttons: forms.flatMap(form => Array.from(form.querySelectorAll('button[type=submit]')).map(button => ({ width: button.getBoundingClientRect().width, form: form.getBoundingClientRect().width }))),

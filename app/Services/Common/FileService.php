@@ -18,14 +18,23 @@ class FileService
 	public function upload(array $file,int $organization,?int $process,string $entity,int $record): array
 	{
 		$actor=(new Access($this->repository))->actor();
-		$effective=(new Access($this->repository))->context($organization,$process,'archivos.subir');
-		$this->owners->authorize($entity,$record,$organization,$process,'write',$actor);
-		$this->owners->authorize($entity,$record,$organization,$process,'write',$actor,'archivos.subir');
+		$this->authorizeUpload($entity,$record,$organization,$process,$actor);
 		$source=$file['tmp_name'] ?? '';
 		if (($file['error'] ?? UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK || !is_string($source) || !is_uploaded_file($source)) throw new \InvalidArgumentException('Carga inválida.');
 		$clientPath=$file['full_path'] ?? $file['name'] ?? '';
 		if (!is_string($clientPath) || $clientPath!==basename(str_replace('\\','/',$clientPath))) throw new \InvalidArgumentException('La carga no admite rutas del cliente.');
 		return $this->ingestUpload($source,Values::text($file['name'] ?? null,255),$organization,$process,$entity,$record,$actor);
+	}
+	private function authorizeUpload(string $entity,int $record,int $organization,?int $process,int $actor): void
+	{
+		// El acta pertenece a una captura autorizada; no requiere el permiso genérico de archivos.
+		if ($entity==='jornada_borradores') {
+			$this->owners->authorize($entity,$record,$organization,$process,'write',$actor);
+			return;
+		}
+		(new Access($this->repository))->context($organization,$process,'archivos.subir',$actor);
+		$this->owners->authorize($entity,$record,$organization,$process,'write',$actor);
+		$this->owners->authorize($entity,$record,$organization,$process,'write',$actor,'archivos.subir');
 	}
 	// El origen interno lo usa el motor de exportación, nunca una ruta recibida del navegador.
 	public function ingestUpload(string $source,string $name,int $organization,?int $process,string $entity,int $record,int $actor): array
@@ -73,8 +82,7 @@ class FileService
 		return $this->repository->transaction(function () use ($uuid,$organization,$process,$entity,$record,$actor,$name,$variants,$type) {
 			if ($entity!=='exportaciones') {
 				$this->owners->lock($entity,$record);
-				(new Access($this->repository))->context($organization,$process,'archivos.subir',$actor);
-				$this->owners->authorize($entity,$record,$organization,$process,'write',$actor,'archivos.subir');
+				$this->authorizeUpload($entity,$record,$organization,$process,$actor);
 			}
 			$normal=$variants['normal']; $path=$this->storage->path($normal['path']);
 			$typeId=$this->repository->one('SELECT id FROM archivos_tipos WHERE codigo=?',[$type])['id'];

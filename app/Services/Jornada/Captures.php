@@ -25,21 +25,63 @@ class Captures
         if(!preg_match('/^[a-zA-Z0-9:_-]+$/D',$key)) throw new \InvalidArgumentException('Clave de operación inválida.');
         return $key;
     }
+    private function requireOrigin(array $booth, bool $correction): void
+    {
+        $history = $this->repository->one(
+            'SELECT v.id FROM jornada_versiones v JOIN jornada_resultados r ON r.id=v.resultado
+             WHERE r.casilla=? AND r.proceso=? LIMIT 1 FOR UPDATE',
+            [$booth['id'], $this->context->process]
+        );
+        if ($correction && !$history) {
+            throw new HttpError('Registra primero una captura inicial para esta casilla antes de crear una corrección.', 409);
+        }
+        if (!$correction && $history) {
+            throw new HttpError('Ya existe una captura para esta casilla. Actualiza la información y, si necesitas proponer cambios, regístralos como una corrección.', 409);
+        }
+    }
+
     public function draft(array $data): array
     {
-        $ctx=$this->context; $permission=!empty($data['correccion']) ? 'resultados.corregir' : 'resultados.capturar'; $ctx->require($permission,true); $key=$this->key($data['clave'] ?? null);
-        return $this->repository->transaction(function() use($ctx,$permission,$data,$key) {
-            $config=$ctx->lock($permission);$ctx->open($config);
-            $booth=$this->booth($data['casilla'] ?? '');
-            if($permission==='resultados.corregir') $ctx->casilla($data['casilla'],$permission); else $ctx->captureAllowed($booth);
-            $before=$this->repository->one('SELECT * FROM jornada_borradores WHERE proceso=? AND usuario=? AND clave=?',[$ctx->process,$ctx->actor,$key]);
-            if($before) {
-                if((int)$before['casilla']!==(int)$booth['id']) throw new HttpError('La clave ya corresponde a otra casilla.',409);
-                return ['uuid'=>Values::uuidText($before['uuid'])];
+        $ctx = $this->context;
+        $correction = !empty($data['correccion']);
+        $permission = $correction ? 'resultados.corregir' : 'resultados.capturar';
+        $ctx->require($permission, true);
+        $key = $this->key($data['clave'] ?? null);
+        return $this->repository->transaction(function () use ($ctx, $permission, $data, $key, $correction) {
+            $config = $ctx->lock($permission);
+            $ctx->open($config);
+            $booth = $this->booth($data['casilla'] ?? '');
+            if ($correction) {
+                $ctx->casilla($data['casilla'], $permission);
+            } else {
+                $ctx->captureAllowed($booth);
             }
-            $uuid=Values::uuid();$this->repository->insert('INSERT INTO jornada_borradores(uuid,organizacion,proceso,casilla,usuario,fecha,clave) VALUES(?,?,?,?,?,UTC_TIMESTAMP(),?)',[Values::binary($uuid),$ctx->organization,$ctx->process,$booth['id'],$ctx->actor,$key]);
-            return ['uuid'=>$uuid];
+            $before = $this->repository->one(
+                'SELECT * FROM jornada_borradores WHERE proceso=? AND usuario=? AND clave=?',
+                [$ctx->process, $ctx->actor, $key]
+            );
+            if ($before) {
+                if ((int) $before['casilla'] !== (int) $booth['id']) {
+                    throw new HttpError('La clave ya corresponde a otra casilla.', 409);
+                }
+                return ['uuid' => Values::uuidText($before['uuid'])];
+            }
+            $this->requireOrigin($booth, $correction);
+            $uuid = Values::uuid();
+            $this->repository->insert(
+                'INSERT INTO jornada_borradores(uuid,organizacion,proceso,casilla,usuario,fecha,clave)
+                 VALUES(?,?,?,?,?,UTC_TIMESTAMP(),?)',
+                [Values::binary($uuid), $ctx->organization, $ctx->process, $booth['id'], $ctx->actor, $key]
+            );
+            return ['uuid' => $uuid];
         });
+    }
+    public function uploadPhoto(string $uuid,array $file): array
+    {
+        $ctx=$this->context;
+        $draft=$this->repository->one('SELECT id FROM jornada_borradores WHERE uuid=? AND organizacion=? AND proceso=? AND usuario=?',
+            [Values::binary($uuid),$ctx->organization,$ctx->process,$ctx->actor]) ?? throw new HttpError('Borrador no disponible.',404);
+        return (new FileService($this->repository))->upload($file,$ctx->organization,$ctx->process,'jornada_borradores',(int)$draft['id']);
     }
     private function result(array $booth): array
     {
@@ -60,7 +102,8 @@ class Captures
         $photo=$this->repository->one("SELECT a.*,b.casilla,b.usuario,b.estado borrador_estado FROM archivos a JOIN jornada_borradores b ON a.entidad='jornada_borradores' AND b.id=a.entidad_id WHERE a.uuid=? AND a.organizacion=? AND a.proceso=? AND a.estado='activo'",[Values::binary($data['foto']),$this->context->organization,$this->context->process]) ?? throw new HttpError('Acta no disponible.',404);
         if((int)$photo['casilla']!==(int)$booth['id'] || !str_starts_with($photo['mime_type'],'image/')) throw new HttpError('El acta debe pertenecer a esta casilla.',404);
         if(!$correction && (!$draft || (int)$photo['entidad_id']!==(int)$draft['id'] || (int)$photo['subido_por']!==$this->context->actor)) throw new HttpError('El acta no corresponde al borrador del capturista.',403);
-        if($correction) (new FileService($this->repository))->authorized($data['foto'],'normal',false);
+        $ownPhoto=$draft && (int)$photo['entidad_id']===(int)$draft['id'] && (int)$photo['subido_por']===$this->context->actor;
+        if($correction && !$ownPhoto) (new FileService($this->repository))->authorized($data['foto'],'normal',false);
         return (int)$photo['id'];
     }
     private function diffs(int $version,?int $old): array
@@ -104,6 +147,7 @@ class Captures
                 if(!hash_equals($previous['firma'],$signature)) throw new HttpError('La clave de operación ya se utilizó con otro contenido.',409);
                 return ['uuid'=>Values::uuidText($previous['uuid']),'estado'=>$previous['estado'],'numero'=>(int)$previous['numero'],'total'=>(int)$previous['total'],'repetida'=>true];
             }
+            $this->requireOrigin($booth, $correction);
             if($draft && $draft['estado']!=='abierto') throw new HttpError('Este borrador ya fue enviado; crea una captura nueva.',409);
             if($correction) { $this->expected($result,$data); if($validate) $ctx->casilla($data['casilla'],'resultados.validar'); }
             $number=(int)$result['consecutivo']+1;$uuid=Values::uuid();
@@ -129,8 +173,13 @@ class Captures
     }
     public function decide(string $uuid,array $data): array
     {
-        $ctx=$this->context;$ctx->require('resultados.validar',true);$reason=Values::text($data['motivo'] ?? null,500);
-        $approved=Values::integer($data['aprobar'] ?? null,0,1)===1;
+        $ctx = $this->context;
+        $ctx->require('resultados.validar', true);
+        $approved = Values::integer($data['aprobar'] ?? null, 0, 1) === 1;
+        $reason = Values::text($data['motivo'] ?? '', 500, true);
+        if (!$approved && $reason === '') {
+            throw new \InvalidArgumentException('Indica el motivo del rechazo.');
+        }
         return $this->repository->transaction(function() use($uuid,$data,$approved,$reason,$ctx) {
             // Validar pendientes también después del cierre es una decisión explícita autorizada.
             $ctx->lock('resultados.validar');

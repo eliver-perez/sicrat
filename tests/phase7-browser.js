@@ -23,10 +23,13 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
         verify(await evaluate('!document.getElementById("jornada-config-form")'),'Configuración capturada se presenta protegida, sin formulario inutilizable');
         verify(await evaluate('document.getElementById("jornada-assign-form")?.querySelectorAll("select[multiple]").length===2'),'Selección múltiple de capturistas y casillas');await bounds(name+' configuración');await screenshot('configuration-'+name);
         verify(await evaluate(`!!document.querySelector('#jornada-booth-territories select[aria-label="Capturista asignado"]')`),'Casillas permite filtrar por capturista autorizado');
-        await evaluate(`SicratJornada.open(${JSON.stringify(fixtures.booths[0])})`);await waitFor('document.getElementById("jornada-booth-dialog").open && document.querySelector("[data-capture-form]")');
+        await evaluate(`SicratJornada.open(${JSON.stringify(fixtures.booths[0])})`);await waitFor('document.getElementById("jornada-booth-dialog").open');
+        verify(await evaluate('!document.querySelector("[data-capture-form]")'), 'No ofrece otra captura inicial con historial');
+        await evaluate(`Array.from(document.querySelectorAll('#jornada-booth-content button')).find(button => button.textContent === 'Crear corrección con historial').click()`);
+        await waitFor('document.querySelector("[data-capture-form]")');
         verify(await evaluate('Array.from(document.querySelectorAll("[data-capture-form] input[name^=vote_]")).length===4'),'Captura muestra exactamente las cuatro filas configuradas');
         verify(await evaluate('Array.from(document.querySelectorAll("[data-capture-form] input[name^=vote_]")).every(input=>input.inputMode==="numeric" && input.step==="1" && input.min==="0")'),'Campos enteros adecuados para móvil');
-        verify(await evaluate('document.getElementById("jornada-booth-content").textContent.includes("propuesta pendiente")'),'Advertencia de captura adicional es inline');await screenshot('capture-'+name);
+        verify(await evaluate('document.getElementById("jornada-booth-content").textContent.includes("correcciones con motivo e historial")'),'Advertencia de captura adicional es inline');await screenshot('capture-'+name);
         await evaluate(`SicratFeedback.toast('Acta guardada dentro del diálogo','success');void 0`);await waitFor('document.querySelector("#jornada-booth-dialog .swal2-toast")');verify(true,'Toast es visible dentro del diálogo nativo');
         await evaluate('Swal.close();document.getElementById("jornada-booth-dialog").close()');
         await evaluate(`SicratJornada.open(${JSON.stringify(fixtures.booths[0])})`);await waitFor('document.querySelector("#jornada-booth-content table button")');
@@ -51,7 +54,11 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
     verify(await evaluate('document.getElementById("jornada-tab-configuration").hidden'),'Capturista no recibe formulario de administración');
     verify(await evaluate('document.getElementById("jornada-summary-filter").elements.modo.querySelector("option[value=preliminar]").disabled'),'No ofrece concentrado preliminar sin permiso');
     await screenshot('my-booths-mobile');await bounds('Mis casillas móvil');
-    await evaluate(`SicratJornada.open(${JSON.stringify(fixtures.booths[0])})`);await waitFor('document.querySelector("[data-capture-form]")');
+    await evaluate(`SicratJornada.open(${JSON.stringify(fixtures.booths[0])})`);
+    await waitFor('document.getElementById("jornada-booth-dialog").open');
+    await evaluate(`Array.from(document.querySelectorAll('#jornada-booth-content button')).find(button => button.textContent === 'Crear corrección con historial').click()`);
+    await waitFor('document.querySelector("[data-capture-form]")');
+    await evaluate('document.querySelector("[data-capture-form]").elements.motivo.value="Corrección con imagen desde Chrome"');
     const documentNode=await call('DOM.getDocument');const input=await call('DOM.querySelector',{nodeId:documentNode.root.nodeId,selector:'[data-capture-form] input[type=file]'});await call('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[path.join(directory,'test-image.png')]});
     await evaluate('document.querySelector("[data-capture-form]").requestSubmit()');await waitFor('document.querySelector(".swal2-confirm")');await evaluate('document.querySelector(".swal2-confirm").click()');
     await waitFor('document.querySelector(".swal2-info")');verify(await evaluate('document.querySelector(".swal2-title").textContent.includes("Pendiente de validación")'),'Capturista adicional guarda imagen y propuesta pendiente');

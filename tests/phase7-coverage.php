@@ -86,7 +86,7 @@ foreach(['pdf','xlsx','csv'] as $format) {
 }
 phase7Api('/api/auth/election','POST',['process'=>$phase7Election]);phase7Api('/api/auth/election','POST',['process'=>$phase7Election],'phase7-0');
 phase3Grant($phase7Accounts[0],'resultados.validar',$phase7Election,'territorio');
-$foreignPending=phase7Api('captures','POST',phase7CaptureData($phase7Booths[0],[135,80,20,0],'phase7-1'),'phase7-1');
+$foreignPending=phase7Api('corrections','POST',phase7CorrectionData($phase7Booths[0],[135,80,20,0],'phase7-1'),'phase7-1');
 verify(phase7Api('versions/'.$foreignPending['uuid'],'GET',null,'phase7-0')['visible']===false,'Tener validación fuera de alcance no revela votos pendientes ajenos.');
 phase7Api('versions/'.$foreignPending['uuid'],'PUT',['aprobar'=>1,'motivo'=>'Fuera de territorio','actual_esperada'=>$phase7Correction['uuid']],'phase7-0',404);
 phase3Grant($phase7Accounts[0],'resultados.validar',$phase7Election,'propio',0);

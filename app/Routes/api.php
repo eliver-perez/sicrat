@@ -248,6 +248,7 @@ $router->get('/api/jornada/booths/{id}',[$jornada,'booth']);
 $router->put('/api/jornada/assignments',[$jornada,'assignments']);
 $router->post('/api/jornada/state/{action}',[$jornada,'state']);
 $router->post('/api/jornada/drafts',[$jornada,'draft']);
+$router->post('/api/jornada/drafts/{id}/photo',[$jornada,'photo']);
 $router->post('/api/jornada/{action}',[$jornada,'capture']);
 $router->get('/api/jornada/versions/{id}',[$jornada,'version']);
 $router->put('/api/jornada/versions/{id}',[$jornada,'decide']);
