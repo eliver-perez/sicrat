@@ -6,15 +6,6 @@ function InitializeValues(home) {
 	homeURL = home;
 }
 
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .catch(error => {
-                console.error('Error al registrar Service Worker:', error);
-            });
-    });
-}
-
 var autenticando = false;
 
 function Authenticate() {

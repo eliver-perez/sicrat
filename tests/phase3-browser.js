@@ -25,7 +25,7 @@ async function main() {
         if (message.method === 'Runtime.exceptionThrown') failures.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
         if (message.id) { const callback=pending.get(message.id); pending.delete(message.id); if (message.error) callback.reject(new Error(message.error.message)); else callback.resolve(message.result); }
     });
-    const call=(method,params={}) => new Promise((resolve,reject) => { const id=++nextId; pending.set(id,{resolve,reject}); socket.send(JSON.stringify({id,method,params})); });
+    const call=(method,params={},sessionId=null) => new Promise((resolve,reject) => { const id=++nextId; pending.set(id,{resolve,reject}); socket.send(JSON.stringify({id,method,params,...(sessionId ? {sessionId} : {})})); });
     await call('Page.enable'); await call('Runtime.enable'); await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1080,deviceScaleFactor:1,mobile:false});
     async function evaluate(expression) {
         const result=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
@@ -34,6 +34,12 @@ async function main() {
     }
     async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if (process.argv.includes('--only-pwa')) {
+        checks += await require('./pwa-browser.js')({ base, directory, call, evaluate, waitFor, navigate, pause });
+        assert.deepEqual(failures, []);
+        console.log(`PWA: ${checks} comprobaciones Chrome sin excepciones JavaScript.`);
+        return;
+    }
     if (process.argv.includes('--only-jornada-rules')) {
         checks += await require('./jornada-rules-browser.js')({ directory, call, evaluate, waitFor, navigate, pause });
         if (fs.existsSync(path.join(directory,'jornada-media.json'))) {

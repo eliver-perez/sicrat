@@ -8,12 +8,16 @@ class Response
 {
     public function json(array $data, int $statusCode = 200): void
     {
+        HttpCompression::start();
         http_response_code($statusCode);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
         header('X-Content-Type-Options: nosniff');
 
-        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        if (!\App\Pwa\ConditionalResponse::apply($json, $statusCode)) {
+            echo $json;
+        }
     }
 
     public function success(

@@ -32,6 +32,8 @@
         <link rel="icon" type="image/png" href="<?= escape_html(asset('images/favicon/android-chrome-512x512.png')); ?>" sizes="512x512" type="image/png">
 
         <link rel="manifest" href="/manifest.webmanifest">
+        <link rel="stylesheet" href="/assets/css/pwa.css">
+        <script src="/assets/js/pwa/register.js" defer></script>
 
         <!-- <meta name="theme-color" content="#ffffff"> -->
         <meta name="theme-color" content="#0099cc" />
@@ -40,7 +42,7 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta name="apple-mobile-web-app-title" content="<?= escape_html(config('name')); ?>">
 
-        <link rel="apple-touch-icon" href="/assets/pwa/icon-180.png">
+        <link rel="apple-touch-icon" href="/assets/images/favicon/apple-180x180-touch-icon.png">
         
         <meta name="msapplication-TileColor" content="#0099cc" />
         <meta name="msapplication-TileImage" content="<?= escape_html(asset('images/favicon/windows-tile.png')); ?>">

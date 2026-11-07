@@ -378,5 +378,15 @@ function InitializeValues(url) {
     action('structure-requests',async () => { structureState.listMode='transfers'; await listRecords(true); element('structure-list-dialog').showModal(); });
     action('structure-history',async () => { structureState.listMode='history'; await listRecords(true); element('structure-list-dialog').showModal(); }); action('structure-list-more',() => listRecords());
     [['structure-previous',-25],['structure-next',25]].forEach(([id,delta])=>element(id).addEventListener('click',()=>{if(element('structure-panels').inert)return;ui.run(async()=>{structureState.offset=Math.max(0,structureState.offset+delta);await loadMembers();});}));
+    let offlineRefresh = null;
+    window.addEventListener('sicrat:pwa-updated', event => {
+        if (!event.detail.url?.startsWith(`/api/structures/${structureState.id}`)) return;
+        clearTimeout(offlineRefresh);
+        offlineRefresh = setTimeout(() => ui.run(async () => {
+            const selected = structureState.preview?.id;
+            await loadMembers();
+            if (selected) await selectPreview(selected, structureState.previewOffset);
+        }), 100);
+    });
     ui.run(initialize);
 }

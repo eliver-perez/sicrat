@@ -37,6 +37,15 @@ set_exception_handler(function (Throwable $exception): void {
 });
 
 loadEnv(BASE_PATH . '/.env');
+if (PHP_SAPI !== 'cli') {
+    // Private HTML must not survive logout in the HTTP cache.
+    header('Cache-Control: no-store');
+    // JSON enables compression in Response. Binary media/downloads keep their exact Content-Length.
+    $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    if (!str_contains($requestPath, '/api/') && !str_contains($requestPath, '/media/')) {
+        \App\Core\HttpCompression::start();
+    }
+}
 if (PHP_SAPI !== 'cli' && \App\Services\Common\Maintenance::active()) {
     http_response_code(503);
     header('Retry-After: 300');

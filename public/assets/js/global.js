@@ -1,12 +1,3 @@
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .catch(error => {
-                console.error('Error al registrar Service Worker:', error);
-            });
-    });
-}
-
 function CerrarSesion(base_url = null) {
     $.ajax({
             url: `${typeof homeURL != 'undefined' ? homeURL : base_url}/api/auth/logout`,

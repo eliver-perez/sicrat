@@ -134,6 +134,7 @@ try {
     $environment['BACKUP_STORAGE_PATH'] = $temporaryDirectory . '/backups';
     $environment['SMTP_HOST'] = '';
     $environment['WHATSAPP_TOKEN'] = '';
+    if (in_array('--pwa', $argv, true)) $environment['PWA_TEST_DIRECTORY'] = $temporaryDirectory;
     if(in_array('--messaging-nginx',$argv,true)){require __DIR__.'/nginx-local.php';$nginxProcesses=startMessagingNginx($temporaryDirectory,$address,$environment);}
     else $process = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $temporaryDirectory, '-S', $address, '-t', dirname(__DIR__) . '/public', __DIR__ . '/router.php'], [0 => ['pipe', 'r'], 1 => ['file', $temporaryDirectory . '/server.log', 'a'], 2 => ['file', $temporaryDirectory . '/server.log', 'a']], $pipes, dirname(__DIR__), $environment);
     for ($attempt = 0; $attempt < 50; $attempt++) {
@@ -258,6 +259,12 @@ try {
     }
     if (in_array('--jornada-assignments', $argv, true)) {
         require __DIR__ . '/jornada-assignments.php';
+    }
+    if (in_array('--pwa', $argv, true)) {
+        require __DIR__ . '/pwa.php';
+        $pwaBrowser = proc_open(['node', __DIR__ . '/phase3-browser.js', $baseUrl, $temporaryDirectory, '--only-pwa'], [0 => ['pipe', 'r'], 1 => STDOUT, 2 => STDERR], $pwaPipes, dirname(__DIR__), $environment);
+        fclose($pwaPipes[0]);
+        verify(proc_close($pwaBrowser) === 0, 'PWA: navegador real, cifrado y aislamiento.');
     }
     if (in_array('--browser', $argv, true)) {
         if (!(in_array('--phase3',$argv,true) || in_array('--phase4',$argv,true))) throw new RuntimeException('--browser requiere --phase3.');

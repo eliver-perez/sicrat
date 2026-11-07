@@ -1,3 +1,4 @@
+<section class="card p-4 mb-4" data-pwa-settings></section>
 <?php
     $title = "Mi Perfil";
     $section = "Mi Perfil";

@@ -131,3 +131,17 @@ php tests/integration.php --post7 --browser
 La reanudación agrega `post7-resume.php` y `post7-resume-browser.js`: tipos activos de casilla (alta/edición/Jornada), revocación granular global/electoral frente al alias histórico, excepciones individuales y alcance, denegación de todos los endpoints de importación, controles de Personas, 1.005 altas automáticas sin confirmaciones por lote, CSV/XLSX, coincidencias intrarchivo y sobrevenidas, referencias no resolubles, reintentos y revisión de más de cien excepciones. Chrome procesa 121 altas desde el formulario y compara el chat de SICRAT con el HTML local de referencia usando únicamente assets definitivos. No hay dependencia runtime hacia `tailwick/`.
 
 `post7-resume-migrations.php` verifica la 010, preservación de todas las columnas/filas anteriores, tipos históricos, modalidad predeterminada de importaciones anteriores, conflictos e idempotencia sin reactivar tipos. 009 y 010 aplicadas localmente quedan congeladas; las pruebas utilizan bases generadas y desechables.
+
+
+## PWA y consultas offline
+
+```sh
+node tests/pwa-unit.js
+php tests/integration.php --pwa
+```
+
+`--pwa` ejecuta la regresión HTTP/BD inicial y añade ETag/304, revocación antes de condicionales y gzip. Abre Chrome con un perfil temporal y comprueba instalación técnica, shell sin red, IndexedDB cifrado, frase local, vencimiento de 12 horas, renovación, dos cuentas/organizaciones, dos elecciones de una cuenta, aislamiento entre pestañas, bloqueo de escrituras, permisos, estructura retirada, cuenta desactivada y actualización real del worker. No se añade una cola offline.
+
+`pwa-control.php` solo modifica la base desechable generada por la suite. La revisión simulada del service worker solo existe en `tests/router.php` con una variable del servidor temporal. No se modifican `.env`, datos reales ni configuración Nginx. `pwa-unit.js` verifica la política de rutas y la aplicación de retiradas/metadatos incrementales a páginas de mensajes ya consultadas.
+
+La instalación y apertura standalone en dispositivos físicos Android/iPhone/iPad y la configuración HTTPS/proxy final requieren comprobación manual. Arquitectura, uso, resultados y límites en [PWA_OFFLINE.md](../PWA_OFFLINE.md).
