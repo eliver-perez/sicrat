@@ -147,18 +147,17 @@
 
             <div class="app-header min-h-topbar-height flex items-center sticky top-0 z-30 bg-(--topbar-background) border-b border-default-200">
                 <div class="w-full flex items-center justify-between px-6">
-                    <div class="flex items-center gap-5">
+                    <div class="ux-header-context flex items-center gap-5">
                         <button id="button-toggle-menu" aria-label="Mostrar u ocultar menú" type="button" class="btn btn-icon size-9 bg-default-400/10 hover:bg-default-150 rounded">
                             <i class="iconify lucide--align-left text-xl"></i>
                         </button>
                         <div id="electoral-context" class="ux-election-context">
-                            <label for="electoral-context-select">Elección de trabajo</label>
-                            <select id="electoral-context-select" class="form-input" aria-describedby="electoral-context-status"><option value="">Selecciona una elección</option></select>
-                            <span id="electoral-context-status" class="ux-sr-only" role="status"></span>
+                            <select id="electoral-context-select" class="form-input" aria-label="Elección activa" aria-describedby="electoral-context-status"><option value="">Selecciona una elección</option></select>
+                            <span id="electoral-context-status" class="ux-sr-only" role="status"><?= escape_html($_SESSION['SICRAT_ELECTION_NOTICE'] ?? '') ?></span>
                         </div>
                     </div>
             
-                    <div class="flex items-center gap-3">
+                    <div class="ux-header-actions flex items-center gap-3">
             
                         <div class="topbar-item">
                             <button class="btn btn-icon size-8 hover:bg-default-150 transition-[scale] rounded-full" id="light-dark-mode" aria-label="Cambiar tema claro u oscuro" type="button">

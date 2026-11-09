@@ -10,47 +10,15 @@
 }
 .sicrat-is-offline { scroll-padding-top: 72px; }
 .sicrat-is-offline .app-header { top: var(--sicrat-offline-height, 66px); }
-.sicrat-pwa-toolbar {
-    position: fixed;
-    bottom: max(12px, env(safe-area-inset-bottom));
-    right: 12px;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 8px;
-    max-width: calc(100% - 24px);
-    font: 13px/1.4 system-ui, sans-serif;
+/* Regla compartida también por autenticación, modales y la pantalla offline. */
+@media (max-width: 767px), (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    select, textarea, [contenteditable="true"] {
+        font-size: max(16px, 1rem) !important;
+    }
 }
-.sicrat-pwa-toolbar span:not(:empty) { padding: 8px; background: #fff; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; max-width: 330px; }
-.sicrat-pwa-toolbar button, #sicrat-pwa-panel button, .pwa-shell button, [data-pwa-settings] button {
-    padding: 10px 14px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #fff;
-    color: #075985;
-    cursor: pointer;
-    font: inherit;
-}
-#sicrat-pwa-panel button:disabled { opacity: .45; cursor: default; }
-#sicrat-pwa-panel {
-    padding: 24px;
-    border: 1px solid #cbd5e1;
-    border-radius: 14px;
-    width: min(600px, calc(100% - 24px));
-    max-height: 90vh;
-    overflow: auto;
-    margin: auto;
-    background: #fff;
-    color: #172554;
-    font: 15px/1.6 system-ui, sans-serif;
-}
-#sicrat-pwa-panel::backdrop { background: #0f172a99; }
-#sicrat-pwa-panel h2 { font-size: 22px; font-weight: 700; }
-#sicrat-pwa-panel p { margin: 12px 0; }
-#sicrat-pwa-panel label { display: block; margin-top: 12px; }
-#sicrat-pwa-panel input, #sicrat-pwa-panel select, .pwa-shell input, .pwa-shell select {
+input, select, textarea { min-width: 0; max-width: 100%; }
+.pwa-shell input, .pwa-shell select {
     box-sizing: border-box;
     width: 100%;
     min-height: 44px;
@@ -61,20 +29,17 @@
     padding: 8px;
     font: inherit;
 }
-.pwa-close { float: right; }
 .pwa-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
-.pwa-note { font-size: 13px; color: #475569; }
-#pwa-panel-message { color: #9a3412; }
 [data-offline-shell] { margin: 0; background: #f1f5f9; color: #0f172a; font: 16px/1.6 system-ui, sans-serif; }
-.pwa-shell { max-width: 960px; margin: auto; padding: 32px 20px 120px; }
-.pwa-shell a, #sicrat-pwa-panel a { color: #0369a1; text-decoration: underline; }
+.pwa-shell { max-width: 960px; margin: auto; padding: 32px 20px; }
+.pwa-shell a { color: #0369a1; text-decoration: underline; }
 .pwa-heading { display: flex; gap: 18px; align-items: center; margin-bottom: 24px; }
 .pwa-heading h1 { font-size: clamp(24px, 5vw, 32px); margin: 0; }
 .pwa-heading p { margin: 0; color: #64748b; }
 .pwa-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 16px; overflow-wrap: anywhere; }
 .pwa-card h2 { font-size: 20px; margin-top: 0; }
 .pwa-card summary { cursor: pointer; font-weight: 600; }
-.pwa-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 24px 0; }
+.pwa-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; margin: 24px 0; }
 .pwa-record { border-bottom: 1px solid #e2e8f0; padding: 12px 0; }
 .pwa-record dl { margin: 0; }
 .pwa-shell dt { color: #475569; font-size: 13px; margin-top: 10px; }

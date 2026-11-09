@@ -77,3 +77,5 @@ file_put_contents($temporaryDirectory . '/pwa.json', json_encode([
     'election' => $processIds[0], 'secondElection' => $secondPwaElection, 'personsPath' => $path,
 ], JSON_THROW_ON_ERROR));
 echo 'PWA HTTP: ' . ($checks - $pwaStart) . " comprobaciones.\n";
+
+require __DIR__ . '/mobile-context.php';

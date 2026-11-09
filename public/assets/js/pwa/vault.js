@@ -1,4 +1,4 @@
-/* Keys and passphrases never go to IndexedDB, Cache Storage, localStorage or the server. */
+/* Las claves AES se generan no exportables y se persisten como CryptoKey; nunca como bytes, JWK o cadenas. */
 globalThis.SicratPwaVault = (() => {
     const db = SicratPwaDatabase;
     const encoder = new TextEncoder();
@@ -6,12 +6,12 @@ globalThis.SicratPwaVault = (() => {
     let active = null;
     let epoch = 0;
     const clients = new Set();
-    const iterations = 600000;
+    const maximumLease = 12 * 60 * 60 * 1000;
 
-    async function derive(phrase, salt) {
-        const material = await crypto.subtle.importKey('raw', encoder.encode(phrase), 'PBKDF2', false, ['deriveKey']);
-        return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, material,
-            { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    function usableKey(key) {
+        return key instanceof CryptoKey && !key.extractable && key.type === 'secret'
+            && key.algorithm.name === 'AES-GCM' && key.algorithm.length === 256
+            && key.usages.length === 2 && key.usages.includes('encrypt') && key.usages.includes('decrypt');
     }
     async function seal(key, value, identity) {
         const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -25,12 +25,21 @@ globalThis.SicratPwaVault = (() => {
         return JSON.parse(decoder.decode(cleartext));
     }
     function lock() { epoch++; active = null; clients.clear(); }
+    function elapsed(value = active) {
+        if (!value) return Infinity;
+        return Math.max(Date.now() - value.grant.localAt,
+            value.resumedElapsed + performance.now() - value.started);
+    }
+    function remaining(value = active) {
+        return value ? Math.max(0, value.grant.expiresAt - value.grant.serverAt - elapsed(value)) : 0;
+    }
     function valid(value = active) {
         if (!value) return false;
-        const now = Date.now();
-        const elapsed = Math.max(now - value.grant.localAt, performance.now() - value.started);
-        return now >= value.grant.lastSeen && elapsed >= 0
-            && value.grant.serverAt + elapsed < value.grant.expiresAt;
+        const grant = value.grant;
+        const duration = grant.expiresAt - grant.serverAt;
+        return [grant.serverAt, grant.expiresAt, grant.localAt, grant.lastSeen, grant.elapsedMs].every(Number.isFinite)
+            && duration > 0 && duration <= maximumLease && Date.now() >= grant.lastSeen
+            && elapsed(value) >= 0 && remaining(value) > 0;
     }
     function assert(client) {
         if (!valid()) { lock(); throw new Error('Se requiere conexión a Internet. Han pasado más de 12 horas desde la última verificación de acceso o cambió el reloj del dispositivo.'); }
@@ -43,46 +52,72 @@ globalThis.SicratPwaVault = (() => {
         value.profile.sealed = sealed;
         await db.putIf('profiles', value.profile, () => active === value);
     }
-    async function create(context, phrase, client) {
-        if (typeof phrase !== 'string' || phrase.length < 14 || phrase.trim().split(/\s+/).length < 4) {
-            throw new Error('Usa una frase local de al menos cuatro palabras y 14 caracteres, distinta de tu contraseña de SICRAT.');
-        }
-        if (await db.get('profiles', context.profile)) throw new Error('Este perfil ya existe. Desbloquéalo o elimina sus datos primero.');
+    async function create(context, client) {
         lock();
         const version = epoch;
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const key = await derive(phrase, salt);
-        if (version !== epoch) throw new Error('El contexto cambió. Vuelve a autorizar el perfil.');
-        active = { key, profile: { id: context.profile, user: context.user, organization: context.organization,
-            election: context.election, salt, schema: 1 }, grant: {}, started: performance.now() };
+        const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        if (version !== epoch) throw new Error('El contexto cambió. Vuelve a abrir la pantalla.');
+        const value = { key, profile: { id: context.profile, user: context.user, organization: context.organization,
+            election: context.election, schema: 2 },
+            grant: { context, serverAt: context.validated_at, expiresAt: context.expires_at,
+                localAt: context.localValidatedAt ?? Date.now(), lastSeen: Date.now(), elapsedMs: 0 },
+            started: performance.now(), resumedElapsed: 0,
+            persistent: false };
+        active = value;
         clients.add(client);
+        // Probar escritura, lectura y uso reales: algunas configuraciones privadas no permiten clonar CryptoKey.
+        try {
+            await db.putIf('keys', { id: context.profile, key }, () => active === value);
+            const stored = await db.get('keys', context.profile);
+            if (!usableKey(stored?.key)) throw new Error('Clave persistente no disponible.');
+            const proof = await seal(key, { profile: context.profile }, context.profile + '/probe');
+            if ((await unseal(stored.key, proof, context.profile + '/probe')).profile !== context.profile) throw new Error('Clave no recuperable.');
+            value.persistent = true;
+        } catch (error) {
+            if (active !== value) throw error;
+            await db.remove('keys', context.profile);
+            // Fallback cerrado: conservar solo la clave en memoria, sin exportarla ni guardar otro secreto.
+        }
+        if (active !== value) throw new Error('El contexto cambió. Vuelve a abrir la pantalla.');
         await renew(context);
     }
-    async function unlock(id, phrase, client) {
+    async function restore(id, client) {
         lock();
         const version = epoch;
-        const profile = await db.get('profiles', id);
-        if (!profile || profile.schema !== 1) throw new Error('El perfil no está disponible en este dispositivo.');
-        const key = await derive(phrase, profile.salt);
-        let grant;
-        try { grant = await unseal(key, profile.sealed, profile.id); }
-        catch { throw new Error('No fue posible desbloquear el perfil. Revisa tu frase local.'); }
-        if (version !== epoch) throw new Error('El contexto cambió. Vuelve a desbloquear el perfil.');
-        active = { key, profile, grant, started: performance.now() };
+        const [profile, stored] = await Promise.all([db.get('profiles', id), db.get('keys', id)]);
+        if (!profile || profile.schema !== 2 || !usableKey(stored?.key)) {
+            throw new Error('Se requiere conexión para preparar el acceso en este dispositivo.');
+        }
+        const grant = await unseal(stored.key, profile.sealed, profile.id);
+        if (version !== epoch) throw new Error('El contexto cambió. Vuelve a abrir la pantalla.');
+        if (grant.context?.profile !== id || grant.context.user !== profile.user
+            || grant.context.organization !== profile.organization || grant.context.election !== profile.election) {
+            throw new Error('La autorización guardada no corresponde a este contexto.');
+        }
+        active = { key: stored.key, profile, grant, started: performance.now(), persistent: true,
+            resumedElapsed: Math.max(grant.elapsedMs || 0, Date.now() - grant.localAt) };
         clients.add(client);
-        // Expired profiles may only be renewed after a full online sweep by the worker.
+        // Recuperar no renueva fechas. Solo el barrido online puede renovar un perfil vencido.
         return valid();
+    }
+    async function remember() {
+        const value = assert();
+        if (value.persistent && !value.profile.revalidating) {
+            await db.putIf('recovery', { id: 'active', profile: value.profile.id }, () => active === value);
+        }
     }
     async function renew(context) {
         const value = active;
         if (!value || value.profile.id !== context.profile) throw new Error('La cuenta o elección cambió.');
         value.grant = { context, serverAt: context.validated_at, expiresAt: context.expires_at,
-            localAt: Date.now(), lastSeen: Date.now() };
+            localAt: context.localValidatedAt ?? Date.now(), lastSeen: Date.now(), elapsedMs: 0 };
         value.started = performance.now();
+        value.resumedElapsed = Math.max(0, Date.now() - value.grant.localAt);
         await persist(value);
     }
     async function checkpoint() {
         const value = assert();
+        value.grant.elapsedMs = Math.max(value.grant.elapsedMs, elapsed(value));
         value.grant.lastSeen = Math.max(value.grant.lastSeen, Date.now());
         await persist(value);
     }
@@ -133,7 +168,11 @@ globalThis.SicratPwaVault = (() => {
         lock();
         for (const profile of await db.profiles()) if (profile.user === user) await db.clear(profile.id, true);
     }
-    return { create, unlock, renew, checkpoint, valid, assert, lock, get, save, list, readRecord, forgetUser,
+    async function forgetAll() {
+        lock();
+        await db.clearAll();
+    }
+    return { create, restore, remember, renew, checkpoint, valid, remaining, assert, lock, get, save, list, readRecord, forgetUser, forgetAll,
         get active() { return active; }, get epoch() { return epoch; }, barrier: () => { epoch++; }, authorize: client => clients.add(client),
         authorized: client => clients.has(client) && valid() };
 })();

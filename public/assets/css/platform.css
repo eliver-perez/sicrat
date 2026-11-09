@@ -70,8 +70,8 @@ main .card-header > .flex { flex-wrap: wrap; }
 main .min-h-\[480px\] { min-height: 0; }
 main .max-h-\[480px\] { max-height: 28rem; }
 .ux-election-context { display: grid; gap: .1rem; width: clamp(12rem, 30vw, 26rem); min-width: 0; }
-.ux-election-context label { font-size: .7rem; color: var(--color-default-600, #475569); }
-.ux-election-context select { width: 100%; height: 2.2rem; min-height: 0; font-size: .875rem; text-overflow: ellipsis; }
+.ux-election-context select:disabled { appearance: none; background-image: none; opacity: 1; cursor: default; }
+.ux-election-context select { width: 100%; height: 2.2rem; min-height: 0; font-size: .875rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 .app-header > div, .app-header > div > div { min-width: 0; }
 .ux-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .ux-breadcrumb, .ux-footer-detail { display: flex; }
@@ -117,8 +117,8 @@ main .max-h-\[480px\] { max-height: 28rem; }
     .op-form-fields { grid-template-columns: minmax(0,1fr); }
     .app-header > div { padding: 0 .75rem; gap: .5rem; }
     .app-header > div > div { gap: .5rem; }
-    .ux-election-context { width: min(53vw, 21rem); }
-    .ux-election-context select { font-size: .75rem; padding-left: .5rem; padding-right: 1.25rem; }
+    .ux-election-context { width: 100%; }
+    .ux-election-context select { padding-left: .5rem; padding-right: 1.25rem; }
     .ux-module-grid, .ux-form-grid { grid-template-columns: minmax(0, 1fr); }
     .ux-inline-form { flex-direction: column; align-items: stretch; }
     .ux-inline-form > label { width: 100%; min-width: 0; }
@@ -197,3 +197,17 @@ dialog form.ux-modal-form > label:has(textarea) { grid-column:1 / -1; }
 .ux-chat-conversation-scroll{overflow-anchor:none}.ux-chat-load-status{padding:.35rem .8rem;margin:0;font-size:.75rem}.ux-chat-message-actions{position:relative}.ux-chat-message-toggle{display:flex;align-items:center;justify-content:center;width:1.7rem;height:1.7rem;list-style:none;border-radius:.3rem}.ux-chat-message-toggle::-webkit-details-marker{display:none}.ux-chat-message-toggle>.ux-lucide{width:1rem;height:1rem}.ux-chat-message-actions>.ux-actions{position:absolute;right:0;bottom:1.9rem;padding:.35rem;margin:0;z-index:10;flex-wrap:nowrap;background:var(--color-card,white);border:1px solid var(--color-default-200,#e2e8f0);border-radius:.35rem;box-shadow:0 3px 12px #0002}.ux-chat-message-actions .ux-icon-action{width:1.8rem;height:1.8rem;min-height:1.8rem}.ux-chat-image{padding:0;border:0;background:transparent;cursor:pointer;max-width:min(13rem,100%);margin:.4rem 0}.ux-chat-image img{max-width:100%;width:auto;height:auto;border-radius:.4rem}.ux-chat-document{flex-wrap:nowrap;margin:.4rem 0;padding:.6rem;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.4rem;max-width:20rem;background:var(--color-default-100,#f1f5f9);text-decoration:none}.ux-chat-document-icon{display:flex;flex-direction:column;align-items:center;font-size:.65rem;font-weight:600;flex-shrink:0}.ux-chat-document-icon>.ux-lucide{width:1.5rem;height:1.5rem}.ux-chat-document-info{min-width:0;display:flex;flex-direction:column;gap:.2rem}.ux-chat-document-info strong{font-size:.8rem;overflow-wrap:anywhere}.ux-chat-document-info small{color:var(--color-default-500,#64748b)}.ux-chat-gallery>.ux-actions{justify-content:space-between}.ux-chat-gallery>.ux-actions h6{min-width:0;overflow-wrap:anywhere;flex:1}.ux-chat-gallery-body{display:flex;justify-content:center;align-items:center;min-height:10rem;margin:1rem 0}.ux-chat-gallery-body img{max-width:100%;max-height:65dvh;object-fit:contain}.swal2-popup{box-sizing:border-box;max-width:calc(100vw - 2rem)}.swal2-popup .swal2-textarea{box-sizing:border-box;width:calc(100% - 2rem);max-width:calc(100% - 2rem);min-width:0;margin:1rem}
 @media(max-width:1023px){.ux-chat-layout{grid-template-columns:17rem minmax(0,1fr)}.ux-chat-title{padding:.65rem}.ux-chat-message-row{max-width:95%}}
 @media(max-width:767px){.ux-chat-layout{grid-template-columns:minmax(0,1fr);height:calc(100dvh - 11.5rem);min-height:28rem}.ux-chat-sidebar{border-right:0}.ux-chat-back{display:inline-flex!important}.ux-chat-message-list{padding:.75rem}.ux-chat-message-row>.ux-chat-avatar{display:none}.ux-chat-composer{padding:.65rem;gap:.4rem}.ux-chat-send>span{display:none}.ux-chat-send{width:2.3rem;padding:.4rem!important}.ux-chat-send::after{content:none}.ux-chat-message-row{max-width:95%}.ux-chat-title .ux-chat-title-text{min-width:0}}
+
+/* El selector absorbe el espacio restante; los botones conservan su tamaño. */
+.ux-header-context { flex: 1; min-width: 0; }
+.ux-header-actions { flex-shrink: 0; }
+#button-toggle-menu { flex-shrink: 0; }
+.app-header > div { gap: 1rem; }
+@media (max-width: 767px) {
+    .app-header > div { padding-inline: .5rem; gap: .4rem; }
+    .app-header .ux-header-context, .app-header .ux-header-actions { gap: .25rem; }
+    .ux-election-context { width: 100%; }
+    .ux-election-context select { padding-inline: .4rem 1.2rem; }
+    #header-chat { display: none; } /* Mensajería sigue disponible en el menú de cuenta. */
+    dialog.card[open] { max-height: calc(100dvh - 2rem); }
+}

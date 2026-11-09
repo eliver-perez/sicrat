@@ -140,8 +140,14 @@ node tests/pwa-unit.js
 php tests/integration.php --pwa
 ```
 
-`--pwa` ejecuta la regresión HTTP/BD inicial y añade ETag/304, revocación antes de condicionales y gzip. Abre Chrome con un perfil temporal y comprueba instalación técnica, shell sin red, IndexedDB cifrado, frase local, vencimiento de 12 horas, renovación, dos cuentas/organizaciones, dos elecciones de una cuenta, aislamiento entre pestañas, bloqueo de escrituras, permisos, estructura retirada, cuenta desactivada y actualización real del worker. No se añade una cola offline.
+`--pwa` ejecuta la regresión HTTP/BD inicial y añade ETag/304, revocación antes de condicionales y gzip. Abre Chrome con un perfil temporal y comprueba instalación técnica, shell sin red, IndexedDB cifrado, preparación automática, recuperación en la misma pestaña, vencimiento de 12 horas, renovación, dos cuentas/organizaciones, dos elecciones de una cuenta, aislamiento entre pestañas, bloqueo de escrituras, permisos, estructura retirada, cuenta desactivada y actualización real del worker. No se añade una cola offline.
 
 `pwa-control.php` solo modifica la base desechable generada por la suite. La revisión simulada del service worker solo existe en `tests/router.php` con una variable del servidor temporal. No se modifican `.env`, datos reales ni configuración Nginx. `pwa-unit.js` verifica la política de rutas y la aplicación de retiradas/metadatos incrementales a páginas de mensajes ya consultadas.
 
 La instalación y apertura standalone en dispositivos físicos Android/iPhone/iPad y la configuración HTTPS/proxy final requieren comprobación manual. Arquitectura, uso, resultados y límites en [PWA_OFFLINE.md](../PWA_OFFLINE.md).
+
+### Ajustes móviles y selección electoral
+
+`php tests/integration.php --pwa` incluye `mobile-context.php`: selección única desde el login, persistencia de preferencia firmada, revocación con varias opciones y acceso general sin elecciones. Chrome comprueba encabezado a 320/390/768/1440 px, fuente mínima de 16 px en controles móviles, viewport accesible, ausencia del panel técnico, recuperación automática y actualización del worker sin botón. Las capturas `mobile-header-*.png` quedan junto a los artefactos temporales.
+
+La preferencia recuerda la elección por cuenta y organización en el mismo navegador. La continuidad offline conserva el secreto exclusivamente durante la sesión de pestaña; cerrar esa sesión exige conexión. Safari/iPhone físico, el teclado nativo y el gesto de zoom requieren comprobación manual.

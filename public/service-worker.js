@@ -5,6 +5,7 @@ importScripts('/pwa-assets.js', '/assets/js/pwa/policy.js', '/assets/js/pwa/data
 const network = SicratPwaNetwork;
 const vault = SicratPwaVault;
 const storage = SicratPwaDatabase;
+const preparingClients = new Map();
 
 self.addEventListener('install', event => event.waitUntil(SicratPwaStatic.install()));
 self.addEventListener('activate', event => event.waitUntil((async () => {
@@ -24,11 +25,29 @@ self.addEventListener('fetch', event => {
     if (request.mode === 'navigate') {
         event.respondWith((async () => {
             try {
+                if (url.pathname.startsWith('/autenticacion')) {
+                    // El login crea un CSRF nuevo. Finalizar verificaciones anteriores antes de pedirlo
+                    // evita que un 401 tardío destruya la nueva sesión anónima de autenticación.
+                    vault.lock();
+                    if (network.validating) {
+                        try { await network.validate(); } catch { /* La pantalla permitirá autenticarse de nuevo. */ }
+                    }
+                }
                 const response = await fetch(request, { cache: 'no-store' });
                 if (response.status >= 500) throw new Error('Servidor no disponible.');
-                if (vault.active) {
-                    await network.validate(true);
-                    if (vault.active) vault.authorize(event.resultingClientId);
+                // Un perfil recuperado puede sobrevivir a la cookie HTTP. Nunca impedir abrir el login.
+                const loginPage = url.pathname.startsWith('/autenticacion')
+                    || new URL(response.url).pathname.startsWith('/autenticacion');
+                if (loginPage) vault.lock();
+                if (vault.active && !loginPage) {
+                    try {
+                        await network.validate(true);
+                        if (vault.active) vault.authorize(event.resultingClientId);
+                    } catch (error) {
+                        // Una denegación del servidor invalida el perfil, pero no convierte su HTML en un fallo de red.
+                        if ([401, 403].includes(error.status)) await network.state(true);
+                        else throw error;
+                    }
                 }
                 return response;
             } catch {
@@ -43,7 +62,11 @@ self.addEventListener('fetch', event => {
         return;
     }
     const rule = SicratPwaPolicy.match(url);
-    if (rule) event.respondWith(network.read(event, rule));
+    if (rule) event.respondWith((async () => {
+        // Las consultas iniciales esperan la preparación de su propia pestaña.
+        if (preparingClients.has(event.clientId)) await preparingClients.get(event.clientId);
+        return network.read(event, rule);
+    })());
     // Media, PDFs, private files, other APIs and dynamic HTML never enter a cache.
 });
 
@@ -57,20 +80,17 @@ async function status(client) {
     return {
         online: network.online, unlocked: Boolean(active), validating: network.validating,
         profile: active?.profile.id, context: active?.grant.context,
-        remainingMs: active ? Math.max(0, active.grant.expiresAt - active.grant.serverAt
-            - Math.max(Date.now() - active.grant.localAt, performance.now() - active.started)) : 0,
+        remainingMs: active ? vault.remaining() : 0, persistent: Boolean(active?.persistent),
         profiles: (await storage.profiles()).map(row => ({ id: row.id, user: row.user, organization: row.organization, election: row.election })),
         count: rows.length, bytes: rows.reduce((sum, row) => sum + row.bytes, 0)
     };
 }
 
-let unlockAttempt = 0;
-let lastFailedUnlock = 0;
 self.addEventListener('message', event => {
     const client = event.source;
     if (!client?.id || new URL(client.url).origin !== self.location.origin || !event.ports[0]) return;
     const data = event.data || {};
-    event.waitUntil((async () => {
+    const work = (async () => {
         try {
             let result;
             switch (data.type) {
@@ -82,40 +102,54 @@ self.addEventListener('message', event => {
                     if (vault.authorized(client.id)) await vault.checkpoint();
                     result = await status(client.id);
                     break;
-                case 'ENABLE': {
+                case 'CONNECT': {
+                    // El perfil de recuperación solo se elige mediante un contexto real del servidor.
                     const before = vault.epoch;
                     const context = await network.context();
-                    if (before !== vault.epoch) throw new Error('El contexto cambió. Vuelve a autorizar el dispositivo.');
-                    const version = await network.invalidate('Se está autorizando un perfil local.', client.id);
-                    if (version !== vault.epoch) throw new Error('El contexto cambió. Vuelve a autorizar el dispositivo.');
+                    if (before !== vault.epoch) throw new Error('El contexto cambió. Abre nuevamente la pantalla.');
+                    const version = await network.invalidate('La sesión se abrió en otra pantalla.', client.id);
                     for (const profile of await storage.profiles()) {
-                        if (profile.user !== context.user) await storage.clear(profile.id, true);
+                        if (profile.user !== context.user || profile.schema !== 2) await storage.clear(profile.id, true);
                     }
-                    if (version !== vault.epoch) throw new Error('El contexto cambió. Vuelve a autorizar el dispositivo.');
-                    await vault.create(context, data.phrase, client.id);
+                    if (version !== vault.epoch) throw new Error('El contexto cambió. Abre nuevamente la pantalla.');
+                    const existing = await storage.get('profiles', context.profile);
+                    if (existing) {
+                        try { await vault.restore(context.profile, client.id); }
+                        catch (error) {
+                            if (vault.epoch !== version + 1) throw error;
+                            await storage.clear(context.profile, true);
+                        }
+                    }
+                    if (!vault.active) await vault.create(context, client.id);
+                    if (vault.active.profile.id !== context.profile) throw new Error('El contexto cambió.');
+                    vault.active.grant.context.session = context.session;
                     await network.validate(true);
+                    vault.assert(client.id);
+                    await vault.remember();
                     result = await status(client.id);
                     break;
                 }
-                case 'UNLOCK': {
-                    if (Date.now() - lastFailedUnlock < Math.min(unlockAttempt, 10) * 1000) {
-                        throw new Error('Espera unos segundos antes de volver a intentarlo.');
+                case 'RECOVER': {
+                    // No acepta una cuenta/elección indicada por la página ni enumera perfiles recuperables.
+                    if (data.profile !== undefined || data.phrase !== undefined) throw new Error('No se permite elegir otro perfil offline.');
+                    const windows = await self.clients.matchAll({ type: 'window' });
+                    if (windows.some(window => window.id !== client.id && vault.authorized(window.id))) {
+                        throw new Error('La información ya está abierta en otra pantalla.');
                     }
-                    const version = await network.invalidate('Se está desbloqueando otro perfil local.', client.id);
-                    if (version !== vault.epoch) throw new Error('El contexto cambió. Vuelve a desbloquear el perfil.');
-                    await network.broadcast('validating');
-                    if (version !== vault.epoch) throw new Error('El contexto cambió. Vuelve a desbloquear el perfil.');
-                    try { await vault.unlock(data.profile, data.phrase, client.id); unlockAttempt = 0; }
-                    catch (failure) { unlockAttempt++; lastFailedUnlock = Date.now(); throw failure; }
-                    // Check real connectivity without silently discarding a new login's encrypted profile.
+                    const before = vault.epoch;
+                    const recovery = await storage.get('recovery', 'active');
+                    if (!recovery || before !== vault.epoch) throw new Error('Se requiere conexión para verificar el acceso en este dispositivo.');
+                    vault.lock();
+                    const version = vault.epoch;
+                    await network.broadcast('locked', { reason: 'La información se abrió en otra pantalla.' }, client.id);
+                    if (version !== vault.epoch) throw new Error('El contexto cambió.');
+                    await vault.restore(recovery.profile, client.id);
                     if (await network.reachable()) {
-                        const context = await network.context();
-                        if (context.profile !== data.profile) { vault.lock(); throw new Error('Este perfil no corresponde a la cuenta y elección conectadas.'); }
-                        vault.active.grant.context.session = context.session;
+                        // También puede renovar un perfil vencido, pero únicamente tras validar con el servidor.
                         await network.validate(true);
                     } else await network.state(false);
-                    const active = vault.assert(client.id);
-                    if (active.profile.revalidating) { vault.lock(); throw new Error('Se requiere conexión para terminar la verificación de permisos.'); }
+                    const value = vault.assert(client.id);
+                    if (value.profile.revalidating) { vault.lock(); throw new Error('Se requiere conexión para terminar la verificación de permisos.'); }
                     await vault.checkpoint();
                     result = await status(client.id);
                     break;
@@ -139,9 +173,8 @@ self.addEventListener('message', event => {
                     break;
                 }
                 case 'LOGOUT': {
-                    const user = vault.active?.profile.user;
-                    if (user) await vault.forgetUser(user);
-                    else vault.lock();
+                    await vault.forgetAll();
+                    await network.broadcast('session-ended');
                     await network.broadcast('locked', { reason: 'Se cerró el perfil local.' });
                     result = true;
                     break;
@@ -160,5 +193,9 @@ self.addEventListener('message', event => {
             if (error instanceof TypeError || error instanceof SyntaxError) message = 'Se requiere conexión a Internet para verificar el acceso.';
             event.ports[0].postMessage({ ok: false, message });
         }
-    })());
+    })();
+    if (['CONNECT', 'RECOVER'].includes(data.type)) preparingClients.set(client.id, work);
+    event.waitUntil(work.finally(() => {
+        if (preparingClients.get(client.id) === work) preparingClients.delete(client.id);
+    }));
 });

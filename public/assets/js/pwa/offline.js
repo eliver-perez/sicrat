@@ -71,15 +71,14 @@
             element('offline-account').textContent = `${context.name} · ${context.election_name || 'Contexto general'}`;
             element('offline-state').textContent = `Solo lectura. Última validación: ${SicratPwa.date(context.validated_at)}. No se guardan formularios ni envíos pendientes.`;
             element('offline-content').hidden = false;
-            element('offline-unlock').textContent = 'Administrar perfil offline';
             render();
         } catch (error) { clear(); element('offline-state').textContent = error.message; }
         finally { reading = false; }
     }
-    element('offline-unlock').addEventListener('click', () => SicratPwa.settings());
     element('offline-search').addEventListener('input', render);
     element('offline-module').addEventListener('change', render);
     window.addEventListener('sicrat:pwa-state', event => { if (event.detail.unlocked) load(); else clear(); });
+    window.addEventListener('sicrat:pwa-message', event => { element('offline-state').textContent = event.detail; });
     window.addEventListener('sicrat:pwa-locked', event => { clear(); element('offline-state').textContent = event.detail; });
     window.addEventListener('sicrat:pwa-validating', clear);
     window.addEventListener('sicrat:pwa-updated', load);

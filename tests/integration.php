@@ -262,6 +262,9 @@ try {
     }
     if (in_array('--pwa', $argv, true)) {
         require __DIR__ . '/pwa.php';
+        $persistenceBrowser = proc_open(['node', __DIR__ . '/pwa-persistence-browser.js', $baseUrl, $temporaryDirectory], [0 => ['pipe', 'r'], 1 => STDOUT, 2 => STDERR], $persistencePipes, dirname(__DIR__), $environment);
+        fclose($persistencePipes[0]);
+        verify(proc_close($persistenceBrowser) === 0, 'PWA: recuperación persistente tras cerrar completamente Chrome.');
         $pwaBrowser = proc_open(['node', __DIR__ . '/phase3-browser.js', $baseUrl, $temporaryDirectory, '--only-pwa'], [0 => ['pipe', 'r'], 1 => STDOUT, 2 => STDERR], $pwaPipes, dirname(__DIR__), $environment);
         fclose($pwaPipes[0]);
         verify(proc_close($pwaBrowser) === 0, 'PWA: navegador real, cifrado y aislamiento.');

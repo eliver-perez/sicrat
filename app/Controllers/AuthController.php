@@ -202,17 +202,11 @@ class AuthController extends Controller
             $_SESSION['SICRAT_ORGANIZATION_ID'] = $organization_id;
             $_SESSION['SICRAT_ORGANIZATION_UUID'] = $organization_uuid != null ? $service->uuidBinarytoString($organization_uuid) : '';
             $_SESSION['SICRAT_ORGANIZATION'] = $organization;
-            if(count($tipos_usuario) > 0) {
-                $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID'] = count($tipos_usuario) == 1 ? $tipos_usuario[0]['proceso_id'] : null;
-                $_SESSION['SICRAT_ORGANIZATION_PROCESS'] = count($tipos_usuario) == 1 ? $tipos_usuario[0]['proceso'] : null;
-                $_SESSION['SICRAT_USER_ROLE'] = count($tipos_usuario) == 1 ? $tipos_usuario[0]['id'] : null;
-                $_SESSION['SICRAT_USER_TYPE_CODE'] = count($tipos_usuario) == 1 ? $tipos_usuario[0]['tipo_usuario_codigo'] : null;
-                $_SESSION['SICRAT_USER_TYPE'] = count($tipos_usuario) == 1 ? $tipos_usuario[0]['tipo_usuario'] : null;
-            } else {
-                $_SESSION['SICRAT_USER_ROLE'] = $user_role;
-                $_SESSION['SICRAT_USER_TYPE_CODE'] = $user_type_code;
-                $_SESSION['SICRAT_USER_TYPE'] = $user_type;
-            }
+            $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID'] = null;
+            $_SESSION['SICRAT_ORGANIZATION_PROCESS'] = null;
+            $_SESSION['SICRAT_USER_ROLE'] = null;
+            $_SESSION['SICRAT_USER_TYPE_CODE'] = $user_type_code;
+            $_SESSION['SICRAT_USER_TYPE'] = $user_type;
 
             $_SESSION['SICRAT_AVAILABLE_ROLES'] = count($tipos_usuario) > 1 ? $tipos_usuario : null;
 
@@ -268,6 +262,11 @@ class AuthController extends Controller
             ");
             $stmt->bindValue(':uid', (int)$user['id'], PDO::PARAM_INT);
             $stmt->execute();
+
+            if (!(new \App\Auth\SessionValidator($conn))->validate()) {
+                throw new \App\Core\HttpError('No autenticado.', 401);
+            }
+            (new \App\Services\ElectoralContextService($conn))->initialize();
 
             $conn->commit();
 

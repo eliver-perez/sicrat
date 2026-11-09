@@ -1,15 +1,21 @@
-/* Versioned, transactional storage. Only ciphertext and non-sensitive indexing metadata. */
+/* Almacenamiento transaccional: datos cifrados, metadatos y referencias CryptoKey no exportables. */
 globalThis.SicratPwaDatabase = (() => {
     let opening;
     function open() {
         if (!opening) opening = new Promise((resolve, reject) => {
-            const request = indexedDB.open('sicrat-offline', 1);
-            request.onupgradeneeded = () => {
+            const request = indexedDB.open('sicrat-offline', 2);
+            request.onupgradeneeded = event => {
                 const db = request.result;
-                db.createObjectStore('profiles', { keyPath: 'id' });
-                const records = db.createObjectStore('records', { keyPath: ['profile', 'key'] });
-                records.createIndex('profile', 'profile');
-                records.createIndex('module', ['profile', 'module']);
+                if (event.oldVersion < 1) {
+                    db.createObjectStore('profiles', { keyPath: 'id' });
+                    const records = db.createObjectStore('records', { keyPath: ['profile', 'key'] });
+                    records.createIndex('profile', 'profile');
+                    records.createIndex('module', ['profile', 'module']);
+                }
+                if (event.oldVersion < 2) {
+                    db.createObjectStore('keys', { keyPath: 'id' });
+                    db.createObjectStore('recovery', { keyPath: 'id' });
+                }
             };
             request.onsuccess = () => {
                 request.result.onversionchange = () => { request.result.close(); opening = null; };
@@ -42,13 +48,24 @@ globalThis.SicratPwaDatabase = (() => {
         return index.getAll(module ? [profile, module] : profile);
     });
     function clear(profile, deleteProfile = false) {
-        return transaction(['records', 'profiles'], 'readwrite', tx => {
-            if (deleteProfile) tx.objectStore('profiles').delete(profile);
+        return transaction(['records', 'profiles', 'keys', 'recovery'], 'readwrite', tx => {
+            if (deleteProfile) {
+                tx.objectStore('profiles').delete(profile);
+                tx.objectStore('keys').delete(profile);
+                const recovery = tx.objectStore('recovery');
+                const current = recovery.get('active');
+                current.onsuccess = () => { if (current.result?.profile === profile) recovery.delete('active'); };
+            }
             const cursor = tx.objectStore('records').index('profile').openCursor(IDBKeyRange.only(profile));
             cursor.onsuccess = () => {
                 if (cursor.result) { cursor.result.delete(); cursor.result.continue(); }
             };
         });
     }
-    return { get, put, putIf, remove, profiles, records, clear };
+    function clearAll() {
+        return transaction(['records', 'profiles', 'keys', 'recovery'], 'readwrite', tx => {
+            for (const name of ['records', 'profiles', 'keys', 'recovery']) tx.objectStore(name).clear();
+        });
+    }
+    return { get, put, putIf, remove, profiles, records, clear, clearAll };
 })();

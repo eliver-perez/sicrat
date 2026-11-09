@@ -32,11 +32,12 @@ globalThis.SicratPwaNetwork = (() => {
         });
     }
     async function context() {
+        const requestedAt = Date.now();
         const response = await fetchTimed('/api/pwa/context', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         if ([401, 403].includes(response.status)) {
             const user = vault.active?.profile.user;
             if (user) await vault.forgetUser(user);
-            else vault.lock();
+            else await vault.forgetAll();
             await broadcast('locked', { reason: 'La sesión o los permisos cambiaron. Conéctate e inicia sesión nuevamente.' });
             const failure = new Error('La sesión no está autorizada. Inicia sesión con conexión.');
             failure.status = response.status;
@@ -45,11 +46,14 @@ globalThis.SicratPwaNetwork = (() => {
         if (!response.ok) throw new Error('No fue posible verificar el acceso con el servidor.');
         const payload = await response.json();
         if (!payload.data?.profile || !payload.data?.validated_at) throw new Error('El servidor no pudo verificar el acceso.');
+        // Anclar antes de la petición evita sumar latencia o duración del barrido a las 12 horas.
+        Object.defineProperty(payload.data, 'localValidatedAt', { value: requestedAt });
         return payload.data;
     }
     async function invalidate(message, except = null) {
         vault.lock();
         const version = vault.epoch;
+        await db.remove('recovery', 'active');
         await broadcast('locked', { reason: message }, except);
         return version;
     }
@@ -131,7 +135,7 @@ globalThis.SicratPwaNetwork = (() => {
             if (value.profile.id !== current.profile || value.grant.context?.session !== current.session) {
                 const previousUser = value.profile.user;
                 if (previousUser !== current.user) await vault.forgetUser(previousUser);
-                else vault.lock();
+                else { vault.lock(); await db.remove('recovery', 'active'); }
                 await broadcast('locked', { reason: 'Cambió la cuenta o la elección. Desbloquea su perfil para continuar.' });
                 await state(true);
                 return current;
@@ -255,7 +259,8 @@ globalThis.SicratPwaNetwork = (() => {
         let user = vault.active?.profile.user;
         if (online === false) {
             if (path === '/api/auth/logout') {
-                if (user) await vault.forgetUser(user);
+                await vault.forgetAll();
+                await broadcast('session-ended');
                 await invalidate('Se cerró el perfil local. Se requiere conexión para cerrar también la sesión del servidor.');
             }
             return error('Esta operación requiere conexión a Internet.');
@@ -265,16 +270,17 @@ globalThis.SicratPwaNetwork = (() => {
         }
         if (['/api/auth/login', '/api/auth/logout', '/api/auth/election'].includes(path)) {
             await invalidate('El contexto se cerró.', client);
-            if (user && path === '/api/auth/logout') await vault.forgetUser(user);
+            if (path === '/api/auth/logout') {
+                await vault.forgetAll();
+                await broadcast('session-ended');
+            }
         }
         try {
             const response = await fetch(request, { cache: 'no-store' });
             if (response.ok && path === '/api/auth/login') {
-                const loggedInUser = (await response.clone().json()).data?.id;
-                // Also covers a restarted worker: previous keys need not be in memory to delete other accounts.
-                for (const profile of await db.profiles()) {
-                    if (profile.user !== loggedInUser) await db.clear(profile.id, true);
-                }
+                // Una sesión nueva elimina los perfiles anteriores, incluso si el worker había terminado.
+                await vault.forgetAll();
+                await broadcast('session-ended');
                 await broadcast('locked', { reason: 'Se inició una sesión nueva. Los perfiles anteriores están bloqueados.' });
             }
             // A successful write may invalidate lists, permissions, totals or related rows.

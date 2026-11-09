@@ -33,6 +33,26 @@ class ElectoralContextService extends Service
         $_SESSION['SICRAT_USER_ROLE'] = $process['access_id'] ?? null;
         $_SESSION['SICRAT_ORGANIZATION_PROCESS_ID'] = (int) $process['id'];
         if (!(new SessionValidator($this->db))->validate()) throw new \App\Core\HttpError('No autenticado.', 401);
+        (new \App\Auth\ElectionPreference())->remember($uuid);
+        unset($_SESSION['SICRAT_ELECTION_NOTICE']);
         return ['process' => $uuid, 'type' => $_SESSION['SICRAT_USER_TYPE_CODE'], 'rights' => $_SESSION['SICRAT_RIGHTS']];
+    }
+
+    public function initialize(): void
+    {
+        // Dos filas bastan para distinguir cero, una o varias elecciones, sin truncar la preferencia.
+        $available = $this->repository->available(2);
+        if (count($available) === 1) {
+            $this->select($this->uuidBinaryToString($available[0]['uuid']));
+            return;
+        }
+        $previous = (new \App\Auth\ElectionPreference())->read();
+        if (!$previous || !$available) return;
+        try {
+            $this->select($previous);
+        } catch (\App\Core\HttpError $error) {
+            if ($error->statusCode !== 404) throw $error;
+            $_SESSION['SICRAT_ELECTION_NOTICE'] = 'Tu última elección ya no está disponible. Selecciona una elección para continuar.';
+        }
     }
 }
