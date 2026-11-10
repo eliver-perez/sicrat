@@ -46,25 +46,21 @@ window.SicratAssignment = class {
         } finally {if(version===this.version){this.busy=false;this.panel.inert=false;this.change.disabled=false;}}
     }
     choose(person,close=true){
-        const ui=window.SicratPhase3;this.select.replaceChildren();ui.option(this.select,person?.id || '',person?.name || (this.data.can_root?'Sin responsable directo (raíz)':'Selecciona un responsable'));
+        const ui=window.SicratPhase3;this.select.replaceChildren();ui.option(this.select,person?.id || '',(person?[person.code,person.name].filter(Boolean).join(' · '):null) || (this.data.can_root?'Sin responsable directo (raíz)':'Selecciona un responsable'));
         this.select.required=false;
         this.summary.replaceChildren(ui.text('strong',person?.name || this.select.options[0].text),ui.text('small',person?[person.code,person.level_name].filter(Boolean).join(' · '):'','ux-help'));
-        this.renderLevels();if(close){this.panel.hidden=true;this.change.setAttribute('aria-expanded','false');}
+        this.renderLevels();if(close){this.panel.hidden=true;this.change.setAttribute('aria-expanded','false');this.renderCandidates();this.change.focus();}
     }
     renderCandidates(){
         const ui=window.SicratPhase3,data=this.data;this.rows.replaceChildren();
         window.SicratStructureBreadcrumb(this.crumbs,data.focus?data.ancestors:[],data.focus || {name:'Responsables disponibles'},id=>this.browse(id));
-        const add=(person,current=false)=>{
-            const row=ui.text('div','','assignment-candidate');row.dataset.member=person.id;
-            const info=ui.text('div','','assignment-candidate-copy');info.append(ui.text('strong',person.name),ui.text('small',[person.code,person.level_name].filter(Boolean).join(' · '),'ux-help'));
-            const actions=ui.text('div','','assignment-actions');const use=ui.text('button',current?'Elegir a esta persona':'Elegir','btn');use.type='button';use.onclick=()=>this.choose(person);actions.append(use);
-            if(!current){const team=ui.text('button','Ver equipo','btn');team.type='button';team.prepend(SicratUI.icon('network'));team.onclick=()=>this.browse(person.id);actions.append(team);}
-            row.append(info,actions);this.rows.append(row);
-        };
-        if(data.focus&&!this.search.value.trim())add(data.focus,true);
-        if(data.own&&data.own.id!==data.focus?.id&&!data.candidates.some(person=>person.id===data.own.id)&&!this.search.value.trim())add(data.own);
-        data.candidates.forEach(person=>add(person));
+        const people=[];
+        if(data.focus&&!this.search.value.trim())people.push(data.focus);
+        if(data.own&&data.own.id!==data.focus?.id&&!data.candidates.some(person=>person.id===data.own.id)&&!this.search.value.trim())people.push(data.own);
+        people.push(...data.candidates);
+        SicratUI.selectionTable(this.rows,{rows:people.map(person=>({...person,value:person.id,label:[person.code,person.name].filter(Boolean).join(' · '),detail:person.level_name})),selected:new Set([this.select.value]),label:'Responsables disponibles',choose:person=>this.choose(person),actions:(cell,person)=>{const team=ui.text('button','Ver equipo','btn');team.type='button';team.prepend(SicratUI.icon('network'));team.onclick=()=>this.browse(person.id);cell.append(team);}});
         if(data.can_root&&this.parent==='roots'&&!this.search.value.trim()){const root=ui.text('button','Sin responsable directo (raíz)','btn');root.type='button';root.onclick=()=>this.choose(null);this.rows.append(root);}
+
     }
     renderLevels() {
         const ui=window.SicratPhase3;

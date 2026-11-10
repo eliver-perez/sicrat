@@ -18,7 +18,7 @@ class UserAccessService extends Service
     {
         Authorization::requireOperation('users.read');
         $user = $this->repository->user($this->uuidStringToBinary($uuid));
-        return ['person' => $user['persona_uuid'] ? $this->uuidBinaryToString($user['persona_uuid']) : null, 'person_code' => $user['codigo_persona'],
+        return ['person' => $user['persona_uuid'] ? $this->uuidBinaryToString($user['persona_uuid']) : null, 'person_code' => $user['codigo_persona'], 'person_name' => $user['persona_nombre'],
             'accesses' => array_map(fn ($row) => ['process' => $this->uuidBinaryToString($row['uuid']), 'name' => $row['proceso'], 'type' => (int) $row['tipo_usuario'], 'type_name' => $row['tipo'], 'active' => (int) $row['activo']], $this->repository->accesses((int) $user['id']))];
     }
     public function assign(string $uuid, array $data): void

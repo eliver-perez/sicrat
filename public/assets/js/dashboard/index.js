@@ -11,6 +11,8 @@ window.SicratDashboard = (() => {
     'use strict';
     const node = id => document.getElementById(id);
     const make = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
+    const dark = () => document.documentElement.dataset.theme === 'dark';
+    const chartTheme = () => ({theme:{mode:dark()?'dark':'light'},chart:{background:'transparent',foreColor:dark()?'#b8c5d5':'#64748b'},grid:{borderColor:dark()?'#334155':'#e2e8f0'},tooltip:{theme:dark()?'dark':'light'}});
     const date = value => value ? new Date(value.replace(' ', 'T')).toLocaleString('es-MX', {dateStyle: 'medium', timeStyle: 'short'}) : '';
     let started = false, base, charts = [], chartLibrary, editing = null, deleting = null, offset = 0, notes = [], summaryLocal = false, notesLocal = false, busy = false, generation = 0;
     const status = (id, text) => { const target = node(id); if (target) { target.textContent = text; target.hidden = !text; } };
@@ -54,7 +56,11 @@ window.SicratDashboard = (() => {
         if (!data.activity.length) empty(activity, 'Aún no hay movimientos recientes en tu ámbito.');
         data.activity.forEach(item => {
             const row = make('article', undefined, 'db-list-item db-timeline-item'), content = make('div');
-            content.append(make('p', item.actor + ' · ' + item.action, 'db-item-title'), make('p', item.module + ' · ' + date(item.date), 'db-item-meta')); row.append(make('span', undefined, 'db-dot'), content); activity.append(row);
+            content.append(make('p', item.actor + ' · ' + item.action, 'db-item-title'));
+            if(item.subject)content.append(make('p',item.subject,'db-activity-subject'));
+            content.append(make('p', item.module + ' · ' + date(item.date), 'db-item-meta'));row.append(make('span',undefined,'db-dot'),content);
+            if(item.url){const link=make('a',undefined,'db-activity-link');link.href=base+item.url;link.title='Ver registro';link.setAttribute('aria-label','Ver '+(item.subject||item.module));link.append(window.SicratUI.icon('eye'));row.append(link);}
+            activity.append(row);
         });
         charts.forEach(chart => chart.destroy()); charts = []; const container = node('db-charts'); container.replaceChildren();
         node('dashboard').dataset.chartCount = data.charts.length;
@@ -73,7 +79,7 @@ window.SicratDashboard = (() => {
             const {u: ApexCharts} = await chartLibrary;
             if (nonce !== generation) return;
             for (const {item, plot} of slots) {
-                const chart = new ApexCharts(plot, {chart: {type: item.type, height: 235, width: '100%', toolbar: {show: false}, animations: {enabled: false}, fontFamily: 'inherit', foreColor: '#64748b', parentHeightOffset: 0}, series: [{name: 'Registros', data: item.rows.map(row => row.value)}], colors: ['#0d9488'], xaxis: {categories: item.rows.map(row => row.label), tickAmount: 5, labels: {trim: true, rotate: -35, hideOverlappingLabels: true, formatter: value => /^\d{4}-/.test(value) ? value.slice(5).split('-').reverse().join('/') : value}}, yaxis: {min: 0, forceNiceScale: true, labels: {formatter: value => Number.isInteger(value) ? String(value) : ''}}, plotOptions: {bar: {borderRadius: 4, columnWidth: '45%'}}, stroke: {width: item.type === 'area' ? 2 : 0, curve: 'straight'}, dataLabels: {enabled: false}, grid: {borderColor: '#e2e8f0', strokeDashArray: 4}, fill: {opacity: item.type === 'area' ? .15 : 1}, tooltip: {x: {show: true}}, noData: {text: 'Sin datos en este periodo'}});
+                const chart = new ApexCharts(plot, {theme:{mode:dark()?'dark':'light'},chart: {background:'transparent',type: item.type, height: 235, width: '100%', toolbar: {show: false}, animations: {enabled: false}, fontFamily: 'inherit', foreColor: dark()?'#b8c5d5':'#64748b', parentHeightOffset: 0}, series: [{name: 'Registros', data: item.rows.map(row => row.value)}], colors: ['#0d9488'], xaxis: {categories: item.rows.map(row => row.label), tickAmount: 5, labels: {trim: true, rotate: -35, hideOverlappingLabels: true, formatter: value => /^\d{4}-/.test(value) ? value.slice(5).split('-').reverse().join('/') : value}}, yaxis: {min: 0, forceNiceScale: true, labels: {formatter: value => Number.isInteger(value) ? String(value) : ''}}, plotOptions: {bar: {borderRadius: 4, columnWidth: '45%'}}, stroke: {width: item.type === 'area' ? 2 : 0, curve: 'straight'}, dataLabels: {enabled: false}, grid: {borderColor: dark()?'#334155':'#e2e8f0', strokeDashArray: 4}, fill: {opacity: item.type === 'area' ? .15 : 1}, tooltip: {theme:dark()?'dark':'light',x: {show: true}}, noData: {text: 'Sin datos en este periodo'}});
                 charts.push(chart); await chart.render();
             }
         } catch { container.querySelectorAll('.db-chart').forEach(el => { el.hidden = true; }); container.querySelectorAll('details').forEach(el => { el.open = true; }); }
@@ -105,7 +111,8 @@ window.SicratDashboard = (() => {
             if (!notes.length) empty(target, 'Anota una idea o un recordatorio. Sólo tú podrás consultarlo.');
             notes.forEach(note => {
                 const row = make('article', undefined, 'db-list-item' + (note.realizada ? ' db-note-done' : ''));
-                if (note.fijada) row.append(make('p', 'Fijada', 'db-eyebrow'));
+                row.classList.toggle('db-note-pinned',note.fijada);
+                const heading=make('div',undefined,'db-note-heading');heading.append(window.SicratUI.icon(note.realizada?'circle-check':note.fijada?'pin':note.recordatorio?'bell':'sticky-note'),make('span',note.realizada?'Realizada':note.fijada?'Fijada':note.recordatorio?'Recordatorio':'Nota personal'));row.append(heading);
                 row.append(make('p', note.texto, 'db-note-text'));
                 if (note.recordatorio) row.append(make('p', 'Recordatorio: ' + date(note.recordatorio), 'db-item-meta' + (!note.realizada && Date.parse(note.recordatorio) <= Date.now() ? ' db-item-urgent' : '')));
                 if (note.realizada) row.append(make('p', 'Realizada', 'db-item-meta'));
@@ -126,6 +133,7 @@ window.SicratDashboard = (() => {
     }
     function start() {
         if (started || !node('dashboard')) return; started = true; base = node('dashboard').dataset.base.replace(/\/$/, '') + '/';
+        window.addEventListener('sicrat:theme',()=>{charts.forEach(chart=>chart.updateOptions(chartTheme(),false,false));});
         node('db-period').addEventListener('change', summary);
         node('db-refresh').addEventListener('click', () => { summary(); loadNotes(); });
         node('db-note-new').addEventListener('click', () => edit());

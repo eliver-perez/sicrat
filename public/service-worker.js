@@ -38,7 +38,10 @@ self.addEventListener('fetch', event => {
                 // Un perfil recuperado puede sobrevivir a la cookie HTTP. Nunca impedir abrir el login.
                 const loginPage = url.pathname.startsWith('/autenticacion')
                     || new URL(response.url).pathname.startsWith('/autenticacion');
-                if (loginPage) vault.lock();
+                if (loginPage) {
+                    vault.lock();
+                    if(!url.pathname.startsWith('/autenticacion')) await network.authenticationLost();
+                }
                 if (vault.active && !loginPage) {
                     try {
                         await network.validate(true);
@@ -67,7 +70,8 @@ self.addEventListener('fetch', event => {
         if (preparingClients.has(event.clientId)) await preparingClients.get(event.clientId);
         return network.read(event, rule);
     })());
-    // Media, PDFs, private files, other APIs and dynamic HTML never enter a cache.
+    else if(url.pathname.startsWith('/api/'))event.respondWith(network.onlineRequest(request));
+    // Media, PDFs, private files and dynamic HTML never enter a cache.
 });
 
 async function status(client) {

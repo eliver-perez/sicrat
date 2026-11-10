@@ -57,8 +57,8 @@ class PersonsRepository
                             COALESCE(p.materno, '')
                         )
                     )",
-                    // Mantener la comparación binaria del código sin forzar a ASCII la búsqueda por nombre.
-                    'CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_bin',
+                    // Comparar nombres y códigos sin distinguir acentos ni mayúsculas.
+                    'CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_unicode_ci',
                     'p.nombre',
                     'p.paterno',
                     'p.materno',
@@ -70,8 +70,8 @@ class PersonsRepository
 
         foreach ($fields as $i => $field) {
             $param = "search_$i";
-            $conditions[] = "$field LIKE :$param";
-            $params[$param] = '%' . $data['search'] . '%';
+            $conditions[] = "CONVERT(($field) USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE :$param";
+            $params[$param] = '%' . trim($data['search'] ?? '') . '%';
         }
 
         $sql .= " AND (" . implode(' OR ', $conditions) . ")";

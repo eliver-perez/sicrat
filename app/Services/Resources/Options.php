@@ -33,7 +33,7 @@ final class Options
 		$params=[$organization];
 		if($type==='personas') {
 			[$where,$args]=(new ScopeRepository($this->repository->connection()))->predicate($permission,$process,'p');
-			$sql="SELECT p.uuid,CONCAT_WS(' ',p.nombre,p.paterno,p.materno) nombre,p.codigo_persona FROM personas p WHERE p.organizacion=? AND ($where) AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) LIKE ? OR p.codigo_persona LIKE ?) ORDER BY p.nombre,p.id";
+			$sql="SELECT p.uuid,CONCAT_WS(' ',p.nombre,p.paterno,p.materno) nombre,p.codigo_persona FROM personas p WHERE p.organizacion=? AND ($where) AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) COLLATE utf8mb4_unicode_ci LIKE ? OR CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?) ORDER BY p.nombre,p.id";
 			$params=[...$params,...$args,$search,$search];
 		}
 		elseif($type==='usuarios') {

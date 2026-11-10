@@ -236,11 +236,27 @@ final class Summary
         }
         $where="a.organizacion=? AND (a.proceso=? OR (a.proceso IS NULL AND a.entidad='estructura' AND a.accion IN ('alta','baja','reactivacion','cambio_responsable','transferencia_equipo','transferencia_individual','aprobacion_transferencia','rechazo_transferencia','clonacion_integrante') AND JSON_CONTAINS(a.informacion,?, '$.elecciones'))) AND (".implode(' OR ',$parts).') AND ('.$actor.')';
         $params=[$this->organization,$this->process,(string)$this->process,...$params,...$actorParams];
-        $rows=$this->repository->rows("SELECT a.usuario,a.accion,a.entidad,a.f_registro,u.nombre FROM auditoria a JOIN usuarios u ON u.id=a.usuario WHERE $where ORDER BY a.f_registro DESC,a.id DESC LIMIT 12",$params);
+        // Subjects come from the already authorized source, never from unrestricted audit JSON.
+        $subject="CASE a.entidad
+            WHEN 'personas' THEN (SELECT CONCAT_WS(' ',p.nombre,p.paterno,p.materno) FROM personas p WHERE p.id=a.entidad_id)
+            WHEN 'estructura' THEN (SELECT CONCAT_WS(' ',p.nombre,p.paterno,p.materno) FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.id=a.entidad_id)
+            WHEN 'tareas' THEN (SELECT titulo FROM tareas WHERE id=a.entidad_id)
+            WHEN 'incidencias' THEN (SELECT CONCAT_WS(' · ',folio,LEFT(descripcion,90)) FROM incidencias WHERE id=a.entidad_id)
+            WHEN 'peticiones' THEN (SELECT CONCAT_WS(' · ',folio,LEFT(descripcion,90)) FROM peticiones WHERE id=a.entidad_id)
+            WHEN 'interacciones' THEN (SELECT CONCAT_WS(' · ',ti.tipo,r.resultado) FROM interacciones r JOIN tipos_interaccion ti ON ti.id=r.tipo WHERE r.id=a.entidad_id)
+            WHEN 'jornada_versiones' THEN (SELECT CONCAT('Captura ',numero) FROM jornada_versiones WHERE id=a.entidad_id) END";
+        $reference="CASE a.entidad WHEN 'tareas' THEN (SELECT uuid FROM tareas WHERE id=a.entidad_id) WHEN 'incidencias' THEN (SELECT uuid FROM incidencias WHERE id=a.entidad_id) WHEN 'peticiones' THEN (SELECT uuid FROM peticiones WHERE id=a.entidad_id) WHEN 'interacciones' THEN (SELECT uuid FROM interacciones WHERE id=a.entidad_id) END";
+        $rows=$this->repository->rows("SELECT a.usuario,a.accion,a.entidad,a.f_registro,u.nombre,LEFT(($subject),120) subject,($reference) reference,JSON_UNQUOTE(JSON_EXTRACT(a.datos_nuevos,'$.estado')) event_state FROM auditoria a JOIN usuarios u ON u.id=a.usuario WHERE $where ORDER BY a.f_registro DESC,a.id DESC LIMIT 12",$params);
         $series=$this->repository->rows("SELECT DATE(a.f_registro) label,COUNT(*) value FROM auditoria a WHERE $where AND a.f_registro>=? AND a.f_registro<? GROUP BY DATE(a.f_registro) ORDER BY label",[...$params,$this->since,$this->until]);
         $this->chart('actividad','Actividad por día',$this->series($series,$days),'area');
         $modules=['personas'=>'Personas','estructura'=>'Estructura','tareas'=>'Tareas','incidencias'=>'Incidencias','peticiones'=>'Peticiones','interacciones'=>'Interacciones','jornada_versiones'=>'Jornada'];
         $actions=['capturar'=>'Registró una captura','corregir'=>'Propuso una corrección','validar'=>'Validó una captura','rechazar'=>'Rechazó una captura','participacion'=>'Actualizó una participación','crear'=>'Registró información','creacion'=>'Registró información','alta'=>'Registró información','editar'=>'Actualizó información','actualizar'=>'Actualizó información','actualizar_estado'=>'Actualizó el estado','cerrar'=>'Cerró un registro','solicitar_cierre'=>'Solicitó un cierre','reasignar'=>'Reasignó un registro','cancelar'=>'Canceló un registro','registrar'=>'Registró información'];
-        return array_map(fn($row)=>['actor'=>(int)$row['usuario']===$this->actor ? 'Tú' : $row['nombre'],'action'=>$actions[$row['accion']] ?? 'Registró un movimiento','module'=>$modules[$row['entidad']],'date'=>$row['f_registro']],$rows);
+        return array_map(function($row) use($actions,$modules) {
+            $action=$actions[$row['accion']] ?? 'Registró un movimiento';
+            $states=['pendiente'=>'pendiente','en_proceso'=>'en proceso','validacion'=>'en validación','completada'=>'completada','cerrada'=>'cerrada','cancelada'=>'cancelada','correccion'=>'en corrección','abierta'=>'abierta','validada'=>'validada'];
+            if($row['accion']==='actualizar_estado' && isset($states[$row['event_state']]))$action='Cambió el estado a '.$states[$row['event_state']];
+            if((int)$row['usuario']===$this->actor)$action=strtr($action,['Registró'=>'Registraste','Actualizó'=>'Actualizaste','Cerró'=>'Cerraste','Solicitó'=>'Solicitaste','Reasignó'=>'Reasignaste','Canceló'=>'Cancelaste','Propuso'=>'Propusiste','Validó'=>'Validaste','Rechazó'=>'Rechazaste','Cambió'=>'Cambiaste']);
+            return ['actor'=>(int)$row['usuario']===$this->actor ? 'Tú' : $row['nombre'],'action'=>$action,'subject'=>$row['subject'],'module'=>$modules[$row['entidad']],'date'=>$row['f_registro'],'url'=>$row['reference']===null ? null : 'operations/?module='.$row['entidad'].'&record='.Values::uuidText($row['reference'])];
+        },$rows);
     }
 }

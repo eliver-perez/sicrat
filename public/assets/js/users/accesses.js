@@ -16,9 +16,9 @@ function loadUserAccesses(uuid) {
                 $('#user-access-process').val(access.process); $('#user-access-type').val(String(access.type)); $('#user-access-active').prop('checked', Boolean(access.active));
             }))); rows.append(line);
         });
-        $('#user-person-current').text(response.data.person_code ? `Persona vinculada: ${response.data.person_code}` : 'La cuenta no tiene una persona vinculada.');
+        $('#user-person-current').text(response.data.person_code ? `Persona vinculada: ${response.data.person_code} · ${response.data.person_name}` : 'La cuenta no tiene una persona vinculada.');
         const selector = $('#user-person-select').empty().append($('<option>', {value: '', text: 'Sin persona vinculada'}));
-        if (response.data.person) selector.append($('<option>', {value: response.data.person, text: response.data.person_code, selected: true}));
+        if (response.data.person) selector.append($('<option>', {value: response.data.person, text: [response.data.person_code,response.data.person_name].filter(Boolean).join(' · '), selected: true}));
         const dialog = document.getElementById('user-access-dialog'); if (!dialog.open) dialog.showModal();
     }).fail(userAccessError);
 }

@@ -50,36 +50,39 @@ window.SicratOperations = {
 		form.addEventListener('submit',this.guard(()=>submit(this.values(form),form))); target.append(form); return form;
 	},
 	async picker(target,label,path,multiple = false,initial = [],required = false,style='select') {
-		const chosen=new Map(initial.map(item=>[item.uuid,item.label || item.nombre || item.titulo])); const box=this.text('div','','op-picker ux-full');
-		const searchRow=this.text('div','','ux-inline-form'); const search=this.field(searchRow,'picker_search_'+(++this.sequence),label,'search'); search.setAttribute('aria-label','Buscar '+label.toLowerCase());
-		let offset=0,hasMore=false,nonce=0; const select=document.createElement('select'); select.className='form-input'; select.multiple=multiple; select.required=required; select.setAttribute('aria-label',label);
-		if (multiple) select.size=6;
-		const chips=this.text('div','','op-picker-chosen'); const more=this.button('Más opciones',()=>load(true));
-		const selectedCard=this.text('div','','ux-selected-person');selectedCard.hidden=true;
-		const cards=this.text('div','','ux-choice-list');cards.hidden=style!=='choices';
-		function redraw() {
-			chips.replaceChildren();
-			if(multiple){chosen.forEach((name,uuid)=>chips.append(window.SicratOperations.button(name+' ×',()=>{chosen.delete(uuid); Array.from(select.options).forEach(option=>{if(option.value===uuid) option.selected=false;});cards.querySelectorAll('input').forEach(input=>input.checked=chosen.has(input.value)); redraw();})));if(style==='choices')select.hidden=true;}
-			else{const selected=select.value && Array.from(select.options).find(option=>option.value===select.value);selectedCard.replaceChildren();selectedCard.hidden=!selected;searchRow.hidden=select.hidden=Boolean(selected);if(selected)selectedCard.append(window.SicratOperations.text('span',selected.textContent),window.SicratOperations.button('Cambiar',()=>{chosen.clear();select.value='';select.dispatchEvent(new Event('change'));search.focus();}));}
-		}
-		const load=async append=> {
-			const request=++nonce; if (!append) offset=0;
-			const result=await this.api(path+(path.includes('?') ? '&' : '?')+new URLSearchParams({search:search.value,limit:25,offset})); if (request!==nonce) return;
-			if (!append) { select.replaceChildren(); if (!multiple) window.SicratPhase3.option(select,'','Selecciona una opción'); chosen.forEach((name,uuid)=>window.SicratPhase3.option(select,uuid,name,true)); }
-			const rows=result.rows || result.members || result.sections || result;
-			rows.forEach(item=>{const uuid=item.uuid || item.id; const name=item.label || (item.section ? 'Sección '+item.section+' · '+item.municipality : item.codigo_persona ? item.codigo_persona+' · '+item.nombre : item.nombre || item.titulo || item.name); if (!Array.from(select.options).some(option=>option.value===uuid)) window.SicratPhase3.option(select,uuid,name,chosen.has(uuid));});
-			if(style==='choices'){
-				if(!append)cards.replaceChildren();
-				if(rows.length===1 && !result.pagination?.has_more && offset===0 && !search.value.trim() && !chosen.size){const item=rows[0];chosen.set(item.uuid || item.id,item.label || item.nombre || item.name);}
-				rows.forEach(item=>{const uuid=item.uuid || item.id;if(Array.from(cards.querySelectorAll('input')).some(input=>input.value===uuid))return;const wrapper=this.text('label','','ux-choice');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=uuid;checkbox.checked=chosen.has(uuid);const name=item.label || item.nombre || item.name;wrapper.append(window.SicratUI.icon('vote'),this.text('span',name),checkbox);checkbox.addEventListener('change',()=>{if(checkbox.checked)chosen.set(uuid,name);else chosen.delete(uuid);Array.from(select.options).forEach(option=>option.selected=chosen.has(option.value));redraw();});cards.append(wrapper);});
-			}
-			hasMore=!!result.pagination?.has_more; more.hidden=!hasMore; if (hasMore) offset+=25;
-			redraw();
-		};
-		searchRow.classList.add('ux-search-row');searchRow.append(this.button('Buscar',()=>load(false))); box.append(selectedCard,searchRow,select,cards,chips,more); this.place(target,box);
-		select.addEventListener('change',()=> { if (!multiple) chosen.clear(); Array.from(select.options).forEach(option=> { if (option.selected && option.value) chosen.set(option.value,option.textContent); else chosen.delete(option.value); }); redraw(); });
-		redraw(); await load(false); return {box,select,values:()=>multiple ? Array.from(chosen.keys()) : select.value,chosen,reset:async()=>{chosen.clear();select.value='';search.value='';redraw();await load(false);}};
-	},
+        const ui=window.SicratUI, chosen=new Map(initial.map(item=>[item.uuid,ui.recordLabel(item)]));
+        const box=this.text('div','','op-picker ux-full'), searchRow=this.text('div','','ux-search-row');
+        const search=this.field(searchRow,'picker_search_'+(++this.sequence),label,'search');search.placeholder='Buscar por nombre o código';
+        const select=document.createElement('select');select.className='ux-sr-only';select.multiple=multiple;select.required=required;select.tabIndex=-1;select.setAttribute('aria-label',label);
+        const selectedCard=this.text('div','','ux-selected-person'), rowsBox=this.text('div'), chips=this.text('div','','op-picker-chosen');
+        const pager=this.text('div','','ux-pagination');let offset=0,nonce=0,rows=[],hasMore=false,timer;
+        const previous=this.button('Anterior',()=>{offset=Math.max(0,offset-25);return load();});const next=this.button('Siguiente',()=>{offset+=25;return load();});pager.append(previous,next);
+        const sync=()=>{select.replaceChildren();if(!multiple)window.SicratPhase3.option(select,'','Selecciona una opción');chosen.forEach((name,id)=>window.SicratPhase3.option(select,id,name,true));rows.forEach(row=>{if(!chosen.has(row.value))window.SicratPhase3.option(select,row.value,row.label);});if(!multiple)select.value=chosen.keys().next().value || '';};
+        const redraw=()=>{
+            chips.replaceChildren();selectedCard.replaceChildren();selectedCard.hidden=multiple||!chosen.size;
+            searchRow.hidden=rowsBox.hidden=pager.hidden=!multiple&&chosen.size>0;
+            if(!multiple&&chosen.size)selectedCard.append(this.text('span',chosen.values().next().value),this.button('Cambiar',()=>{chosen.clear();sync();select.dispatchEvent(new Event('change'));search.focus();}));
+            if(multiple)chosen.forEach((name,id)=>chips.append(this.button(name+' ×',()=>{chosen.delete(id);sync();select.dispatchEvent(new Event('change'));})));
+            const focused=rowsBox.querySelector('tr:focus')?.dataset.value;
+            ui.selectionTable(rowsBox,{rows,selected:new Set(chosen.keys()),multiple,label,choose:row=>{if(!multiple)chosen.clear();if(multiple&&chosen.has(row.value))chosen.delete(row.value);else chosen.set(row.value,row.label);sync();select.dispatchEvent(new Event('change'));if(multiple)rowsBox.querySelectorAll('tr[data-value]').forEach(line=>{if(line.dataset.value===String(row.value))line.focus();});else selectedCard.querySelector('button')?.focus();}});
+            if(focused)rowsBox.querySelectorAll('tr[data-value]').forEach(line=>{if(line.dataset.value===focused)line.focus();});
+            previous.disabled=offset===0;next.disabled=!hasMore;
+        };
+        const load=async()=>{
+            const request=++nonce;const result=await this.api(path+(path.includes('?')?'&':'?')+new URLSearchParams({search:search.value.trim(),limit:25,offset}));if(request!==nonce)return;
+            rows=(result.rows||result.members||result.sections||result).map(item=>({...item,value:item.uuid||item.id,label:item.label||(item.section?'Sección '+item.section+' · '+item.municipality:ui.recordLabel(item))}));hasMore=!!result.pagination?.has_more;
+            rows.forEach(row=>{if(chosen.has(row.value))chosen.set(row.value,row.label);});
+            if(style==='choices'&&rows.length===1&&!hasMore&&!offset&&!search.value.trim()&&!chosen.size)chosen.set(rows[0].value,rows[0].label);
+            sync();redraw();
+        };
+        select.addEventListener('change',()=>{chosen.clear();[...select.selectedOptions].filter(option=>option.value).forEach(option=>chosen.set(option.value,option.textContent));redraw();});
+        select.addEventListener('invalid',event=>{event.preventDefault();search.focus();this.notice('Selecciona '+label.toLowerCase()+'.','error');});
+        searchRow.append(this.button('Buscar',()=>{clearTimeout(timer);offset=0;return load();}));
+        search.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();event.stopPropagation();clearTimeout(timer);offset=0;this.guard(load)();}});
+        search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>{if(!box.isConnected)return;offset=0;this.guard(load)();},300);});
+        box.append(selectedCard,searchRow,select,rowsBox,chips,pager);this.place(target,box);await load();
+        return {box,select,values:()=>multiple?[...chosen.keys()]:select.value,chosen,reset:async()=>{chosen.clear();search.value='';offset=0;await load();}};
+    },
 	personPicker(target,label,action = 'crear',multiple = false,initial = [],required = false,entity = this.entity,participating = true) { return this.picker(target,label,'operations/'+entity+'/people?action='+action+'&participating='+(participating ? '1' : '0'),multiple,initial,required); },
 	table(target,columns,rows,actions = null) {
 		target.replaceChildren(); if (!rows.length) { target.append(this.text('p','Sin registros para los filtros seleccionados.','text-default-600 p-3')); return; }

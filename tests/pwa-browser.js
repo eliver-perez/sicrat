@@ -160,6 +160,7 @@ module.exports = async ({ base, directory, call, evaluate, waitFor, navigate, pa
     };
     for (let attempt = 0; attempt < 100 && !await otherEvaluate('Boolean(window.SicratPwa && navigator.serviceWorker.controller)'); attempt++) await pause(100);
     check(await otherEvaluate("SicratPwa.send('LIST').then(()=>false,()=>true)"), 'Another tab cannot inherit an offline decryption grant');
+    await otherEvaluate('SicratPwa.prepare()'); // Finish automatic startup before explicitly transferring the grant.
     await setOffline(false);
     await otherEvaluate('SicratPwa.send("CONNECT")');
     await waitFor('document.getElementById("offline-content").hidden');
@@ -223,6 +224,8 @@ module.exports = async ({ base, directory, call, evaluate, waitFor, navigate, pa
     check(!(await send('LIST')).some(row => JSON.stringify(row.body).includes('Persona privada PWA A')), 'B cannot search or recover A offline');
     await setOffline(false); await send('PROBE');
     const logout = await evaluate(`(async()=>{const r=await fetch('/api/auth/logout',{method:'POST',headers:{'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content}});return r.status;})()`);
+    await navigate('/autenticacion/');
+    await waitFor('window.SicratPwa && navigator.serviceWorker.controller');
     check(logout === 200 && !(await send('STATUS')).profiles.some(profile => profile.user === fixture.b.user), 'Logout deletes user data without deleting public assets');
     const cacheAudit = await evaluate(`(async()=>{const keys=await caches.keys();const urls=[];for(const key of keys){const cache=await caches.open(key);urls.push(...(await cache.keys()).map(r=>new URL(r.url).pathname));}return {keys,urls};})()`);
     check(cacheAudit.keys.some(key => key.startsWith('sicrat-static-')) && cacheAudit.urls.includes('/offline.html'), 'Shared static cache survives logout');
@@ -233,7 +236,7 @@ module.exports = async ({ base, directory, call, evaluate, waitFor, navigate, pa
     await setOffline(true); await send('PROBE');
     control('disable');
     await setOffline(false); await send('PROBE');
-    await waitFor('document.querySelector("[data-offline-shell]")');
+    await waitFor('location.pathname.startsWith("/autenticacion") && document.querySelector(".sicrat-session-message")');
     check(!(await send('STATUS')).profiles.some(profile => profile.user === fixture.a.user), 'Disabled account loses all offline grants');
 
     await evaluate('caches.open("sicrat-static-obsolete")');

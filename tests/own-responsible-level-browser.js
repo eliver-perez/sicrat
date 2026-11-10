@@ -16,12 +16,12 @@ module.exports=async({directory,call,evaluate,waitFor,navigate,api,click,shot})=
     await same(0);check((await api(`structure-levels/${f.levels[2]}`,'PUT',{election:f.election,name:'Coordinador de Zona',order:2,can_recruit:1,same_level:1,active:1})).status===200,'Nombre configurado de Zona');
     await login(false);await open();await assertDefaults(false);
     await click('#person-assignment-dialog .assignment-control>button');
-    check(await evaluate(`!!document.querySelector('#person-assignment-dialog .assignment-candidate[data-member="${f.root}"]')`),'Eliver disponible al cambiar responsable');
-    await evaluate(`document.querySelector('#person-assignment-dialog .assignment-candidate[data-member="${f.child}"] button').click()`);
+    check(await evaluate(`!!document.querySelector('#person-assignment-dialog .ux-selection-row[data-value="${f.root}"]')`),'Eliver disponible al cambiar responsable');
+    await evaluate(`document.querySelector('#person-assignment-dialog .ux-selection-row[data-value="${f.child}"]').click()`);
     check(await evaluate(`document.querySelector('#person-assignment-dialog [name=responsible]').value===${JSON.stringify(f.child)}&&document.querySelector('#person-assignment-levels select').value===${JSON.stringify(f.levels[3])}`),'Cambiar a Zona preselecciona nivel inferior aunque permita mismo nivel');
     await click('#person-assignment-dialog .assignment-control>button');
     check(await evaluate(`document.querySelector('#person-assignment-dialog [name=responsible]').value===${JSON.stringify(f.child)}`),'Abrir selector respeta responsable elegido manualmente');
-    await evaluate(`document.querySelector('#person-assignment-dialog .assignment-candidate[data-member="${f.root}"] button').click()`);await assertDefaults(false);await shot('own-level-same-disabled');
+    await evaluate(`document.querySelector('#person-assignment-dialog .ux-selection-row[data-value="${f.root}"]').click()`);await assertDefaults(false);await shot('own-level-same-disabled');
     await login(true);await same(1);await login(false);await open();await assertDefaults(true);await shot('own-level-same-enabled');
     await evaluate('document.querySelector("#person-assignment-dialog form").requestSubmit()');await waitFor('!document.getElementById("person-assignment-dialog")&&document.querySelector("#person-structure a")');
     const person=(await api(`persons/${f.person}`)).data;const member=person.structure.members.find(m=>m.structure===f.structure);check(!!member,'Asignación al titular se guarda con alcance descendientes');

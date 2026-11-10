@@ -1,0 +1,46 @@
+/* Shared palette: existing Tailwick variables also drive the custom modules. */
+html[data-theme="dark"] {
+    color-scheme:dark;
+    --color-card:#182433;--color-default-50:#111c2a;--color-default-100:#1e2c3d;--color-default-150:#253448;
+    --color-default-200:#334155;--color-default-300:#475569;--color-default-400:#94a3b8;
+    --color-default-500:#a8b8ca;--color-default-600:#b8c5d5;--color-default-700:#cbd5e1;--color-default-800:#e2e8f0;--color-default-900:#f1f5f9;
+    --color-primary-50:#16374b;--color-primary-100:#174663;
+    --color-purple-50:#312044;--color-purple-600:#d8b4fe;--color-green-50:#12392d;--color-green-600:#86efac;
+    --color-amber-50:#3a2b19;--color-amber-700:#fcd34d;
+}
+html[data-theme="dark"] body{background:#111c2a;color:#e2e8f0}
+html[data-theme="dark"] :is(.card,.app-header,dialog,.hs-dropdown-menu,.swal2-popup){background-color:var(--color-card);color:var(--color-default-800);border-color:var(--color-default-200)}
+html[data-theme="dark"] :is(main,dialog,.app-header,body:has(#form-authenticate)) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background-color:#111c2a;color:#e2e8f0;border-color:#475569}
+html[data-theme="dark"] :is(input,textarea)::placeholder{color:#94a3b8;opacity:1}
+html[data-theme="dark"] option{background:#182433;color:#e2e8f0}
+html[data-theme="dark"] :is(main,dialog) :is(.bg-white,.bg-gray-50,.bg-slate-50){background-color:var(--color-card)}
+html[data-theme="dark"] :is(main,dialog) :is(th,td){border-color:#334155}
+html[data-theme="dark"] :is(main,dialog) th{background:#1e2c3d;color:#e2e8f0}
+html[data-theme="dark"] :is(main,dialog) tbody tr:hover{background:#253448}
+html[data-theme="dark"] .ux-badge-success{background:#12392d;color:#a7f3d0}
+html[data-theme="dark"] .ux-badge-danger{background:#481e2b;color:#fecdd3}
+html[data-theme="dark"] :is(.btn:not(.bg-primary):not(.bg-danger),.ux-chat-icon){background-color:#253448;color:#e2e8f0;border-color:#475569}
+html[data-theme="dark"] :is(.btn:not(.bg-primary):not(.bg-danger)):hover{background:#334155}
+html[data-theme="dark"] :is(.ux-tabs [role=tab].active,.ux-choice:has(input:checked)){background:#16374b;color:#7dd3fc}
+html[data-theme="dark"] .swal2-validation-message{background:#253448;color:#fecdd3}
+html[data-theme="dark"] .swal2-close{color:#cbd5e1}
+html[data-theme="dark"] .swal2-input,html[data-theme="dark"] .swal2-textarea{background:#111c2a;color:#e2e8f0;border-color:#475569}
+html[data-theme="dark"] [data-offline-shell]{background:#111c2a;color:#e2e8f0}
+html[data-theme="dark"] :is(.pwa-card,.pwa-shell input,.pwa-shell select){background:#182433;color:#e2e8f0;border-color:#475569}
+html[data-theme="dark"] :is(.pwa-shell dt,.pwa-heading p){color:#b8c5d5}
+html[data-theme="dark"] .pwa-shell a{color:#7dd3fc}
+html[data-theme="dark"] .pwa-record{border-color:#334155}
+/* Negative monochrome treatment preserves the supplied SICRAT silhouette; no Tailwick branding. */
+.sicrat-brand img{object-fit:contain}
+html[data-theme="dark"] .sicrat-brand img,.sicrat-brand-on-dark img{filter:brightness(0) invert(1)}
+.sicrat-brand{display:inline-flex;align-items:center}
+#app-menu .logo-light,#app-menu .logo-dark{display:none}
+html:not([data-theme="dark"]) #app-menu .logo-dark{display:block}
+html[data-theme="dark"] #app-menu .logo-light{display:block}
+html[data-sidenav-color="dark"] #app-menu .sicrat-brand img{filter:brightness(0) invert(1)}
+html[data-theme="dark"] #app-menu{background:#182433;color:#e2e8f0}
+html[data-theme="dark"] #app-menu .menu-link{color:#cbd5e1}
+html[data-theme="dark"] #app-menu .menu-link:is(:hover,.active){background:#253448;color:#7dd3fc}
+.sicrat-session-message{padding:12px;margin:20px 0 0;border:1px solid #fbbf24;border-radius:8px;background:#fffbeb;color:#92400e;text-align:left;font-size:14px;line-height:1.6}
+html[data-theme="dark"] .sicrat-session-message{background:#3a2b19;color:#fde68a;border-color:#92400e}
+html[data-theme="dark"] img.sicrat-brand-icon{filter:brightness(0) invert(1)}

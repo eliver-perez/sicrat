@@ -2,7 +2,7 @@
 @media(max-width:1199px){.db-kpis{grid-template-columns:repeat(var(--db-tablet-count,3),minmax(0,1fr))}.db-main{grid-template-columns:minmax(0,1.2fr) minmax(250px,1fr)}.db-panel{padding:18px}}
 @media(max-width:850px){.db-heading{align-items:flex-start;flex-direction:column}.db-main,.db-bottom{grid-template-columns:minmax(0,1fr)}.db-kpis{grid-template-columns:repeat(var(--db-mobile-count,2),minmax(0,1fr))}.db-toolbar{width:100%}.db-toolbar label{flex:1}.db-toolbar select{width:100%}.db-kpi{padding:14px}.db-panel-heading{align-items:flex-start;flex-wrap:wrap}}
 @media(max-width:359px){.db-kpis{grid-template-columns:minmax(0,1fr)}.db-panel{padding:15px}.db-kpi-top{min-height:0}.db-kpi-value{margin-top:4px}.db-toolbar{flex-wrap:wrap}}
-html.dark #dashboard{--db-ink:#e2e8f0;--db-muted:#94a3b8;--db-line:#334155;--db-accent:#2dd4bf}html.dark #dashboard .db-panel,html.dark #dashboard .db-kpi,html.dark #dashboard dialog,html.dark #dashboard button,html.dark #dashboard select,html.dark #dashboard input,html.dark #dashboard textarea{background:#182433}html.dark #dashboard .db-primary{background:#115e59}html.dark #dashboard .db-kpi-icon{background:#243447}
+html[data-theme="dark"] #dashboard{--db-ink:#e2e8f0;--db-muted:#94a3b8;--db-line:#334155;--db-accent:#2dd4bf}html[data-theme="dark"] #dashboard .db-panel,html[data-theme="dark"] #dashboard .db-kpi,html[data-theme="dark"] #dashboard dialog,html[data-theme="dark"] #dashboard button,html[data-theme="dark"] #dashboard select,html[data-theme="dark"] #dashboard input,html[data-theme="dark"] #dashboard textarea{background:#182433}html[data-theme="dark"] #dashboard .db-primary{background:#115e59}html[data-theme="dark"] #dashboard .db-kpi-icon{background:#243447}
 
 /* Pair each chart with a working panel instead of leaving an empty column. */
 .db-main{align-items:start}.db-charts{display:contents}.db-charts>.db-panel{grid-column:1}
@@ -14,3 +14,22 @@ html.dark #dashboard{--db-ink:#e2e8f0;--db-muted:#94a3b8;--db-line:#334155;--db-
 #dashboard[data-chart-count="1"] #db-activity-panel{grid-column:1/-1}
 #dashboard[data-chart-count="0"] .db-main:has(#db-activity-panel[hidden]):has(#db-pending-panel[hidden]){display:block}
 @media(max-width:850px){.db-main,#dashboard[data-chart-count="0"] .db-main{display:flex;flex-direction:column}.db-main>.db-panel,.db-charts>.db-panel{width:100%;grid-row:auto!important}.db-charts{display:contents}#db-activity{max-height:400px}}
+#dashboard .db-timeline-item{grid-template-columns:8px minmax(0,1fr) auto;align-items:start}
+#dashboard .db-activity-subject{font-size:12px;line-height:1.6;margin:4px 0;color:var(--db-muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#dashboard .db-activity-link{display:grid;place-items:center;min-width:36px;min-height:36px;border:1px solid var(--db-line);border-radius:8px;color:var(--db-accent)}
+#dashboard .db-activity-link:hover{background:var(--color-default-100,#f1f5f9)}
+#db-notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+#dashboard #db-notes>.db-list-item{border:1px solid var(--db-line);border-left:3px solid #0d9488;border-radius:10px;padding:16px;background:linear-gradient(135deg,#f0fdfa,#ffffff 65%);box-shadow:0 3px 10px #17324908}
+#dashboard #db-notes>.db-note-pinned{border-left-color:#b45309;background:linear-gradient(135deg,#fffbeb,#ffffff 65%)}
+#dashboard .db-note-heading{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:650;color:var(--db-accent);letter-spacing:.5px;text-transform:uppercase;margin-bottom:9px}
+#dashboard .db-note-heading svg{width:15px;height:15px}
+#dashboard .db-note-actions{border-top:1px solid var(--db-line);padding-top:10px}
+#dashboard .db-note-actions button{background:transparent}
+#dashboard .db-note-done{opacity:.8}
+html[data-theme="dark"] #dashboard #db-notes>.db-list-item{background:linear-gradient(135deg,#153b3b,#182433 70%)}
+html[data-theme="dark"] #dashboard #db-notes>.db-note-pinned{background:linear-gradient(135deg,#3a2b19,#182433 70%);border-left-color:#fbbf24}
+html[data-theme="dark"] #dashboard :is(.db-notice,#db-status:not(:empty),#db-notes-status:not(:empty)){background:#16374b;color:#bae6fd;border-color:#255979}
+html[data-theme="dark"] #dashboard .db-item-urgent{color:#fcd34d}
+html[data-theme="dark"] #dashboard .db-count{background:#12392d;color:#99f6e4}
+html[data-theme="dark"] #dashboard .db-kpi-icon{color:#99f6e4}
+html[data-theme="dark"] #dashboard button:hover{background:#253448}

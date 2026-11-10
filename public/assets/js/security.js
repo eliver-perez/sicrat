@@ -22,3 +22,8 @@ window.SicratSecurity = {
         return [value.slice(0,8),value.slice(8,12),value.slice(12,16),value.slice(16,20),value.slice(20)].join('-');
     }
 };
+
+$(document).ajaxError(function(event,xhr,settings){
+    const url=new URL(settings.url,location.href);
+    if(xhr.status===401 && url.origin===location.origin && url.pathname!=='/api/auth/login')window.SicratSession?.expired();
+});

@@ -211,3 +211,19 @@ dialog form.ux-modal-form > label:has(textarea) { grid-column:1 / -1; }
     #header-chat { display: none; } /* Mensajería sigue disponible en el menú de cuenta. */
     dialog.card[open] { max-height: calc(100dvh - 2rem); }
 }
+/* One compact, touch/keyboard-selectable grid for shared record pickers. */
+.ux-selection-scroll{overflow:auto;max-height:min(24rem,50dvh);margin:.75rem 0;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.5rem;display:block}
+.ux-selection-table{width:100%;table-layout:fixed;border-collapse:collapse}
+.ux-selection-table th{position:sticky;top:0;z-index:1;background:var(--color-default-100,#f1f5f9)}
+.ux-selection-table :is(th,td){padding:.7rem!important;text-align:left;overflow-wrap:anywhere;white-space:normal;min-width:0!important}
+.ux-selection-table .ux-selection-mark{width:3rem;text-align:center}
+.ux-selection-table .ux-selection-actions{width:7rem}
+.ux-selection-row{cursor:pointer;min-height:44px}
+.ux-selection-row[aria-selected="true"]{background:var(--color-primary-50,#eff6ff)!important;box-shadow:inset 3px 0 var(--color-primary,#2563eb)}
+.ux-selection-row:focus-visible{outline:3px solid var(--color-primary,#2563eb);outline-offset:-3px}
+.ux-selection-row input{accent-color:var(--color-primary,#2563eb);width:1rem;height:1rem}
+.ux-selection-detail{display:block;color:var(--color-default-600,#475569);font-size:.75rem;margin-top:.25rem}
+.ux-selection-table tr:last-child td{border-bottom:0}.ux-selection-scroll>.ux-help{padding:.75rem;margin:0}
+.ux-selected-person{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.5rem;overflow-wrap:anywhere}
+.op-picker-chosen .btn{overflow-wrap:anywhere;text-align:left;max-width:100%}
+@media(max-width:480px){.ux-selection-table :is(th,td){padding:.6rem .4rem!important;font-size:.8125rem}.ux-selection-table .ux-selection-actions{width:5.7rem}.ux-selection-table .ux-selection-mark{width:2.2rem}.ux-selection-table .btn{white-space:normal}}

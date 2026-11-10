@@ -18,7 +18,7 @@ class OptionsService extends BaseService
 		$permission=$definition['permission'].'.'.$action; $context=$this->context->require($entity,$process,$permission);
 		[$where,$params]=(new ScopeRepository($this->repository->connection()))->predicate($permission,$process);
 		$where='p.organizacion=? AND ('.$where.')'; $params=[$context['organization'],...$params];
-		if (($filters['search'] ?? '')!=='') { $where.=" AND (p.codigo_persona LIKE ? OR CONCAT_WS(' ',p.nombre,p.paterno,p.materno) LIKE ?)"; $term='%'.Values::text($filters['search'],100).'%'; $params[]=$term; $params[]=$term; }
+		if (($filters['search'] ?? '')!=='') { $where.=" AND (CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ? OR CONCAT_WS(' ',p.nombre,p.paterno,p.materno) COLLATE utf8mb4_unicode_ci LIKE ?)"; $term='%'.Values::text($filters['search'],100).'%'; $params[]=$term; $params[]=$term; }
 		if (($filters['participating'] ?? '1')!=='0') { $where.=' AND EXISTS (SELECT 1 FROM personas_procesos pp WHERE pp.persona=p.id AND pp.proceso=? AND pp.activo=1)'; $params[]=$process; }
 		$result=$this->repository->page("SELECT p.uuid,p.codigo_persona,CONCAT_WS(' ',p.nombre,p.paterno,p.materno) nombre FROM personas p WHERE $where ORDER BY p.nombre,p.id",$params,$filters);
 		foreach ($result['rows'] as &$person) $person['uuid']=Values::uuidText($person['uuid']); return $result;

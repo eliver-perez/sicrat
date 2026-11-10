@@ -34,7 +34,7 @@ async function main() {
     }
     async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
-    if (process.argv.includes('--only-dashboard')) { checks += await require('./dashboard-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause}); assert.deepEqual(failures,[]); console.log(`Dashboard: ${checks} comprobaciones Chrome sin excepciones.`); return; }
+    if (process.argv.includes('--only-dashboard')) { checks += await require('./dashboard-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause}); if(process.argv.includes('--uiux')) checks += await require('./uiux-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause}); assert.deepEqual(failures,[]); console.log(`Dashboard: ${checks} comprobaciones Chrome sin excepciones.`); return; }
     if (process.argv.includes('--only-pwa')) {
         checks += await require('./pwa-browser.js')({ base, directory, call, evaluate, waitFor, navigate, pause });
         assert.deepEqual(failures, []);
@@ -99,9 +99,10 @@ async function main() {
         assert.ok((await evaluate('document.getElementById("exports-list").textContent')).includes('Completada')); checks++;
         assert.ok((await evaluate('document.getElementById("jobs-list").textContent')).includes('Exportación')); checks++;
         assert.ok((await evaluate('document.getElementById("backup-summary").textContent')).includes('Espacio disponible')); checks++;
-        await evaluate('document.getElementById("services-tab-files").click()'); await waitFor('document.querySelectorAll("#file-form select option").length > 1');
-        await evaluate('document.getElementById("file-person-search").value="Evidencia Fase 4";document.getElementById("file-person-find").click()');await waitFor('Array.from(document.getElementById("file-form").elements.record.options).some(option=>option.textContent.includes("Evidencia Fase 4"))');
-        await evaluate('document.getElementById("file-form").elements.record.value = Array.from(document.getElementById("file-form").elements.record.options).find(option=>option.textContent.includes("Evidencia Fase 4")).value');
+        await evaluate('document.getElementById("services-tab-files").click()'); await waitFor('!document.getElementById("services-files").hidden');
+        await evaluate('document.getElementById("file-person-find").click()');await waitFor('document.querySelector(".ux-entity-selector[open] input")');
+        await evaluate('document.querySelector(".ux-entity-selector input").value="Evidencia Fase 4";document.querySelector(".ux-entity-selector form").requestSubmit()');await waitFor('document.querySelector(".ux-entity-selector tbody")?.textContent.includes("Evidencia Fase 4")');
+        await evaluate('document.querySelector(".ux-entity-selector tbody tr").click()');await waitFor('!document.querySelector(".ux-entity-selector[open]") && document.getElementById("file-form").elements.record.value');
         const documentNode=await call('DOM.getDocument'); const fileInput=await call('DOM.querySelector',{nodeId:documentNode.root.nodeId,selector:'#file-form input[type=file]'});
         await call('DOM.setFileInputFiles',{nodeId:fileInput.nodeId,files:[path.join(directory,'test-image.png')]});
         await evaluate('document.getElementById("file-form").requestSubmit()');

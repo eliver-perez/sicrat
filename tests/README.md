@@ -150,8 +150,12 @@ La instalación y apertura standalone en dispositivos físicos Android/iPhone/iP
 
 `php tests/integration.php --pwa` incluye `mobile-context.php`: selección única desde el login, persistencia de preferencia firmada, revocación con varias opciones y acceso general sin elecciones. Chrome comprueba encabezado a 320/390/768/1440 px, fuente mínima de 16 px en controles móviles, viewport accesible, ausencia del panel técnico, recuperación automática y actualización del worker sin botón. Las capturas `mobile-header-*.png` quedan junto a los artefactos temporales.
 
-La preferencia recuerda la elección por cuenta y organización en el mismo navegador. La continuidad offline conserva el secreto exclusivamente durante la sesión de pestaña; cerrar esa sesión exige conexión. Safari/iPhone físico, el teclado nativo y el gesto de zoom requieren comprobación manual.
+La preferencia recuerda la elección por cuenta y organización en el mismo navegador. La continuidad offline usa la recuperación persistente cifrada descrita en `PWA_OFFLINE.md`, sin depender de sessionStorage y con vencimiento absoluto de 12 horas. Safari/iPhone físico, el teclado nativo y el gesto de zoom requieren comprobación manual.
 
 ## Dashboard operativo
 
 `php tests/integration.php --dashboard` ejecuta casos HTTP/BD y Chrome sobre una base desechable: permisos y ámbitos, actividad propia/equipo, pendientes y aprobaciones, notas privadas (incluido superadministrador), CRUD/recordatorios, selección de gráficas, ETag, cuatro tamaños responsive y reapertura offline con escrituras bloqueadas. Usa el Chrome local configurado en `phase3-browser.js`. `--pwa` puede agregarse para la regresión completa de cifrado, persistencia y vigencia. `node tests/pwa-unit.js` comprueba también la lista de rutas del Dashboard. Ver `DASHBOARD.md` para fuentes de indicadores y límites.
+
+## Ronda UI/UX y sesión
+
+`php tests/integration.php --dashboard --uiux` añade búsquedas parciales con acentos/mayúsculas, alcance autorizado, nombre/código de persona vinculada, actividad con asunto y ruta, selección por fila/teclado y guardado real de tareas. Revisa el tema desde el botón real, capturas claras/oscuras, móvil/escritorio, selección en Servicios y login después de una sesión sustituida por otro cliente; incluye jQuery sin intercepción del worker. Artefactos `uiux-*.png` en el directorio temporal. Complementar con `--pwa`, `--phase4 --persons-structure --browser` y `--phase4 --browser`. Detalles en `UI_UX.md`.

@@ -112,8 +112,9 @@ class Session
 
     public function destroySession(): never
     {
+        $hadSession=isset($_SESSION['SICRAT_ID']);
         self::clear();
-        header('Location: ' . base_url('/autenticacion/'));
+        header('Location: ' . base_url('/autenticacion/') . ($hadSession ? '?reason=session-expired' : ''));
         exit;
     }
 }

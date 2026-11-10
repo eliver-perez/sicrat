@@ -262,7 +262,8 @@ try {
     }
     if (in_array('--dashboard', $argv, true)) {
         require __DIR__.'/dashboard.php';
-        $dashboardBrowser=proc_open(['node',__DIR__.'/phase3-browser.js',$baseUrl,$temporaryDirectory,'--only-dashboard'],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$dashboardPipes,dirname(__DIR__),$environment);
+        if (in_array('--uiux',$argv,true)) require __DIR__.'/uiux.php';
+        $dashboardBrowser=proc_open(['node',__DIR__.'/phase3-browser.js',$baseUrl,$temporaryDirectory,'--only-dashboard',...(in_array('--uiux',$argv,true) ? ['--uiux'] : [])],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$dashboardPipes,dirname(__DIR__),$environment);
         fclose($dashboardPipes[0]);
         verify(proc_close($dashboardBrowser)===0,'Dashboard: Chrome y PWA.');
     }

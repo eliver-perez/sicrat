@@ -101,15 +101,43 @@ Object.assign(window.SicratUI, {
         });
         dialog.querySelectorAll('.ux-modal-form,.op-form-fields,.ux-form-grid').forEach(container=>this.layoutFields(container));
     },
+    recordLabel(row) {
+        const code=row.codigo_persona || row.code || '';
+        const name=row.nombre || row.name || row.titulo || '';
+        return row.label || [code,name].filter(Boolean).join(' · ') || 'Registro seleccionado';
+    },
+    selectionTable(target,{rows,selected=new Set(),multiple=false,choose,actions=null,label='Registros disponibles'}) {
+        target.replaceChildren();target.classList.add('ux-selection-scroll');
+        if(!rows.length){const empty=document.createElement('p');empty.className='ux-help';empty.textContent='No hay coincidencias.';target.append(empty);return;}
+        const table=document.createElement('table');table.className='ux-selection-table';table.setAttribute('role','grid');table.setAttribute('aria-label',label);table.setAttribute('aria-multiselectable',String(multiple));
+        const head=table.createTHead().insertRow();['Seleccionar','Registro',...(actions?['Opciones']:[])].forEach((title,index)=>{const th=document.createElement('th');th.scope='col';th.textContent=title;if(!index){th.className='ux-selection-mark';th.textContent='';const accessible=document.createElement('span');accessible.className='ux-sr-only';accessible.textContent=title;th.append(accessible);}head.append(th);});
+        const body=table.createTBody();
+        rows.forEach((row,index)=>{
+            const value=row.value ?? row.uuid ?? row.id;const name=this.recordLabel(row);const line=body.insertRow();line.dataset.value=value;line.tabIndex=index===0?0:-1;line.setAttribute('aria-selected',String(selected.has(value)));line.className='ux-selection-row';
+            const mark=line.insertCell();mark.className='ux-selection-mark';const input=document.createElement('input');input.type=multiple?'checkbox':'radio';input.checked=selected.has(value);input.tabIndex=-1;input.setAttribute('aria-label','Seleccionar '+name);mark.append(input);
+            const info=line.insertCell();info.append(document.createTextNode(name));
+            if(row.detail){const detail=document.createElement('small');detail.className='ux-selection-detail';detail.textContent=row.detail;info.append(detail);}
+            if(actions){const cell=line.insertCell();cell.className='ux-selection-actions';actions(cell,row);}
+            const activate=async()=>{await choose({...row,value,label:name});};
+            line.addEventListener('click',event=>{if(event.target.closest('button,a,select,textarea'))return;event.preventDefault();window.SicratFeedback.guard(activate)();});
+            line.addEventListener('keydown',event=>{
+                if(event.target!==line)return;
+                if(['Enter',' '].includes(event.key)){event.preventDefault();window.SicratFeedback.guard(activate)();return;}
+                if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;
+                event.preventDefault();const lines=[...body.rows];const next=event.key==='Home'?0:event.key==='End'?lines.length-1:Math.max(0,Math.min(lines.length-1,index+(event.key==='ArrowDown'?1:-1)));lines.forEach(item=>item.tabIndex=-1);lines[next].tabIndex=0;lines[next].focus();
+            });
+        });target.append(table);
+    },
     async entitySelector({title,selected,load,choose}) {
         const dialog=document.createElement('dialog');dialog.className='ux-entity-selector';
         const header=document.createElement('div');const heading=document.createElement('h6');heading.textContent=title;const close=document.createElement('button');close.type='button';close.className='btn';close.dataset.close='entity-selector';close.textContent='Cerrar';close.addEventListener('click',()=>dialog.close());header.append(heading,close);
         const form=document.createElement('form');form.className='ux-inline-form ux-search-row';const search=document.createElement('input');search.type='search';search.className='form-input';search.placeholder='Buscar por nombre o código';search.setAttribute('aria-label',search.placeholder);const find=document.createElement('button');find.type='submit';find.className='btn';find.textContent='Buscar';form.append(search,find);
         const list=document.createElement('div');list.className='ux-selector-results';const pager=document.createElement('div');pager.className='ux-pagination';let offset=0,nonce=0;
         const refresh=async()=>{const request=++nonce;list.textContent='Cargando…';const data=await load(search.value,offset);if(request!==nonce || !dialog.open)return;list.replaceChildren();if(!data.rows.length)list.textContent='No hay coincidencias.';
-            data.rows.forEach(row=>{const button=document.createElement('button');button.type='button';button.className='btn ux-selector-row';button.textContent=row.label;button.setAttribute('aria-pressed',String(row.value===selected));button.addEventListener('click',window.SicratFeedback.guard(async()=>{await choose(row);dialog.close();}));list.append(button);});
+            this.selectionTable(list,{rows:data.rows,selected:new Set([selected]),label:title,choose:async row=>{await choose(row);dialog.close();}});
             pager.replaceChildren();const previous=document.createElement('button');previous.type='button';previous.className='btn';previous.textContent='Anterior';previous.disabled=!offset;previous.addEventListener('click',window.SicratFeedback.guard(async()=>{offset=Math.max(0,offset-25);await refresh();}));const next=document.createElement('button');next.type='button';next.className='btn';next.textContent='Siguiente';next.disabled=!data.pagination.has_more;next.addEventListener('click',window.SicratFeedback.guard(async()=>{offset+=25;await refresh();}));const page=document.createElement('span');page.textContent='Página '+(offset/25+1);pager.append(previous,page,next);
         };
+        let timer;search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>{offset=0;window.SicratFeedback.guard(refresh)();},300);});dialog.addEventListener('close',()=>clearTimeout(timer),{once:true});
         form.addEventListener('submit',window.SicratFeedback.guard(async()=>{offset=0;await refresh();}));dialog.append(header,form,list,pager);document.querySelector('main').append(dialog);dialog.addEventListener('close',()=>{nonce++;dialog.remove();},{once:true});this.dialog(dialog);dialog.showModal();search.focus();await refresh();
     },
     electionChoices(target, choices, selected=[]) {

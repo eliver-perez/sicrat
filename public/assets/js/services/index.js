@@ -129,17 +129,19 @@ function InitializeValues(url) {
 	node('audit-filter').elements.organization.addEventListener('change',guarded(async () => { node('audit-filter').elements.process.value=''; if (context.is_superadmin) node('audit-filter').elements.context.value='all'; optionOffsets.process=0; await auditOptions('process'); optionOffsets.user=0; await auditOptions('user'); }));
 	node('audit-filter').elements.context.addEventListener('change',guarded(async () => { optionOffsets.user=0; await auditOptions('user'); }));
 	node('export-form').elements.type.addEventListener('change',() => { node('export-form').elements.format.disabled = node('export-form').elements.type.value === 'paquete'; });
-	let fileOffset = 0;
-	async function filePeople(append = false) {
-		const result = await shared.request('persons?' + new URLSearchParams({search:node('file-person-search').value,limit:25,offset:fileOffset}));
-		const select = node('file-form').elements.record; const previous = select.value;
-		if (!append) { select.replaceChildren(); const empty = text('option','Selecciona una persona'); empty.value=''; select.append(empty); }
-		result.data.persons.forEach(person => { const option=text('option',person.code + ' · ' + person.name); option.value=person.id; select.append(option); });
-		if (Array.from(select.options).some(option => option.value === previous)) select.value=previous;
-		node('file-person-more').hidden = !result.pagination.has_more;
-	}
-	node('file-person-find').addEventListener('click',guarded(async () => { fileOffset=0; await filePeople(); }));
-	node('file-person-more').addEventListener('click',guarded(async () => { fileOffset+=25; await filePeople(true); }));
+    const filePerson = node('file-form').elements.record;
+    const fileSummary = text('span','Selecciona una persona');fileSummary.className='ux-selected-person';
+    filePerson.classList.add('ux-sr-only');filePerson.tabIndex=-1;filePerson.after(fileSummary);
+    node('file-person-search').hidden=true;node('file-person-more').hidden=true;
+    node('file-person-find').textContent='Seleccionar persona';
+    async function filePeople() {
+        filePerson.replaceChildren();const empty=text('option','Selecciona una persona');empty.value='';filePerson.append(empty);
+    }
+    node('file-person-find').addEventListener('click',guarded(()=>visual.entitySelector({title:'Seleccionar persona para el archivo',selected:filePerson.value,
+        load:async(search,offset)=>{const result=await shared.request('persons?'+new URLSearchParams({search,limit:25,offset}));return {rows:result.data.persons.map(person=>({value:person.id,label:person.code+' · '+person.name})),pagination:result.pagination};},
+        choose:person=>{filePerson.replaceChildren();const option=text('option',person.label);option.value=person.value;option.selected=true;filePerson.append(option);fileSummary.textContent=person.label;filePerson.dispatchEvent(new Event('change'));}
+    })));
+    filePerson.addEventListener('invalid',event=>{event.preventDefault();node('file-person-find').focus();});
 	const load = async name => {
 		if (loaded.has(name)) return;
 		if (name === 'files') {

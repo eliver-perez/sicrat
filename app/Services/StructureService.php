@@ -165,7 +165,7 @@ class StructureService extends Service
         }
         if ($parent === '' && trim($search) !== '') {
             if (mb_strlen($search)>200) throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
-            $filter .= " AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) LIKE ? OR CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_bin LIKE ?)";
+            $filter .= " AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) COLLATE utf8mb4_unicode_ci LIKE ? OR CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?)";
             $args[] = '%'.trim($search).'%';$args[] = '%'.trim($search).'%';
         }
         $ids = $this->repository->rows("SELECT e.id FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.contenedor=? AND ($condition)" . $filter . " ORDER BY p.nombre,e.id LIMIT " . (int)$page['limit'] . ' OFFSET ' . (int)$page['offset'],$args);
@@ -373,7 +373,7 @@ class StructureService extends Service
             }
         }
         if(mb_strlen($search)>200)throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
-        if(trim($search)!==''){$select.=" AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) LIKE ? OR p.codigo_persona LIKE ?)";$args[]='%'.trim($search).'%';$args[]='%'.trim($search).'%';}
+        if(trim($search)!==''){$select.=" AND (CONCAT_WS(' ',p.nombre,p.paterno,p.materno) COLLATE utf8mb4_unicode_ci LIKE ? OR CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?)";$args[]='%'.trim($search).'%';$args[]='%'.trim($search).'%';}
         elseif ($parent!==null) {
             if ($focusRow) {$select.=' AND e.nodo_padre=?';$args[]=$focusRow['id'];}
             else $select.=' AND (e.nodo_padre IS NULL OR NOT EXISTS(SELECT 1 FROM estructura epadre JOIN personas p ON p.id=epadre.persona WHERE epadre.id=e.nodo_padre AND ('.$scope.')))';

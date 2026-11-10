@@ -110,15 +110,18 @@
         navigator.serviceWorker.addEventListener('message', event => {
             const message = event.data;
             if (message?.source !== 'sicrat-pwa') return;
+            // Late lock/expiry notices must not replace an authentication redirect with the offline shell.
+            if (window.SicratSession?.leaving) return;
             if (message.type === 'connection') { state.online = message.online; render(); }
-            if (message.type === 'session-ended') blockPreviousView();
-            if (message.type === 'locked') { blockPreviousView(); clearPrivateView(message.reason); }
+            if (message.type === 'auth-required') {blockPreviousView();window.SicratSession?.expired(message.reason,true);return;}
+            if (message.type === 'session-ended') {blockPreviousView();window.SicratSession?.expired(message.reason || 'logout',true);return;}
+            if (message.type === 'locked') { blockPreviousView(); if(message.code==='session-ended'){window.SicratSession?.expired('logout');return;} if(['permissions','context-changed'].includes(message.code) && state.online!==false){location.replace('/?callBack=deniedAccess');return;} clearPrivateView(message.reason); }
             if (message.type === 'expired') clearPrivateView('Se requiere conexión. Han pasado más de 12 horas desde la última verificación de acceso.');
             if (message.type === 'storage-error') announce(message.reason);
             if (message.type === 'validating') window.dispatchEvent(new Event('sicrat:pwa-validating'));
             if (message.type === 'validated') refresh();
             if (message.type === 'updated' || message.type === 'invalidated') window.dispatchEvent(new CustomEvent('sicrat:pwa-' + message.type, { detail: message }));
-            if (message.type === 'invalidated' && message.revoked) clearPrivateView('El acceso a esta información cambió. Abre SICRAT con conexión.');
+            if (message.type === 'invalidated' && message.revoked) {if(state.online!==false)location.replace('/?callBack=deniedAccess');else clearPrivateView('El acceso a esta información cambió. Abre SICRAT con conexión.');}
         });
         navigator.serviceWorker.register('/service-worker.js', { scope: '/', updateViaCache: 'none' }).then(registration => {
             const update = () => {
@@ -131,7 +134,7 @@
         }).catch(() => announce('No fue posible preparar las consultas sin conexión.'));
         window.addEventListener('online', async () => { await refresh(true); if (!state.unlocked) prepare(); });
         window.addEventListener('offline', () => refresh(true));
-        window.addEventListener('pageshow', event => { if (event.persisted) { clearPrivateView('Verifica el acceso para volver a abrir esta pantalla.'); refresh(true); } });
+        window.addEventListener('pageshow', event => { if (event.persisted) { document.querySelector('.wrapper')?.replaceChildren(); location.reload(); } });
         document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(true); });
         setInterval(() => { if (!document.hidden && navigator.serviceWorker.controller) refresh(true); }, 30000);
     }

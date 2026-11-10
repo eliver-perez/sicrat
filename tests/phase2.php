@@ -40,7 +40,7 @@ $connection->exec('UPDATE usuarios_procesos SET tipo_usuario=8 WHERE usuario=2 A
 verify(request('capture','GET','/api/persons')['status']===200,'El tipo electoral restaurado vuelve a conceder solo sus permisos existentes.');
 
 $captureToken=login('capture','captura-a',$password);
-verify(apiData(request('capture','GET','/api/auth/me'))['process_id']===null,'Con varios accesos el login espera selección.');
+verify(apiData(request('capture','GET','/api/auth/me'))['process_id']===1,'Con varios accesos el login recupera la última elección autorizada.');
 apiData(request('capture','POST','/api/auth/election',['process'=>$processIds[0]],$captureToken));
 verify(request('capture','POST','/api/auth/election',['process'=>$identity->uuidBinaryToString($connection->query("SELECT uuid FROM procesos_electorales WHERE proceso='Proceso inactivo'")->fetchColumn())],$captureToken)['status']===404,'No se selecciona elección inactiva de la propia organización.');
 apiData(request('admin','POST','/api/auth/election',['process'=>$secondElection],$adminToken));

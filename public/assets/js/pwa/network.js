@@ -31,6 +31,16 @@ globalThis.SicratPwaNetwork = (() => {
             status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
     }
+    async function authenticationLost() {
+        await vault.forgetAll();
+        await state(true); // A real 401 is a reachable server, not a connectivity failure.
+        await broadcast('auth-required', {reason: 'session-expired'});
+    }
+    async function onlineRequest(request) {
+        const response=await fetchTimed(request);
+        if(response.status===401 && new URL(request.url || request,self.location.origin).pathname!=='/api/auth/login')await authenticationLost();
+        return response;
+    }
     async function context() {
         const requestedAt = Date.now();
         const response = await fetchTimed('/api/pwa/context', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
@@ -38,7 +48,8 @@ globalThis.SicratPwaNetwork = (() => {
             const user = vault.active?.profile.user;
             if (user) await vault.forgetUser(user);
             else await vault.forgetAll();
-            await broadcast('locked', { reason: 'La sesión o los permisos cambiaron. Conéctate e inicia sesión nuevamente.' });
+            if(response.status===401)await authenticationLost();
+            else {await state(true);await broadcast('locked', {reason: 'Tus permisos cambiaron. Actualiza tu contexto de trabajo.', code:'permissions'});}
             const failure = new Error('La sesión no está autorizada. Inicia sesión con conexión.');
             failure.status = response.status;
             throw failure;
@@ -50,11 +61,11 @@ globalThis.SicratPwaNetwork = (() => {
         Object.defineProperty(payload.data, 'localValidatedAt', { value: requestedAt });
         return payload.data;
     }
-    async function invalidate(message, except = null) {
+    async function invalidate(message, except = null, code = null) {
         vault.lock();
         const version = vault.epoch;
         await db.remove('recovery', 'active');
-        await broadcast('locked', { reason: message }, except);
+        await broadcast('locked', { reason: message, code }, except);
         return version;
     }
     function matches(response, value) {
@@ -80,7 +91,7 @@ globalThis.SicratPwaNetwork = (() => {
             await db.clear(value.profile.id);
             if (response.status === 401) {
                 await vault.forgetUser(value.profile.user);
-                await broadcast('locked', { reason: 'La sesión dejó de estar autorizada.' });
+                await authenticationLost();
             } else await broadcast('invalidated', { url, revoked: true });
             return response;
         }
@@ -88,7 +99,7 @@ globalThis.SicratPwaNetwork = (() => {
         if (response.status !== 304 && !response.ok) return response;
         if (!matches(response, value)) {
             await vault.forgetUser(value.profile.user);
-            await invalidate('La cuenta, elección o permisos cambiaron. Desbloquea el perfil correcto.');
+            await invalidate('La cuenta, elección o permisos cambiaron. Actualiza tu contexto.', null, 'context-changed');
             return error('La autorización cambió. Vuelve a abrir la pantalla.', 409);
         }
         const now = Number(response.headers.get('X-Sicrat-Validated'));
@@ -136,7 +147,7 @@ globalThis.SicratPwaNetwork = (() => {
                 const previousUser = value.profile.user;
                 if (previousUser !== current.user) await vault.forgetUser(previousUser);
                 else { vault.lock(); await db.remove('recovery', 'active'); }
-                await broadcast('locked', { reason: 'Cambió la cuenta o la elección. Desbloquea su perfil para continuar.' });
+                await broadcast('locked', { reason: 'Cambió la cuenta o la elección. Actualiza tu contexto.', code:'context-changed' });
                 await state(true);
                 return current;
             }
@@ -209,7 +220,7 @@ globalThis.SicratPwaNetwork = (() => {
         const url = SicratPwaPolicy.canonical(request.url);
         const client = event.clientId;
         if (!vault.active) {
-            try { return await fetchTimed(request); }
+            try { return await onlineRequest(request); }
             catch { await state(false); return error('Esta información no está disponible sin conexión. Desbloquea tu perfil offline.'); }
         }
         try {
@@ -249,7 +260,7 @@ globalThis.SicratPwaNetwork = (() => {
             if (!vault.valid()) await broadcast('expired');
             // A storage failure must not break ordinary online requests; never serve unverified local data.
             if (online !== false) {
-                try { return await fetchTimed(request); } catch { await state(false); }
+                try { return await onlineRequest(request); } catch { await state(false); }
             }
             return error('Se requiere conexión a Internet para verificar el acceso.', 423);
         }
@@ -269,19 +280,20 @@ globalThis.SicratPwaNetwork = (() => {
             try { user = (await context()).user; } catch { /* The server still handles the logout. */ }
         }
         if (['/api/auth/login', '/api/auth/logout', '/api/auth/election'].includes(path)) {
-            await invalidate('El contexto se cerró.', client);
+            await invalidate('El contexto se cerró.', client, path==='/api/auth/election' ? 'context-changed' : 'session-ended');
             if (path === '/api/auth/logout') {
                 await vault.forgetAll();
-                await broadcast('session-ended');
+                // The initiating form handles its response before navigating; other tabs close now.
+                await broadcast('session-ended', {}, client);
             }
         }
         try {
             const response = await fetch(request, { cache: 'no-store' });
+            if(response.status===401 && path!=='/api/auth/login')await authenticationLost();
             if (response.ok && path === '/api/auth/login') {
                 // Una sesión nueva elimina los perfiles anteriores, incluso si el worker había terminado.
                 await vault.forgetAll();
-                await broadcast('session-ended');
-                await broadcast('locked', { reason: 'Se inició una sesión nueva. Los perfiles anteriores están bloqueados.' });
+                await broadcast('session-ended', {reason:'session-expired'}, client);
             }
             // A successful write may invalidate lists, permissions, totals or related rows.
             if (response.ok && vault.active) {
@@ -296,6 +308,6 @@ globalThis.SicratPwaNetwork = (() => {
             return error('Esta operación requiere conexión a Internet. Si se interrumpió durante el envío, comprueba su resultado antes de reintentar.');
         }
     }
-    return { read, mutate, probe, reachable, validate, context, broadcast, state, invalidate, error,
+    return { read, mutate, onlineRequest, authenticationLost, probe, reachable, validate, context, broadcast, state, invalidate, error,
         get online() { return online; }, get validating() { return Boolean(validation); } };
 })();

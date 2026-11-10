@@ -115,7 +115,10 @@
     <link rel="stylesheet" crossorigin href="<?= escape_html(base_url('/template/assets/app-0ZOPNGSF.css')); ?>">
     <link rel="stylesheet" crossorigin href="<?= escape_html(base_url('/template/assets/app-tw.css')); ?>">
 
-    </head>
+    <link rel="stylesheet" href="/assets/css/theme.css">
+<script src="/assets/js/theme.js"></script>
+<script src="/assets/js/session.js"></script>
+</head>
 
     <body>
 
@@ -123,10 +126,13 @@
             <div class="card md:w-lg w-screen z-10">
                 <div class="text-center px-10 py-12">
                     <!-- Logo -->
-                    <div class="flex justify-center">
-                        <img src="<?= escape_html(asset('/logos/logo_v.png')); ?>" alt="logo dark" class="w-[200px] flex dark:hidden">
-                        <img src="<?= escape_html(asset('/logos/logo_v.png')); ?>" alt="logo light" class="w-[200px] hidden dark:flex" alt="">
+                    <div class="flex justify-center sicrat-brand" style="display:flex">
+                        <img src="/assets/logos/logo_v.png" alt="SICRAT" width="200" class="w-[200px]">
                     </div>
+                    <?php if (($_GET['reason'] ?? '') === 'session-expired'): ?>
+                    <p class="sicrat-session-message" role="status">Tu sesión terminó o dejó de ser válida. Esto puede ocurrir si iniciaste sesión en otro dispositivo. Ingresa nuevamente para continuar.</p>
+                    <?php endif; ?>
+
 
                     <form id="form-authenticate" action="javascript:Authenticate()" class="text-left w-full mt-10">
                         <div class="mb-4">

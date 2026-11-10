@@ -12,9 +12,8 @@ function identityError(xhr) { ShowToastMessage(xhr.responseJSON?.message || 'No 
 function showPersonDuplicates(data, continueNew) {
     const box = $('#person-duplicates').empty().removeClass('hidden');
     box.append($('<p>').text(data.blocked ? 'Hay un identificador repetido. Selecciona una ficha existente.' : 'Posibles coincidencias. Revisa la ficha o confirma una persona nueva.'));
-    data.matches.forEach(function (person) {
-        box.append($('<button>', {type: 'button', class: 'btn text-primary person-open', 'data-id': person.id}).text(`${person.code} · ${person.name}`).on('click', function () { box.addClass('hidden'); CancelPerson(); }));
-    });
+    const rows = document.createElement('div');box.append(rows);
+    SicratUI.selectionTable(rows,{label:'Personas coincidentes',rows:data.matches.map(person=>({...person,value:person.id,label:`${person.code} · ${person.name}`})),choose:person=>{box.addClass('hidden');CancelPerson();openPerson(person.id);}});
     if (!data.blocked) box.append($('<button>', {type: 'button', class: 'btn bg-primary text-white'}).text('Crear persona nueva').on('click', function () { box.addClass('hidden'); continueNew(); }));
 }
 

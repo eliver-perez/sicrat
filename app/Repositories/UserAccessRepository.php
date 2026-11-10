@@ -14,7 +14,7 @@ class UserAccessRepository
     public function connection(): PDO { return $this->db; }
     public function user(string $uuid): array
     {
-        $statement = $this->db->prepare('SELECT u.id, u.organizacion, u.tipo_usuario, ut.codigo tipo_codigo, u.persona, p.uuid persona_uuid, p.codigo_persona FROM usuarios u JOIN usuarios_tipos ut ON ut.id=u.tipo_usuario LEFT JOIN personas p ON p.id=u.persona WHERE u.uuid=?');
+        $statement = $this->db->prepare('SELECT u.id, u.organizacion, u.tipo_usuario, ut.codigo tipo_codigo, u.persona, p.uuid persona_uuid, p.codigo_persona, CONCAT_WS(\' \',p.nombre,p.paterno,p.materno) persona_nombre FROM usuarios u JOIN usuarios_tipos ut ON ut.id=u.tipo_usuario LEFT JOIN personas p ON p.id=u.persona WHERE u.uuid=?');
         $statement->execute([$uuid]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
         if (!$user) throw new HttpError('La cuenta no está disponible.', 404);
