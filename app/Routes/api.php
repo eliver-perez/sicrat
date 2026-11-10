@@ -17,6 +17,13 @@ use App\Core\Response;
 $router->post('/api/auth/login', [AuthController::class, 'login'], 'public');
 $router->post('/api/auth/logout', [AuthController::class, 'logout'], 'authenticated');
 $router->get('/api/auth/me', [AuthController::class, 'me'], 'authenticated');
+$router->get('/api/dashboard', [\App\Controllers\DashboardController::class, 'index'], 'authenticated');
+$router->get('/api/dashboard/notes', [\App\Controllers\DashboardController::class, 'notes'], 'authenticated');
+$router->post('/api/dashboard/notes', [\App\Controllers\DashboardController::class, 'notes'], 'authenticated');
+$router->get('/api/dashboard/notes/{id}', [\App\Controllers\DashboardController::class, 'notes'], 'authenticated');
+$router->put('/api/dashboard/notes/{id}', [\App\Controllers\DashboardController::class, 'notes'], 'authenticated');
+$router->delete('/api/dashboard/notes/{id}', [\App\Controllers\DashboardController::class, 'notes'], 'authenticated');
+
 $router->get('/api/pwa/ping', [\App\Controllers\PwaController::class, 'ping'], 'public');
 $router->get('/api/pwa/context', [\App\Controllers\PwaController::class, 'context'], 'authenticated');
 

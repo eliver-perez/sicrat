@@ -91,3 +91,7 @@ Añade `niveles_organizacionales.rol_asociado` (`SMALLINT NULL`) con FK a `usuar
 La asociación se utiliza al crear una cuenta para una persona estructurada y al cambiar su nivel. La sincronización modifica únicamente el acceso electoral afectado dentro de la misma transacción y mantiene las verificaciones de permisos y alcance. Cambiar manualmente un rol no modifica niveles; guardar un nivel sin cambiarlo conserva la asignación manual. Cambiar la configuración del rol asociado tampoco reasigna masivamente cuentas.
 
 Validación aislada: `php tests/integration.php --phase3 --level-role --browser`. La suite Personas/Estructura puede añadirse con `--persons-structure`. Incluye creación derivada, niveles sin rol, aislamiento, permisos efectivos, modificación manual, rollback y Chrome de escritorio/móvil.
+
+## 20261109_014_dashboard.php
+
+Crea `dashboard_notas`, notas generales privadas por usuario con recordatorio UTC, estado y fijado. Añade índices por propietario/estado/recordatorio, auditoría por organización/elección/fecha e incorporaciones de estructura por elección/estado/fecha. No añade permisos ni cambia datos históricos. Sólo se ejecutó sobre bases desechables durante el desarrollo; aplicar siguiendo el procedimiento de migraciones antes de usar el nuevo Dashboard. Ver `DASHBOARD.md`.

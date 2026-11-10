@@ -19,4 +19,7 @@ assert.equal(body.data.rows[1].mensaje, 'Conservar texto autorizado');
 assert.equal(body.data.rows[1].attachments[0].uuid, 'nuevo');
 assert.equal(delta.messages(body, { message_updates: [{ id: 3, eliminado: 1 }], attachment_updates: [{ id: 3, attachments: [] }] }), false);
 assert.equal(body.data.rows.length, 2);
-console.log('OK: 13 comprobaciones de políticas y deltas PWA.');
+assert.equal(policy.match(new URL('https://sicrat.test/api/dashboard')).module, 'dashboard');
+assert.equal(policy.match(new URL('https://sicrat.test/api/dashboard/notes?offset=0')).strategy, 'network-first');
+assert.equal(policy.match(new URL('https://sicrat.test/api/dashboard/notes/00000000-0000-0000-0000-000000000000')), null);
+console.log('OK: 16 comprobaciones de políticas y deltas PWA.');

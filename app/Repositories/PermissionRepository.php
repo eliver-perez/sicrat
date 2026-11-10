@@ -24,7 +24,25 @@ class PermissionRepository
         return array_keys($expanded);
     }
 
+    /** Reuse authorization reads only inside one read-only operation. Never a session cache. */
+    private static ?array $readSnapshot = null;
+
+    public static function duringRead(callable $read): mixed
+    {
+        if (self::$readSnapshot !== null) return $read();
+        self::$readSnapshot = [];
+        try { return $read(); }
+        finally { self::$readSnapshot = null; }
+    }
+
     public function effective(int $userId, ?int $process): array
+    {
+        if (self::$readSnapshot === null) return $this->loadEffective($userId, $process);
+        $key = spl_object_id($this->db) . ':' . $userId . ':' . ($process ?? 'global');
+        return self::$readSnapshot[$key] ??= $this->loadEffective($userId, $process);
+    }
+
+    private function loadEffective(int $userId, ?int $process): array
     {
         $statement = $this->db->prepare('SELECT u.*,ut.codigo FROM usuarios u JOIN usuarios_tipos ut ON ut.id=u.tipo_usuario WHERE u.id=? AND u.activo=1');
         $statement->execute([$userId]);

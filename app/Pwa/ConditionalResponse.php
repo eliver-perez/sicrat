@@ -11,7 +11,7 @@ final class ConditionalResponse
     {
         $uuid = '[a-fA-F0-9-]{36}';
         return (bool) preg_match(
-            '#^/api/(?:persons(?:/' . $uuid . ')?|structures(?:/' . $uuid . '(?:/members/' . $uuid . ')?)?'
+            '#^/api/(?:dashboard(?:/notes)?|persons(?:/' . $uuid . ')?|structures(?:/' . $uuid . '(?:/members/' . $uuid . ')?)?'
             . '|operations/(?:tareas|peticiones|incidencias)(?:/' . $uuid . ')?'
             . '|operations/conversaciones(?:/' . $uuid . '(?:/messages)?)?'
             . '|jornada/(?:booths(?:/' . $uuid . ')?|summary|versions/' . $uuid . '))$#D',

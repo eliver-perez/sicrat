@@ -295,3 +295,11 @@ Validación final de esta corrección:
 - Se comprobó también que, tras perder la cookie HTTP al cerrar Chrome, se puede volver a abrir el login y obtener un CSRF válido. La concesión offline persistida no sustituye la autenticación online.
 
 Artefactos de la ejecución final: `/var/folders/95/73gsxch94r5bc9zgyxz3_q740000gn/T/sicrat_phase1_test_a5cb3fda2253/`. Se usaron una instancia MariaDB aislada en `/tmp`, bases desechables y perfiles Chrome temporales. No se modificaron `.env`, la base de SICRAT ni servicios existentes. No se realizaron commits ni despliegues.
+
+## Dashboard y notas personales (noviembre 2026)
+
+`GET /api/dashboard` y `GET /api/dashboard/notes` usan la misma política `network-first`, ETag, cifrado y vigencia de los demás módulos. No se almacena HTML autenticado. Las consultas individuales de notas por UUID no se incluyen en la lista offline. Los parámetros de periodo/página forman parte de la clave de consulta.
+
+Las notas pertenecen exclusivamente a su cuenta, incluso frente a administradores. Son generales respecto a elecciones en el servidor, pero sus copias cifradas se guardan sólo dentro del perfil local actual (cuenta + organización + elección). La selección de otra cuenta no reutiliza esas copias. El shell incluye el filtro «Dashboard y notas», muestra fecha de guardado y mantiene la lectura sin escritura. Las operaciones crear/editar/completar/fijar/eliminar necesitan conexión y no producen colas offline; una escritura exitosa invalida el caché privado mediante el mecanismo existente.
+
+En el Dashboard abierto, una respuesta local se identifica como información guardada. Al reabrir offline se consulta a través del shell de lectura. La recuperación de claves, el plazo absoluto de 12 horas, el logout y la revalidación de permisos no cambian. La tabla MySQL de notas requiere la migración `20261109_014_dashboard.php`; es persistencia funcional del Dashboard, no una segunda base offline. Arquitectura y limitaciones en `DASHBOARD.md`.

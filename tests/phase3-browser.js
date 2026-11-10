@@ -4,7 +4,7 @@ const path = require('node:path');
 const {spawn} = require('node:child_process');
 const [base, directory] = process.argv.slice(2);
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(base || '') || !path.basename(directory || '').match(/^sicrat_phase1_test_[a-f0-9]{12}$/)) throw new Error('El navegador requiere el servidor y directorio desechables de integration.php.');
-const profile = path.join(directory, 'chrome-profile');
+const profile = path.join(directory, process.argv.includes('--only-dashboard') ? 'chrome-profile-dashboard' : 'chrome-profile');
 fs.mkdirSync(profile, {mode: 0o700});
 const browser = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-extensions','--disable-sync','--metrics-recording-only','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'], {stdio: ['ignore','ignore',fs.openSync(path.join(directory,'chrome.log'),'a',0o600)]});
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -34,6 +34,7 @@ async function main() {
     }
     async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});throw new Error('La interfaz no completó: ' + expression); }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
+    if (process.argv.includes('--only-dashboard')) { checks += await require('./dashboard-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause}); assert.deepEqual(failures,[]); console.log(`Dashboard: ${checks} comprobaciones Chrome sin excepciones.`); return; }
     if (process.argv.includes('--only-pwa')) {
         checks += await require('./pwa-browser.js')({ base, directory, call, evaluate, waitFor, navigate, pause });
         assert.deepEqual(failures, []);

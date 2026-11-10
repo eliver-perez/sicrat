@@ -2,6 +2,7 @@
 globalThis.SicratPwaPolicy = (() => {
     const uuid = '[a-fA-F0-9-]{36}';
     const rules = [
+        ['dashboard', /^\/api\/dashboard(?:\/notes)?$/, 'network-first'],
         ['personas', new RegExp(`^/api/persons(?:/${uuid})?$`), 'network-first'],
         ['estructura', new RegExp(`^/api/structures(?:/${uuid}(?:/members/${uuid})?)?$`), 'stale-while-revalidate'],
         ['operaciones', new RegExp(`^/api/operations/(?:tareas|peticiones|incidencias)(?:/${uuid})?$`), 'network-first'],

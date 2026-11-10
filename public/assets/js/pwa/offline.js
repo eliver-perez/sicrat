@@ -1,6 +1,6 @@
 (() => {
     const labels = {
-        personas: 'Personas', estructura: 'Estructura', operaciones: 'Tareas, peticiones e incidencias', jornada: 'Jornada Electoral', mensajes: 'Mensajes',
+        dashboard: 'Dashboard y notas', election: 'Elección', kpis: 'Indicadores', label: 'Concepto', value: 'Total', detail: 'Detalle', charts: 'Gráficas', activity: 'Actividad reciente', actor: 'Persona', action: 'Acción', module: 'Módulo', date: 'Fecha', pending: 'Pendientes', deadline: 'Fecha límite', urgent: 'Urgente', texto: 'Nota personal', recordatorio: 'Recordatorio', realizada: 'Realizada', fijada: 'Fijada', creada: 'Creada', modificada: 'Modificada', days: 'Días del periodo', personas: 'Personas', estructura: 'Estructura', operaciones: 'Tareas, peticiones e incidencias', jornada: 'Jornada Electoral', mensajes: 'Mensajes',
         persons: 'Personas', members: 'Integrantes', rows: 'Registros', name: 'Nombre', nombre: 'Nombre', paterno: 'Apellido paterno', materno: 'Apellido materno',
         phone: 'Teléfono', email: 'Correo', level_name: 'Nivel', parent: 'Responsable', direct_count: 'Equipo directo', team_count: 'Integrantes del equipo',
         focus: 'Responsable consultado', structure: 'Estructura', state: 'Estado', title: 'Título', description: 'Descripción', message: 'Mensaje', mensaje: 'Mensaje',
@@ -19,19 +19,19 @@
         element('offline-content').hidden = true;
         element('offline-account').textContent = 'Tu información, en este dispositivo';
     }
-    function fields(value, depth = 0) {
+    function fields(value, depth = 0, dashboard = false) {
         const container = document.createElement('div');
         if (depth > 5 || value === null || value === undefined) return container;
         if (Array.isArray(value)) {
             if (!value.length) container.append(text('p', 'Sin registros en esta consulta.'));
-            value.forEach(row => { const card = document.createElement('article'); card.className = 'pwa-record'; card.append(fields(row, depth + 1)); container.append(card); });
+            value.forEach(row => { const card = document.createElement('article'); card.className = 'pwa-record'; card.append(fields(row, depth + 1, dashboard)); container.append(card); });
         } else if (typeof value === 'object') {
             const list = document.createElement('dl');
             Object.entries(value).forEach(([key, child]) => {
-                if (privateFields.test(key) || key.startsWith('can_') || child === null || child === '') return;
+                if ((dashboard && /^(activity_available|pending_available|key|icon|type|more)$/.test(key)) || privateFields.test(key) || key.startsWith('can_') || child === null || child === '') return;
                 list.append(text('dt', label(key)));
                 const description = document.createElement('dd');
-                if (typeof child === 'object') description.append(fields(child, depth + 1));
+                if (typeof child === 'object') description.append(fields(child, depth + 1, dashboard));
                 else description.textContent = typeof child === 'boolean' ? (child ? 'Sí' : 'No') : String(child);
                 list.append(description);
             });
@@ -55,7 +55,7 @@
             card.append(text('summary', `${labels[row.module]}${title ? ' · ' + title : ''}${search ? ' · Búsqueda: ' + search : ''} · Página ${page}`));
             card.append(text('p', `Última actualización: ${SicratPwa.date(row.updatedAt)}`));
             const content = document.createElement('div');
-            card.addEventListener('toggle', () => { if (card.open && !content.childNodes.length) content.append(fields(row.body.data)); });
+            card.addEventListener('toggle', () => { if (card.open && !content.childNodes.length) content.append(fields(row.body.data, 0, row.module === 'dashboard')); });
             card.append(content); element('offline-records').append(card);
         });
     }

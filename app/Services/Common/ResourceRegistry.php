@@ -39,10 +39,11 @@ class ResourceRegistry
 		$this->owners[$entity]=$authorize;
 		if ($listingPredicate!==null) $this->filters[$entity]=$listingPredicate;
 	}
-	public function listingPredicate(?int $process,int $actor,string $permission): array
+	public function listingPredicate(?int $process,int $actor,string $permission,?array $entities = null): array
 	{
 		$parts=[]; $parameters=[];
 		foreach ($this->filters as $entity=>$filter) {
+			if ($entities!==null && !in_array($entity,$entities,true)) continue;
 			[$condition,$params]=$filter($process,$actor,$permission);
 			$parts[]="(a.entidad=? AND ($condition))"; $parameters[]=$entity; $parameters=[...$parameters,...$params];
 		}

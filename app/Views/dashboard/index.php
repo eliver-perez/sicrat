@@ -1,30 +1,21 @@
 <?php
-    $title = "Dashboard";
-
-    require_once __DIR__.'/../layout/title.php';
-    // require_once __DIR__.'/index-template.php';
+$title='Dashboard';
+require __DIR__.'/../layout/title.php';
 ?>
-
-<?php if (!empty($_SESSION['SICRAT_AVAILABLE_ROLES']) && \App\Core\Auth::processId() === null && !\App\Core\Auth::isSuperAdmin()): ?>
-    <p class="p-4 text-default-700">Selecciona una elección de trabajo para utilizar los permisos de tu acceso.</p>
-<?php endif; ?>
-
-<section class="card p-5 mb-5"><h6>Bienvenido a SICRAT</h6><p class="ux-help">Selecciona tu elección de trabajo en el encabezado. Los accesos disponibles dependen de tus responsabilidades y permisos.</p></section>
-<div class="ux-module-grid mb-5">
-    <?php foreach ([
-        ['persons','Personas','Consulta el padrón de la organización y la participación electoral.','personas.ver'],
-        ['users','Usuarios y accesos','Administra las cuentas y sus accesos a elecciones.','usuarios.administrar'],
-        ['administration','Configuración electoral','Configura niveles, roles, permisos y módulos.','permisos.administrar'],
-        ['organizations','Organizaciones','Consulta organizaciones y administra sus elecciones.','superadmin'],
-    ] as [$route,$label,$description,$right]): if (\App\Auth\Authorization::canAny([$right])): ?>
-    <section class="card p-5"><h6><?= escape_html($label) ?></h6><p class="ux-help"><?= escape_html($description) ?></p><a class="btn" href="<?= escape_html(base_url($route)) ?>">Abrir <?= escape_html(mb_strtolower($label)) ?></a></section>
-    <?php endif; endforeach; ?>
-    <?php if ($structureEnabled ?? false): ?><section class="card p-5"><h6>Estructura organizacional</h6><p class="ux-help">Consulta integrantes, responsables directos y equipos a cargo.</p><a class="btn" href="<?= escape_html(base_url('structure')) ?>">Abrir estructura</a></section><?php endif; ?>
-    <section class="card p-5"><h6>Servicios y notificaciones</h6><p class="ux-help">Revisa tus avisos y los servicios que tienes autorizados.</p><a class="btn" href="<?= escape_html(base_url('services')) ?>">Abrir servicios</a></section>
+<link rel="stylesheet" href="<?= escape_html(asset('css/dashboard.css')) ?>">
+<div id="dashboard" data-base="<?= escape_html(base_url('')) ?>" data-charts="<?= escape_html(base_url('template/assets/apexcharts.esm-DPbJ6jlt.js')) ?>">
+    <div class="db-heading"><div><p class="db-eyebrow">TU CENTRO OPERATIVO</p><h2>Una mirada a tu día</h2><p id="db-context" class="db-muted">Cargando tu información…</p></div><div class="db-toolbar"><label for="db-period">Periodo de actividad<select id="db-period"><option value="7">Últimos 7 días</option><option value="15">Últimos 15 días</option><option value="30">Últimos 30 días</option></select></label><button id="db-refresh" type="button">Actualizar</button></div></div>
+    <p id="db-status" role="status" aria-live="polite" hidden></p>
+    <p id="db-message" class="db-notice" hidden></p>
+    <section id="db-kpis" class="db-kpis" aria-label="Indicadores de tu ámbito"></section>
+    <div class="db-main">
+        <div id="db-charts" class="db-charts"></div>
+        <section class="db-panel" id="db-pending-panel" hidden><div class="db-panel-heading"><div><p class="db-eyebrow">POR ATENDER</p><h3>Pendientes</h3></div><span id="db-pending-count" class="db-count"></span></div><p class="db-muted">Tus asignaciones y solicitudes, en orden de prioridad.</p><div id="db-pending" class="db-list"></div></section>
+        <section class="db-panel" id="db-activity-panel" hidden><div class="db-panel-heading"><div><p class="db-eyebrow">LO QUE ESTÁ PASANDO</p><h3>Actividad reciente</h3></div></div><p class="db-muted">Tus movimientos y los de tu estructura autorizada.</p><div id="db-activity" class="db-list"></div></section>
+        <section class="db-panel db-notes"><div class="db-panel-heading"><div><p class="db-eyebrow">SÓLO PARA TI</p><h3>Notas y recordatorios</h3></div><button id="db-note-new" type="button" class="db-primary" data-note-write>Nueva nota</button></div><p class="db-muted">Privadas, disponibles en todas tus elecciones. Las modificaciones requieren conexión.</p><p id="db-notes-status" role="status" aria-live="polite"></p><div id="db-notes" class="db-list"></div><div class="db-pagination"><button id="db-notes-prev" type="button" hidden>Anterior</button><button id="db-notes-next" type="button" hidden>Siguiente</button></div></section>
+    </div>
+    <dialog id="db-note-dialog" aria-labelledby="db-note-title"><form id="db-note-form"><h3 id="db-note-title">Nota personal</h3><label for="db-note-text">Tu nota<textarea id="db-note-text" required maxlength="1000" rows="5"></textarea></label><label for="db-note-reminder">Recordatorio (opcional, hora local)<input id="db-note-reminder" type="datetime-local"></label><label class="db-checkbox"><input id="db-note-pin" type="checkbox"> Fijar esta nota</label><p id="db-note-error" role="alert"></p><div class="db-dialog-actions"><button id="db-note-cancel" type="button">Cancelar</button><button class="db-primary" type="submit" data-note-write>Guardar nota</button></div></form></dialog>
+    <dialog id="db-delete-dialog" aria-labelledby="db-delete-title"><h3 id="db-delete-title">Eliminar nota</h3><p>Esta nota se eliminará de tus recordatorios.</p><p id="db-delete-error" role="alert"></p><div class="db-dialog-actions"><button id="db-delete-cancel" type="button">Cancelar</button><button id="db-delete-confirm" type="button" data-note-write>Eliminar</button></div></dialog>
 </div>
-<script src="<?= escape_html(asset('js/dashboard/index.js')); ?>"></script>
-
-<script>
-    var currentLink = <?= json_script(base_url('')); ?>;
-    var callBack = <?= json_script(is_string($_GET['callBack'] ?? null) ? $_GET['callBack'] : ''); ?>;
-</script>
+<script src="<?= escape_html(asset('js/dashboard/index.js')) ?>"></script>
+<script>var currentLink=<?= json_script(base_url('')) ?>;var callBack=<?= json_script(is_string($_GET['callBack'] ?? null) ? $_GET['callBack'] : '') ?>;</script>
