@@ -27,7 +27,10 @@
 .structure-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:start}
 .structure-panels>section{min-width:0;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.5rem;padding:.75rem}
 .structure-panels h6{overflow-wrap:anywhere}
-.structure-panels.structure-flat{display:block}
+.structure-panels.structure-flat{display:block;min-width:0;width:100%;max-width:100%}
+.structure-panels.structure-flat>section{width:100%;max-width:100%;box-sizing:border-box}
+/* Contener también las etiquetas absolutas de los botones dentro del scroll local. */
+.structure-panels.structure-flat>section>.overflow-x-auto{position:relative;min-width:0;width:100%;max-width:100%;overflow-x:auto}
 .structure-code-label{display:block;font-size:.7rem;color:var(--color-default-500,#64748b);margin-top:.25rem}
 .structure-flat .structure-code-label{display:none}
 .structure-panels:not(.structure-flat) th:nth-child(1),.structure-panels:not(.structure-flat) td:nth-child(1),.structure-panels:not(.structure-flat) th:nth-child(4),.structure-panels:not(.structure-flat) td:nth-child(4),.structure-panels:not(.structure-flat) th:nth-child(6),.structure-panels:not(.structure-flat) td:nth-child(6){display:none}
