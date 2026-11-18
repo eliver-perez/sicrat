@@ -59,7 +59,7 @@ function InitializeValues(url) {
             structureState.loadedStructure=structureState.id;
             structureState.own = data.own; structureState.canAddOwn = data.can_add_to_own;
             const navigation = element('structure-navigation'); navigation.replaceChildren();
-            const focus = data.focus;structureState.focus=focus;summary(focus);
+            const focus = data.focus;structureState.focus=focus || (structureState.parent==='roots' ? data.own : null);summary(structureState.focus);
             const hierarchical=structureState.view==='hierarchy';
             element('structure-flat-search-form').hidden=hierarchical;
             element('structure-panels').classList.toggle('structure-flat',!hierarchical);element('structure-preview').hidden=!hierarchical;element('structure-breadcrumb').hidden=!hierarchical;
@@ -69,7 +69,7 @@ function InitializeValues(url) {
             renderBreadcrumb();
             navigation.append(ui.text('h6',focus ? focus.name : structureState.parent === '' ? 'Todos los integrantes' : 'Inicio de la estructura','card-title'));
             if (focus) {
-                const open = ui.text('button','Abrir ficha del responsable','btn text-primary');open.type='button';open.onclick=()=>ui.run(()=>openMember(focus.id));navigation.append(open);
+                const open = ui.text('button','Abrir ficha del responsable','btn text-primary');open.type='button';open.onclick=()=>ui.run(()=>openMember(focus.id));if(focus.can_open!==false)navigation.append(open);
                 if (focus.responsible_visible) { const back=ui.text('button','Subir al responsable','btn');back.type='button';back.onclick=()=>ui.run(()=>{if(!structureState.trail.some(item=>item.id===focus.responsible))structureState.trail=[];return browse(focus.responsible);});navigation.append(back); }
             } else if (!data.own) navigation.append(ui.text('p','Tu usuario no se encuentra registrado como integrante de esta estructura. Se muestran los registros de la estructura seleccionada.','ux-help'));
             element('structure-mine').hidden = !data.own;
@@ -136,6 +136,7 @@ function InitializeValues(url) {
         finally {if(version===structureState.previewVersion)element('structure-preview').removeAttribute('aria-busy');}
     }
     async function browse(parent) {
+        if (parent===structureState.own?.id && structureState.own.can_open===false) parent='mine';
         if(parent===''){if(structureState.view!=='all')structureState.hierarchyParent=structureState.parent || 'mine';structureState.view='all';}
         else {structureState.view='hierarchy';if(parent==='mine'||parent==='roots')structureState.trail=[];}
         structureState.parent=parent;structureState.offset=0;await loadMembers();

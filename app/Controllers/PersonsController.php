@@ -88,6 +88,11 @@ class PersonsController extends Controller
         }
     }
 
+    public function map(Request $request, Response $response): void
+    {
+        $response->success($this->getService()->map($request->query()));
+    }
+
     public function store(Request $request, Response $response) {
         try {
             $currentUserId = Auth::id();

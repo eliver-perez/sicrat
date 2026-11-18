@@ -119,6 +119,19 @@ class PersonImportService extends Service
         } finally { $reader->close(); @rmdir($temporary); }
     }
 
+    public function cancel(string $id): void
+    {
+        Authorization::requireOperation('persons.import');
+        $this->repository->acquire($id);
+        try {
+            $import = $this->repository->get($id);
+            if ($import['estado'] === 'terminado') throw new HttpError('Esta importación ya terminó.',409);
+            $this->repository->remove($id);
+        } finally {
+            $this->repository->release($id);
+        }
+    }
+
     public function configure(string $id, array $data): array
     {
         Authorization::requireOperation('persons.import');

@@ -23,7 +23,7 @@ module.exports=async({directory,call,evaluate,waitFor,navigate,api,click,shot})=
     check(await evaluate(`document.querySelector('#person-assignment-dialog [name=responsible]').value===${JSON.stringify(f.child)}`),'Abrir selector respeta responsable elegido manualmente');
     await evaluate(`document.querySelector('#person-assignment-dialog .ux-selection-row[data-value="${f.root}"]').click()`);await assertDefaults(false);await shot('own-level-same-disabled');
     await login(true);await same(1);await login(false);await open();await assertDefaults(true);await shot('own-level-same-enabled');
-    await evaluate('document.querySelector("#person-assignment-dialog form").requestSubmit()');await waitFor('!document.getElementById("person-assignment-dialog")&&document.querySelector("#person-structure a")');
+    await evaluate('document.querySelector("#person-assignment-dialog form").requestSubmit()');await waitFor('!document.getElementById("person-assignment-dialog")&&document.querySelector("#person-structure-action a")');
     const person=(await api(`persons/${f.person}`)).data;const member=person.structure.members.find(m=>m.structure===f.structure);check(!!member,'Asignación al titular se guarda con alcance descendientes');
     await navigate(`/structure/?structure=${f.structure}&member=${member.id}`);await waitFor('document.querySelector("#structure-member-levels select")');
     check(await evaluate(`!Array.from(document.querySelector('#structure-member-levels select').options).some(o=>o.value===''||o.textContent==='Sin nivel')&&document.querySelector('#structure-member-levels select').value===${JSON.stringify(f.levels[2])}`),'Editor activo sin Sin nivel conserva Coordinador de Zona');

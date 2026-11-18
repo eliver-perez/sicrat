@@ -31,7 +31,7 @@ class Context
     public function require(string $permission, bool $write = false, ?int $actor = null): array
     {
         $effective = (new Access($this->repository))->context($this->organization,$this->process,$permission,$actor ?? $this->actor);
-        if ($write && !$this->enabled()) throw new HttpError('Jornada Electoral está deshabilitada. El historial autorizado permanece disponible.',403);
+        if (!$this->enabled()) throw new HttpError('Jornada Electoral está deshabilitada para esta elección.',403);
         return $effective;
     }
     public function allowed(string $permission, ?int $actor = null): bool

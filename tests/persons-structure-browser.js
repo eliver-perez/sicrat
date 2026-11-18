@@ -20,6 +20,12 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate}) {
     await evaluate(`$('#person-election-select').val([${JSON.stringify(fixture.election)}]);document.getElementById('person-participate').click()`);
     await waitFor('document.getElementById("person-structure").textContent.includes("Participación electoral activa")');checks++;
     await shot('persons-participation-structure');
+    check(await evaluate('document.getElementById("person-edit-form").hidden && !document.querySelector("#person-consult input")'),'Ficha abre en consulta');
+    await click('#person-edit');
+    await evaluate('document.querySelector("#person-edit-fields [name=name]").value="Cambio pendiente"');
+    await click('#person-edit-cancel');
+    check(await evaluate('document.getElementById("person-edit-form").hidden && !document.getElementById("person-consult").textContent.includes("Cambio pendiente")'),'Cancelar descarta el borrador');
+    await click('#person-edit');
     // Selector independiente: editar y confirmar una ubicación real, cancelar conserva el valor.
     await evaluate('Array.from(document.querySelectorAll("#person-edit-fields button")).find(b=>b.textContent.includes("colonia")).click()');
     await waitFor('document.querySelector("#person-neighborhood-dialog select[aria-label=Colonia]")?.value==="1"');checks++;
@@ -37,18 +43,21 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate}) {
     await waitFor('!document.querySelector("#person-neighborhood-dialog")');
     check(await evaluate('document.querySelector("#person-edit-fields [name=neighborhood]").value==="1"&&document.getElementById("person-edit-fields").textContent.includes("Municipio de prueba, Estado de prueba")'),'Colonia e IDs mantenidos al confirmar');
     await evaluate('document.getElementById("person-edit-form").requestSubmit()');await waitFor('document.querySelector(".swal2-title")?.textContent==="Información guardada."');
+    await waitFor('document.getElementById("person-edit-form").hidden && document.getElementById("person-detail").open');
+    await click('#person-edit');
     check((await api(`persons/${fixture.persons.candidate}`)).data.neighborhood===1,'Ubicación persistida en backend');
     await evaluate('Array.from(document.querySelectorAll("#person-edit-fields button")).find(b=>b.textContent.includes("colonia")).click()');
     await waitFor('document.querySelector("#person-neighborhood-dialog select[aria-label=Colonia]")?.value==="1"');
     await evaluate('document.querySelector("#person-neighborhood-dialog select[aria-label=Estado]").value="";document.querySelector("#person-neighborhood-dialog select[aria-label=Estado]").dispatchEvent(new Event("change"));Array.from(document.querySelectorAll("#person-neighborhood-dialog button")).find(b=>b.textContent==="Cancelar").click()');
     check(await evaluate('document.querySelector("#person-edit-fields [name=neighborhood]").value==="1"&&document.getElementById("person-detail").open'),'Cancelar conserva colonia y ficha');
     await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1080,deviceScaleFactor:1,mobile:false});
-    check(await evaluate('document.getElementById("person-assign-structure").textContent==="Asignar a estructura"'),'Acción contextual desde Personas');
+    check(await evaluate('document.getElementById("person-assign-structure").textContent==="Agregar a mi estructura"'),'Acción contextual desde Personas');
+    await click('#person-edit-cancel');
     await click('#person-assign-structure');await waitFor('document.querySelector("#person-assignment-levels select")');
     check(await evaluate('location.pathname==="/persons/"&&document.getElementById("person-detail").open'),'Asignación sin abandonar ficha');
     check(await evaluate(`document.querySelector('#person-assignment-dialog [name=responsible]').value===${JSON.stringify(fixture.members.root)}`),'Responsable propio preseleccionado');
     await evaluate(`document.querySelector('#person-assignment-levels select').value=${JSON.stringify(fixture.level)};document.querySelector('#person-assignment-dialog form').requestSubmit()`);
-    await waitFor('!document.getElementById("person-assignment-dialog")&&document.querySelector("#person-structure a")');checks++;
+    await waitFor('!document.getElementById("person-assignment-dialog")&&document.querySelector("#person-structure-action a")');checks++;
     const assigned=(await api(`persons/${fixture.persons.candidate}`)).data.structure;
     check(assigned.members.length===1&&assigned.members[0].responsible==='Coordinador UX','Responsable asignado realmente');
     await navigate('/structure/');

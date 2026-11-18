@@ -10,3 +10,21 @@
 .person-map-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.5rem 0}
 .person-map-actions>button,#person-detail .ux-actions>button,#person-detail .ux-actions>a,#person-detail .ux-modal-footer>button,#person-map-settings .ux-modal-footer>button{margin:0!important;min-height:2.5rem}
 #person-detail .ux-actions,#person-detail .ux-modal-footer,#person-map-settings .ux-modal-footer{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.person-list-header,.person-filters { flex-wrap:wrap; gap:.5rem }
+.person-filters>* { min-width:0; max-width:100% }
+.person-list-header [aria-pressed=true] { background:var(--color-primary,#2563eb); color:white }
+#person-detail-actions { margin-bottom:.8rem }
+#person-consult { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem }
+#person-consult section { min-width:0; padding:.75rem; border:1px solid var(--color-default-200); border-radius:.5rem }
+#person-consult section:last-child,#person-settings-canvas { grid-column:1/-1 }
+#person-consult dl { margin:.35rem 0 0 }
+#person-consult dl>div { display:grid; grid-template-columns:minmax(5rem,.8fr) minmax(0,1.2fr); gap:.5rem; padding:.12rem 0 }
+#person-consult dt,#person-consult small { color:var(--color-default-500) }
+#person-consult dd,.person-popup,#person-detail-actions { overflow-wrap:anywhere }
+#persons-overview-map { height:clamp(300px,58vh,640px); width:100%; isolation:isolate }
+#person-settings-canvas { height:clamp(240px,45vh,450px); position:relative }
+#person-settings-canvas::after { content:'+'; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:499; pointer-events:none; font:bold 28px sans-serif; color:#172554; text-shadow:0 0 3px white }
+.person-popup,.person-cluster-list { display:grid; gap:.25rem }
+.person-cluster { display:grid; place-items:center; border-radius:50%; background:#1d4ed8; border:2px solid white; color:white; font-weight:bold; box-shadow:0 1px 5px #0006 }
+#persons-overview-map :is(.leaflet-popup-content-wrapper,.leaflet-popup-tip,.leaflet-tooltip) { background:var(--color-card, var(--color-default-50)); color:var(--color-default-800) }
+@media(max-width:767px){#person-consult {grid-template-columns:minmax(0,1fr)}}

@@ -49,7 +49,7 @@ class Context
 		$organization ??= $this->organization($process);
 		$actor ??= $this->actor();
 		$effective=(new Access($this->repository))->context($organization,$process,$permission,$actor);
-		if ($write && !$this->enabled(Catalog::entity($entity)['module'],$organization,$process)) throw new HttpError('El módulo está deshabilitado. El historial permanece disponible en modo de consulta.',403);
+		if (!$this->enabled(Catalog::entity($entity)['module'],$organization,$process)) throw new HttpError('El módulo está deshabilitado en este contexto.',403);
 		return ['organization'=>$organization,'process'=>$process,'actor'=>$actor,'effective'=>$effective];
 	}
 

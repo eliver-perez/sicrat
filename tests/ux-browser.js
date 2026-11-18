@@ -107,7 +107,7 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
     await waitFor('document.querySelector(".person-open")');
     await evaluate('document.querySelector(".person-open").click()');
     await waitFor('document.getElementById("person-detail").open');
-    verify(await evaluate('Array.from(document.querySelectorAll("#person-edit-fields legend")).map(item=>item.textContent).join("|")==="Datos personales|Contacto|Domicilio"'),'Ficha de Persona agrupada');
+    verify(await evaluate('document.getElementById("person-edit-form").hidden && Array.from(document.querySelectorAll("#person-consult h6")).map(item=>item.textContent).join("|")==="Datos personales|Contacto|Datos electorales|Domicilio|Ubicación"'),'Ficha de Persona agrupada');
     for (const [width,height,label] of sizes) {
         await size(width,height); await capture('person-dialog-' + label);
         verify(await evaluate('(() => { const rect=document.getElementById("person-detail").getBoundingClientRect(); return rect.left>=0 && rect.right<=innerWidth+1 && rect.top>=0 && rect.bottom<=innerHeight+1; })()'),'Modal de Persona dentro del viewport ' + label);

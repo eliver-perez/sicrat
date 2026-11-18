@@ -49,6 +49,7 @@ phase3Status(404,'/api/organizations/'.$organizationIds[1].'/person-map','GET',n
 foreach([['latitude'=>91,'longitude'=>0,'zoom'=>1],['latitude'=>0,'longitude'=>-181,'zoom'=>1],['latitude'=>0,'longitude'=>0,'zoom'=>20],['latitude'=>0,'longitude'=>0,'zoom'=>1.5],['latitude'=>'','longitude'=>0,'zoom'=>1]] as $invalidMap)phase3Status(422,$settingsPath,'PUT',$invalidMap);
 $otherSettings=phase3Ok('/api/organizations/'.$organizationIds[1].'/person-map');verify($otherSettings['zoom']===5,'Configuración no altera otra organización');
 $settings=phase3Ok($settingsPath);verify($settings['latitude']===26.39 && $settings['zoom']===13,'Valores inválidos no modificaron configuración');
+require __DIR__.'/person-map.php';
 file_put_contents($temporaryDirectory.'/person-context.json',json_encode(['organization'=>$organizationIds[0],'alternativeCode'=>$code,'election'=>$contextElection,'structure'=>$contextStructure,'levels'=>$contextLevels,'persons'=>$contextPeople,'members'=>$contextMembers],JSON_THROW_ON_ERROR));
 phase3Ok('/api/auth/election','POST',['process'=>$promotionElection]);
 

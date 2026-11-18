@@ -25,7 +25,7 @@ class PersonIdentityRepository
 
     public function person(string $uuid, bool $lock = false): array
     {
-        $statement = $this->db->prepare('SELECT p.*, o.uuid organizacion_uuid, s.uuid seccion_uuid FROM personas p JOIN organizaciones o ON o.id=p.organizacion LEFT JOIN secciones_electorales s ON s.id=p.seccion WHERE p.uuid=?' . ($lock ? ' FOR UPDATE' : ''));
+        $statement = $this->db->prepare('SELECT p.*, o.uuid organizacion_uuid, s.uuid seccion_uuid,s.seccion seccion_numero,(SELECT g.genero FROM generos g WHERE g.id=p.genero) genero_nombre FROM personas p JOIN organizaciones o ON o.id=p.organizacion LEFT JOIN secciones_electorales s ON s.id=p.seccion WHERE p.uuid=?' . ($lock ? ' FOR UPDATE' : ''));
         $statement->execute([$uuid]);
         $person = $statement->fetch(PDO::FETCH_ASSOC);
         if (!$person) throw new HttpError('La persona no está disponible.', 404);

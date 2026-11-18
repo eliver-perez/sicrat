@@ -40,16 +40,32 @@ class PersonsRepository
             WHERE 1=1
         ";
 
-        if($data['section'] != null)
-            $sql .= " AND se.uuid = :seccion";
-
         $params = [];
+        $sql .= $this->filters($data, $params);
+        $stmt = $this->db->prepare($sql . ' ORDER BY p.paterno,p.nombre,p.id LIMIT ' . (int)$data['limit'] . ' OFFSET ' . (int)$data['offset']);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
+    private function filters(array $data, array &$params): string
+    {
+        [$condition, $params] = (new ScopeRepository($this->db))->predicate('personas.ver', \App\Core\Auth::processId());
+        $sql = " AND ($condition)";
         $organization = Authorization::scopeOrganizationId();
         if ($organization !== null) {
-            $sql .= ' AND p.organizacion = :organizacion';
+            $sql .= ' AND p.organizacion=?';
+            $params[] = $organization;
         }
+        if ($data['section'] !== null) {
+            $sql .= ' AND se.uuid=?';
+            $params[] = $data['section'];
+        }
+        $search = trim($data['search'] ?? '');
+        return $search === '' ? $sql : $sql . $this->search($search, $params);
+    }
 
+    private function search(string $search, array &$params): string
+    {
         $fields = ["TRIM(
                         CONCAT(
                             p.nombre, ' ',
@@ -66,45 +82,43 @@ class PersonsRepository
                     'r.nombre'];
 
         $conditions = [];
+        foreach ($fields as $field) {
+            $conditions[] = "CONVERT(($field) USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?";
+            $params[] = '%' . $search . '%';
+        }
+        return ' AND (' . implode(' OR ', $conditions) . ')';
+    }
+
+    public function mapRows(array $data, int $organization, int $process): array
+    {
         $params = [];
-
-        foreach ($fields as $i => $field) {
-            $param = "search_$i";
-            $conditions[] = "CONVERT(($field) USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE :$param";
-            $params[$param] = '%' . trim($data['search'] ?? '') . '%';
+        $filters = $this->filters($data, $params);
+        // Misma dirección que la ficha, incluso cuando existen domicilios históricos.
+        $from = " FROM personas_domicilios d JOIN personas p ON p.id=d.persona
+            LEFT JOIN secciones_electorales se ON se.id=p.seccion LEFT JOIN usuarios r ON r.id=p.registrado_por
+            WHERE d.latitud BETWEEN ? AND ? AND d.longitud BETWEEN ? AND ?
+            AND d.id=(SELECT first_address.id FROM personas_domicilios first_address WHERE first_address.persona=p.id
+                      ORDER BY principal DESC,id LIMIT 1)
+            AND p.organizacion=? AND (EXISTS (SELECT 1 FROM personas_procesos pp WHERE pp.persona=p.id AND pp.proceso=? AND pp.activo=1)
+                OR EXISTS (SELECT 1 FROM estructura_integrantes_procesos ep WHERE ep.persona=p.id AND ep.proceso=? AND ep.activo=1)) $filters";
+        $params = [$data['south'],$data['north'],$data['west'],$data['east'],$organization,$process,$process,...$params];
+        $name = "TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno))";
+        if ($data['list']) {
+            $sql = "SELECT 1 quantity,p.uuid,$name name,p.codigo_persona code,se.seccion section,d.latitud latitude,d.longitud longitude"
+                . $from . ' ORDER BY p.id LIMIT 26 OFFSET ' . $data['offset'];
+        } else {
+            // Reclasifica sólo el viewport. Las celdas coincidentes tienen una lista paginada.
+            $sql = "SELECT COUNT(*) quantity,IF(COUNT(*)=1,MIN(p.uuid),NULL) uuid,
+                IF(COUNT(*)=1,MIN($name),NULL) name,IF(COUNT(*)=1,MIN(p.codigo_persona),NULL) code,
+                IF(COUNT(*)=1,MIN(se.seccion),NULL) section,AVG(d.latitud) latitude,AVG(d.longitud) longitude,
+                MIN(d.latitud) south,MAX(d.latitud) north,MIN(d.longitud) west,MAX(d.longitud) east" . $from .
+                ' GROUP BY FLOOR((d.latitud-?)/?), FLOOR((d.longitud-?)/?)';
+            $params = [...$params, $data['south'],max(0.0000001,($data['north']-$data['south'])/$data['rows']),
+                $data['west'],max(0.0000001,($data['east']-$data['west'])/$data['columns'])];
         }
-
-        $sql .= " AND (" . implode(' OR ', $conditions) . ")";
-
-        [$scopeCondition, $scopeParams] = (new ScopeRepository($this->db))->predicate('personas.ver', \App\Core\Auth::processId());
-        foreach ($scopeParams as $index => $value) {
-            $scopeCondition = preg_replace('/\?/', ':scope_' . $index, $scopeCondition, 1);
-            $params['scope_' . $index] = $value;
-        }
-        $sql .= ' AND (' . $scopeCondition . ')';
-
-        $sql .= "
-            ORDER BY p.paterno, p.nombre, p.id ASC
-            LIMIT :limit OFFSET :offset
-        ";
-
-        $stmt = $this->db->prepare($sql);
-        if ($organization !== null) {
-            $stmt->bindValue(':organizacion', $organization, PDO::PARAM_INT);
-        }
-
-        foreach ($params as $key => $value) {
-            $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
-        }
-
-        if($data['section'] != null)
-            $stmt->bindValue(':seccion', $data['section'], PDO::PARAM_STR);
-        $stmt->bindValue(':limit', $data['limit'], PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $data['offset'], PDO::PARAM_INT);
-
-        $stmt->execute();
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $statement = $this->db->prepare($sql);
+        $statement->execute($params);
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function sectionExists(array $data): bool {

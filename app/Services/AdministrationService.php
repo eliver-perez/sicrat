@@ -127,10 +127,19 @@ class AdministrationService extends Service
         return ['auto_promote'=>(int) ($config['promocion_primera_incorporacion'] ?? 0),'approval_required'=>(int) ($config['requiere_aprobacion'] ?? 1),'approver'=>isset($config['aprobador_uuid']) ? $this->uuidBinaryToString($config['aprobador_uuid']) : null,'approver_name'=>$config['aprobador_nombre'] ?? null];
     }
 
+    private function enabledPermissions(array $rows, ?array $process): array
+    {
+        $enabled = (new ModuleRepository($this->repository->connection()))->enabledCodes(
+            (int)($process['organizacion'] ?? Auth::organizationId()), isset($process['id']) ? (int)$process['id'] : null);
+        return array_values(array_filter($rows, static fn(array $row): bool =>
+            $row['module'] === null || in_array($row['module'], $enabled, true)));
+    }
+
     public function permissions(): array
     {
         $this->authorize('permisos.administrar',Auth::processId());
-        return ['permissions'=>$this->repository->rows("SELECT id,permiso name,ambito scope,modulo module FROM permisos WHERE id<>'superadmin' ORDER BY id"),'scopes'=>PermissionRepository::SCOPES];
+        $rows = $this->repository->rows("SELECT id,permiso name,ambito scope,modulo module FROM permisos WHERE id<>'superadmin' ORDER BY modulo,id");
+        return ['permissions'=>$this->enabledPermissions($rows,Auth::processId() ? $this->process() : null),'scopes'=>PermissionRepository::SCOPES];
     }
     public function roles(): array
     {
@@ -201,7 +210,10 @@ class AdministrationService extends Service
             $process = $this->process(); $this->authorize('permisos.administrar',(int) $process['id']);
             $role = $this->repository->rows("SELECT id FROM usuarios_tipos WHERE id=? AND codigo<>'superadmin' AND (organizacion IS NULL OR organizacion=?)",[$roleId,$process['organizacion']]);
             if ($role===[]) throw new HttpError('El rol no está disponible.',404);
-            return $this->repository->rows('SELECT permiso permission,valor value,alcance scope,proceso,contexto,f_actualizacion FROM permisos_usuarios_tipo WHERE tipo=? AND (proceso IS NULL OR proceso=?) ORDER BY permiso,proceso',[$roleId,$process['id']]);
+            $rows = $this->repository->rows('SELECT pt.permiso permission,pt.valor value,pt.alcance scope,pt.proceso,pt.contexto,pt.f_actualizacion,p.modulo module
+                FROM permisos_usuarios_tipo pt JOIN permisos p ON p.id=pt.permiso
+                WHERE pt.tipo=? AND (pt.proceso IS NULL OR pt.proceso=?) ORDER BY pt.permiso,pt.proceso',[$roleId,$process['id']]);
+            return $this->enabledPermissions($rows,$process);
         }
         return $this->transaction(function () use ($roleId,$data) {
             [$process,$code,$scope,$value] = $this->permissionChange($data);
@@ -227,7 +239,10 @@ class AdministrationService extends Service
         (new \App\Repositories\AccountScopeRepository($this->repository->connection()))->assertUser((int) $user['id'],'permisos.administrar',Auth::processId());
         if ($data===null) {
             $process = $this->process(); $this->authorize('permisos.administrar',(int) $process['id']);
-            return $this->repository->rows('SELECT permiso permission,valor value,alcance scope,proceso,f_actualizacion,editado_por FROM permisos_usuarios WHERE usuario=? AND (proceso IS NULL OR proceso=?) ORDER BY permiso',[$user['id'],$process['id']]);
+            $rows = $this->repository->rows('SELECT pu.permiso permission,pu.valor value,pu.alcance scope,pu.proceso,pu.f_actualizacion,pu.editado_por,p.modulo module
+                FROM permisos_usuarios pu JOIN permisos p ON p.id=pu.permiso
+                WHERE pu.usuario=? AND (pu.proceso IS NULL OR pu.proceso=?) ORDER BY pu.permiso',[$user['id'],$process['id']]);
+            return $this->enabledPermissions($rows,$process);
         }
         return $this->transaction(function () use ($user,$data) {
             [$process,$code,$scope,$value] = $this->permissionChange($data);

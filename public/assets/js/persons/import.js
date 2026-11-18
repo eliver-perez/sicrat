@@ -4,6 +4,38 @@ let personImportReviewComplete = false;
 let personImportRows = [];
 let personImportBusy = false;
 let personImportResultAfter = 0;
+let importCancelDecision = null;
+let importConfirmed = false;
+
+function resetImport() {
+    personImportId = null;
+    personImportAfter = personImportResultAfter = 0;
+    personImportReviewComplete = importConfirmed = false;
+    personImportRows = [];
+    $('#person-import-upload, #person-import-mapping').each(function () { this.reset(); });
+    $('#import-detect').prop('disabled',false);
+    $('#person-import-upload').removeClass('hidden');
+    $('#person-import-columns, #person-import-preview, #person-import-summary, #person-import-planned').empty();
+    $('#person-import-cancel, #person-import-new, #person-import-mapping, #person-import-next, #person-import-confirm, #person-import-result-pages, #person-import-automatic, #person-import-review').addClass('hidden');
+    $('#person-import-confirm').text('Confirmar importación');
+    importBusy(false);
+}
+async function cancelImport() {
+    if (!personImportId || importCancelDecision) return;
+    const id = personImportId;
+    let resume;
+    importCancelDecision = new Promise(resolve => { resume = resolve; });
+    try {
+        if (!await SicratFeedback.confirm('¿Cancelar esta importación? Se perderá el progreso pendiente de revisión.',{confirm:'Cancelar importación'})) return;
+        await identityRequest(`person-imports/${id}`,'delete');
+        resetImport();
+        GetPersons(true);
+    } catch (xhr) {
+        if (xhr.status===404) resetImport();
+        else identityError(xhr);
+    } finally { importCancelDecision = null; resume(); }
+}
+
 const importStateLabels = {nuevo: 'Nueva persona', vinculado: 'Registro existente utilizado', completado: 'Datos faltantes completados', omitido: 'Omitida', rechazado: 'Rechazada', error: 'Error'};
 function importPlan(summary) {
     if (!summary) return;
@@ -12,7 +44,9 @@ function importPlan(summary) {
 }
 function showImportResults(after) {
     if (!personCan('import')) return;
-    identityRequest(`person-imports/${personImportId}/results?after=${after}`, 'get').done(function (response) {
+    const id = personImportId;
+    identityRequest(`person-imports/${id}/results?after=${after}`, 'get').done(function (response) {
+        if (id!==personImportId) return;
         personImportResultAfter = response.data.next_after;
         const box = $('#person-import-preview').empty();
         response.data.rows.forEach(row => box.append($('<p>').text(`Fila ${row.row}: ${importStateLabels[row.state] || row.state} ${row.result?.code || ''} ${row.result?.message || ''}`)));
@@ -26,6 +60,7 @@ function importSummary(summary) {
 }
 function importBusy(busy) {
     personImportBusy = busy;
+    $('#person-import-cancel').prop('disabled',busy);
     $('#person-import button[type="submit"], #person-import-next, #person-import-confirm, #person-import-automatic, #person-import-review').prop('disabled', busy);
 }
 function importPreview() {
@@ -82,38 +117,50 @@ function collectImportDecisions() {
     });
     return decisions;
 }
-function applyPersonImport() {
+async function applyPersonImport() {
+    const id = personImportId;
+    if (importCancelDecision) await importCancelDecision;
+    if (!id || id!==personImportId) return;
+    $('#person-import-cancel').prop('disabled',false);
     if (!personCan('import')) return;
     identityRequest(`person-imports/${personImportId}/apply`, 'post', {}).done(function (response) {
+        if (id!==personImportId) return;
         importSummary(response.data.summary);
         const box = $('#person-import-preview').empty();
         response.data.rows.forEach(function (row) { box.append($('<p>').text(`Fila ${row.row}: ${importStateLabels[row.state] || row.state} ${row.code || ''} ${row.message || ''}`)); });
         if (response.data.complete) {
             importBusy(false);
-            $('#person-import-confirm').addClass('hidden');
+            $('#person-import-confirm, #person-import-cancel').addClass('hidden');
+            $('#person-import-new').removeClass('hidden');
             ShowToastMessage('Importación finalizada. Revisa el resumen y las filas rechazadas.', 'success');
             $('#person-import-result-pages').removeClass('hidden');
             $('#person-import-planned').empty();
             showImportResults(0);
             GetPersons(true);
-        } else setTimeout(applyPersonImport, 0);
-    }).fail(function (xhr) { importBusy(false); identityError(xhr); $('#person-import-confirm').text('Continuar importación').off('click').on('click', function () { importBusy(true); applyPersonImport(); }); });
+        } else if (id===personImportId) setTimeout(()=>{if(id===personImportId) applyPersonImport();},0);
+    }).fail(function (xhr) { importBusy(false); if (id===personImportId) {identityError(xhr); $('#person-import-confirm').text('Continuar importación');} });
 }
 
 async function automaticPersonImport() {
     if (!personCan('import') || !personCan('automatic') || personImportBusy) return;
     importBusy(true);
+    const id = personImportId;
+    $('#person-import-cancel').prop('disabled',false);
     $('#person-import-automatic').removeClass('hidden');
     try {
         let result;
         do {
+            if (importCancelDecision) await importCancelDecision;
+            if (id!==personImportId) return;
             result=(await identityRequest(`person-imports/${personImportId}/automatic`, 'post', {})).data;
+            if (id!==personImportId) return;
             importSummary(result.summary);
             const reviewed=result.total-result.summary.pendiente;
             $('#person-import-automatic').text(result.phase==='review' ? `Revisando ${reviewed} de ${result.total}…` : `Creando personas… ${result.summary.nuevo} registradas`);
         } while (!result.complete);
         $('#person-import-automatic').addClass('hidden');
         const pending=result.summary.decision+result.summary.invalido+result.summary.error;
+        if (!pending) { $('#person-import-new').removeClass('hidden'); $('#person-import-cancel').addClass('hidden'); }
         $('#person-import-review').toggleClass('hidden',pending===0);
         $('#person-import-result-pages').removeClass('hidden');
         $('#person-import-planned').text(`${result.summary.nuevo} personas creadas. ${pending} filas separadas para revisión manual. No se fusionaron coincidencias.`);
@@ -125,6 +172,8 @@ async function automaticPersonImport() {
 }
 function InitializePersonImport() {
     if (!personCan('import') || !document.getElementById('person-import')) return;
+    $('#person-import-new').on('click',resetImport);
+    $('#person-import-cancel').on('click',cancelImport);
     $('#person-import-automatic').on('click',automaticPersonImport);
     $('#person-import-review').on('click',function(){if(personImportBusy)return;personImportAfter=0;$('#person-import-review, #person-import-confirm, #person-import-result-pages').addClass('hidden');importPreview();});
     $('#import-mode').on('change',function(){const automatic=this.value==='automatic';$('#import-detect').prop('checked',automatic || $('#import-detect').is(':checked')).prop('disabled',automatic);});
@@ -133,12 +182,14 @@ function InitializePersonImport() {
     $('#person-import-open').on('click', function () { if (!personCan('import')) return; document.getElementById('person-import').showModal(); });
     $('#person-import-upload').on('submit', function (event) {
         event.preventDefault();
-        if (personImportBusy) return;
+        if (personImportBusy || personImportId) return;
         importBusy(true);
         const data = new FormData(this);
         data.append('organization', $('#select-persons-organization').val() || '');
         $.ajax({url: `${homeURL}/api/person-imports`, type: 'post', data: data, processData: false, contentType: false, dataType: 'json'}).done(function (response) {
             personImportId = response.data.id;
+            $('#person-import-upload').addClass('hidden');
+            $('#person-import-cancel').removeClass('hidden');
             personImportAfter = 0;
             $('#person-import-preview').empty(); $('#person-import-summary').text(`${response.data.total} filas cargadas para revisión.`);
             $('#person-import-next, #person-import-confirm, #person-import-result-pages, #person-import-automatic, #person-import-review').addClass('hidden');
@@ -181,6 +232,7 @@ function InitializePersonImport() {
     $('#person-import-confirm').on('click', function () {
         if (personImportBusy) return;
         importBusy(true);
-        identityRequest(`person-imports/${personImportId}/confirm`, 'post', {}).done(applyPersonImport).fail(function (xhr) { importBusy(false); identityError(xhr); });
+        if (importConfirmed) { applyPersonImport(); return; }
+        identityRequest(`person-imports/${personImportId}/confirm`, 'post', {}).done(()=>{importConfirmed=true;applyPersonImport();}).fail(function (xhr) { importBusy(false); identityError(xhr); });
     });
 }

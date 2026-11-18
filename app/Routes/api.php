@@ -101,6 +101,7 @@ $router->put('/api/profiles/{id}/change-password', [ProfilesController::class, '
 $router->get('/api/auth/elections', [\App\Controllers\ElectoralContextController::class, 'index'], 'authenticated');
 $router->post('/api/auth/election', [\App\Controllers\ElectoralContextController::class, 'select'], 'authenticated');
 
+$router->get('/api/persons/map', [PersonsController::class, 'map'], 'persons.read');
 $router->get('/api/persons/{id}', [\App\Controllers\PersonIdentityController::class, 'show'], 'persons.read');
 $router->put('/api/persons/{id}', [\App\Controllers\PersonIdentityController::class, 'update'], 'persons.update');
 $router->post('/api/persons/{id}/participations', [\App\Controllers\PersonIdentityController::class, 'participation'], 'persons.participate');
@@ -116,6 +117,7 @@ $router->put('/api/users/{id}/person', [\App\Controllers\UserAccessController::c
 $router->put('/api/users/{id}/state', [\App\Controllers\UserAccessController::class, 'state'], 'users.create');
 
 $router->post('/api/person-imports', [\App\Controllers\PersonImportController::class, 'upload'], 'persons.import');
+$router->delete('/api/person-imports/{id}', [\App\Controllers\PersonImportController::class, 'cancel'], 'persons.import');
 $router->put('/api/person-imports/{id}/mapping', [\App\Controllers\PersonImportController::class, 'configure'], 'persons.import');
 $router->post('/api/person-imports/{id}/preview', [\App\Controllers\PersonImportController::class, 'preview'], 'persons.import');
 $router->put('/api/person-imports/{id}/decisions', [\App\Controllers\PersonImportController::class, 'decisions'], 'persons.import');

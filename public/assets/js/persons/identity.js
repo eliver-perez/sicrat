@@ -17,62 +17,116 @@ function showPersonDuplicates(data, continueNew) {
     if (!data.blocked) box.append($('<button>', {type: 'button', class: 'btn bg-primary text-white'}).text('Crear persona nueva').on('click', function () { box.addClass('hidden'); continueNew(); }));
 }
 
+let personRecord = null;
+let personRequestVersion = 0;
+let detailMapCleanup = null;
 function openPerson(uuid) {
-    identityRequest(`persons/${uuid}`, 'get').done(function (response) {
-        const person = response.data;
+    const version = ++personRequestVersion;
+    return identityRequest(`persons/${uuid}`, 'get').done(function ({data:person}) {
+        if (version !== personRequestVersion) return;
+        personRecord = person;
         selectedPerson = uuid;
         personEditable = person.editable && personCan('edit');
-        $('#person-edit-form button[type=submit]').prop('hidden', !personEditable);
         detailOrganization = person.organization;
-        $('#person-detail-title').text(`${person.code} · ${person.name}`);
-        const fields = $('#person-edit-fields').empty();
-        const groups = {};
-        const categories = {personal:'Datos personales',contact:'Contacto',address:'Domicilio'};
-        Object.entries(categories).forEach(function ([key, title]) {
-            const section = $('<fieldset>', {class:'ux-section'}); section.append($('<legend>').text(title));
-            groups[key] = $('<div>', {class:'ux-form-grid'}); section.append(groups[key]); fields.append(section);
-        });
-        Object.entries(personLabels).forEach(function ([key, label]) {
-            const group = ['phone','alternate_phone','email'].includes(key) ? groups.contact : ['section','street','exterior_number','interior_number','postal_code','references','neighborhood','latitude','longitude'].includes(key) ? groups.address : groups.personal;
-            const control = key === 'references' ? $('<textarea>', {rows:3}) : ['section', 'neighborhood', 'gender'].includes(key) ? $('<select>') : $('<input>', {type: key === 'birth_date' ? 'date' : key === 'email' ? 'email' : ['phone','alternate_phone'].includes(key) ? 'tel' : 'text'});
-            control.attr({name: key, class: 'form-input'}).val(person[key] ?? '').prop('disabled',!personEditable);
-            if (['latitude','longitude'].includes(key)) control.attr({type:'number',step:'any',min:key==='latitude'?-90:-180,max:key==='latitude'?90:180}).prop('required',false);
-            if (key === 'name') control.prop('required', true);
-            if (key === 'section') {
-                control.append($('<option>', {value: '', text: 'Sin sección'}));
-                $('#select-persons-section option').each(function () { if (this.value) control.append($('<option>', {value: this.value, text: this.textContent})); });
-                control.val(person.section || '');
-            }
-            if (key === 'gender') {
-                control.append($('<option>', {value: '', text: 'Sin género'}));
-                $('#select-persons-gender option').each(function () { if (this.value) control.append($('<option>', {value: this.value, text: this.textContent})); });
-                control.val(person.gender || '');
-            }
-            if (key === 'neighborhood') {
-                control.append($('<option>', {value: '', text: 'Sin colonia'}));
-                if (person.neighborhood) control.append($('<option>', {value: person.neighborhood, text: person.location?.neighborhood || 'Colonia registrada', selected: true}));
-                control.prop('hidden', true);
-                const location = $('<span>', {class:'block'}).text(person.location ? `${person.location.neighborhood} · ${person.location.municipio}, ${person.location.estado}` : 'Sin colonia');
-                const choose = $('<button>', {type: 'button', class: 'btn text-primary'}).text(person.neighborhood ? 'Cambiar colonia' : 'Seleccionar colonia');
-                choose.on('click', function () { choosePersonNeighborhood(control, location, person.location); });
-                const field = $('<div>').append($('<span>', {class:'block'}).text('Colonia'),control,location);
-                if (personEditable) field.append(choose);
-                group.append(field);
-                return;
-            }
-            group.append($('<label>').text(label).append(control));
-        });
-        window.SicratPersonMap.mount(groups.address[0],personEditable,person.organization);
+        $('#person-detail-title').text([person.code,[person.name,person.last_name,person.last_name_2].filter(Boolean).join(' ')].join(' · '));
+        showPersonConsult();
         renderPersonParticipations(person);
         showPersonStructure(person);
         const selector = $('#person-election-select').empty();
         person.participation_choices.forEach(election => selector.append($('<option>', {value:election.id,text:election.process})));
+        $('#person-participation-options').prop('open',false).prop('hidden',!personCan('participate') || !person.participation_choices.length);
         selector.closest('label').prop('hidden',!personCan('participate') || !person.participation_choices.length);
         $('#person-participate').prop('hidden',!personCan('participate') || !person.participation_choices.length);
         const dialog = document.getElementById('person-detail');
         if (!dialog.open) dialog.showModal();
         if (typeof window.InitializePersonOperations==='function') window.InitializePersonOperations(uuid,homeURL);
     }).fail(identityError);
+}
+
+function personMode(editing) {
+    detailMapCleanup?.(); detailMapCleanup = null;
+    $('#person-edit-form').prop('hidden',!editing);
+    $('#person-consult, #person-context').prop('hidden',editing);
+    $('#person-edit').prop('hidden',editing || !personEditable);
+    $('#person-edit-fields, #person-consult').empty();
+}
+
+function showPersonConsult() {
+    personMode(false);
+    const person = personRecord, box = $('#person-consult');
+    const values = {...person,section:person.section_name,gender:person.gender_name,
+        neighborhood:person.location?.neighborhood, locality:person.location?.localidad,
+        municipality:person.location?.municipio,state:person.location?.estado};
+    const labels = {...personLabels,locality:'Localidad',municipality:'Municipio',state:'Estado'};
+    const sections = [
+        ['Datos personales',['name','last_name','last_name_2','birth_date','gender','curp','elector_key','ocr']],
+        ['Contacto',['phone','alternate_phone','email']],
+        ['Datos electorales',['section']],
+        ['Domicilio',['street','exterior_number','interior_number','neighborhood','locality','municipality','state','postal_code','references']]
+    ];
+    sections.forEach(([title,keys])=>{
+        const section = $('<section>').append($('<h6>').text(title));
+        const list = $('<dl>');
+        const filled = keys.filter(key => values[key]!=null && values[key]!=='');
+        filled.forEach(key => {
+            list.append($('<div>').append($('<dt>').text(labels[key]),$('<dd>').text(values[key])));
+        });
+        section.append(filled.length ? list : $('<p>',{class:'ux-help'}).text('Sin dato'));
+        box.append(section);
+    });
+    const section = $('<section>').append($('<h6>').text('Ubicación')); box.append(section);
+    const point = SicratPersonMap.coordinates(person.latitude,person.longitude);
+    if (point) {
+        section.append($('<small>').text(point.join(', ')));
+        detailMapCleanup = SicratPersonMap.mount(section[0],{point,id:'person-location-map'});
+    } else section.append($('<p>',{class:'ux-help'}).text('Sin ubicación registrada'));
+}
+
+function editPerson() {
+    if (!personEditable || !personRecord) return;
+    personMode(true);
+    const person = personRecord;
+    const fields = $('#person-edit-fields').empty();
+    const groups = {};
+    const categories = {personal:'Datos personales',contact:'Contacto',address:'Domicilio'};
+    Object.entries(categories).forEach(function ([key, title]) {
+        const section = $('<fieldset>', {class:'ux-section'}); section.append($('<legend>').text(title));
+        groups[key] = $('<div>', {class:'ux-form-grid'}); section.append(groups[key]); fields.append(section);
+    });
+    Object.entries(personLabels).forEach(function ([key, label]) {
+        const group = ['phone','alternate_phone','email'].includes(key) ? groups.contact : ['section','street','exterior_number','interior_number','postal_code','references','neighborhood','latitude','longitude'].includes(key) ? groups.address : groups.personal;
+        const control = key === 'references' ? $('<textarea>', {rows:3}) : ['section', 'neighborhood', 'gender'].includes(key) ? $('<select>') : $('<input>', {type: key === 'birth_date' ? 'date' : key === 'email' ? 'email' : ['phone','alternate_phone'].includes(key) ? 'tel' : 'text'});
+        control.attr({name: key, class: 'form-input'}).val(person[key] ?? '').prop('disabled',!personEditable);
+        if (['latitude','longitude'].includes(key)) control.attr({type:'number',step:'any',min:key==='latitude'?-90:-180,max:key==='latitude'?90:180}).prop('required',false);
+        if (key === 'name') control.prop('required', true);
+        if (key === 'section') {
+            control.append($('<option>', {value: '', text: 'Sin sección'}));
+            $('#select-filter-section option').each(function () { if (this.value && this.value!=='N/A') control.append($('<option>', {value: this.value, text: this.textContent})); });
+            if (person.section && !Array.from(control[0].options).some(option=>option.value===person.section)) control.append($('<option>',{value:person.section,text:person.section_name || 'Sección registrada'}));
+            control.val(person.section || '');
+        }
+        if (key === 'gender') {
+            control.append($('<option>', {value: '', text: 'Sin género'}));
+            personGenders.forEach(gender=>control.append($('<option>',{value:gender.id,text:gender.genero})));
+            if (person.gender && !personGenders.some(g=>g.id===person.gender)) control.append($('<option>',{value:person.gender,text:person.gender_name || person.gender}));
+            control.val(person.gender || '');
+        }
+        if (key === 'neighborhood') {
+            control.append($('<option>', {value: '', text: 'Sin colonia'}));
+            if (person.neighborhood) control.append($('<option>', {value: person.neighborhood, text: person.location?.neighborhood || 'Colonia registrada', selected: true}));
+            control.prop('hidden', true);
+            const location = $('<span>', {class:'block'}).text(person.location ? `${person.location.neighborhood} · ${person.location.municipio}, ${person.location.estado}` : 'Sin colonia');
+            const choose = $('<button>', {type: 'button', class: 'btn text-primary'}).text(person.neighborhood ? 'Cambiar colonia' : 'Seleccionar colonia');
+            choose.on('click', function () { choosePersonNeighborhood(control, location, person.location); });
+            const field = $('<div>').append($('<span>', {class:'block'}).text('Colonia'),control,location);
+            if (personEditable) field.append(choose);
+            group.append(field);
+            return;
+        }
+        group.append($('<label>').text(label).append(control));
+    });
+    detailMapCleanup = SicratPersonMap.mount(groups.address[0],{organization:person.organization,id:'person-location-map',
+        fields:['latitude','longitude'].map(key=>document.querySelector('#person-edit-fields [name='+key+']'))});
 }
 
 function renderPersonParticipations(person) {
@@ -94,8 +148,17 @@ function renderPersonParticipations(person) {
         });
 }
 
+async function refreshPersonStructure(uuid) {
+    const version=personRequestVersion;
+    const {data}=await identityRequest(`persons/${uuid}`,'get');
+    if (version!==personRequestVersion || selectedPerson!==uuid) return;
+    personRecord=data;
+    showPersonStructure(data);
+    renderPersonParticipations(data);
+}
+
 function showPersonStructure(person) {
-    const box=$('#person-structure').empty(),context=person.structure;
+    const box=$('#person-structure').empty(),actions=$('#person-structure-action').empty(),context=person.structure;
     const card=$('<div>',{class:'person-structure-card'});box.append(card);
     if(!context?.available){card.append($('<p>',{class:'ux-help'}).text(context?.message || 'Selecciona una elección.'));return;}
     card.append($('<h6>').text(context.election));
@@ -104,16 +167,17 @@ function showPersonStructure(person) {
     const participation=person.participations.find(item=>item.id===current);
     if(participation?.can_participate && personCan('participate')){
         const action=$('<button>',{type:'button',class:'btn'}).text(participation.active?'Retirar participación':'Reactivar participación');
-        action.on('click',async function(){if(participation.active&&!await SicratFeedback.confirm('¿Retirar la participación de esta elección?',{confirm:'Retirar participación'}))return;SicratFeedback.execute(this,async()=>{await identityRequest(`persons/${person.id}/participations`,'post',{processes:[current],active:participation.active?0:1});const fresh=await identityRequest(`persons/${person.id}`,'get');showPersonStructure(fresh.data);renderPersonParticipations(fresh.data);}).catch(identityError);});badges.append(action);
+        action.on('click',async function(){if(participation.active&&!await SicratFeedback.confirm('¿Retirar la participación de esta elección?',{confirm:'Retirar participación'}))return;SicratFeedback.execute(this,async()=>{await identityRequest(`persons/${person.id}/participations`,'post',{processes:[current],active:participation.active?0:1});await refreshPersonStructure(person.id);}).catch(identityError);});badges.append(action);
     }
     const active=context.members.filter(member=>member.active);
     if(!active.length)card.append($('<strong>').text('Sin estructura asignada'),$('<p>',{class:'ux-help'}).text('Esta persona todavía no pertenece a un equipo dentro de esta elección.'));
     context.members.forEach(member=>{
         const section=$('<div>',{class:'person-structure-member'});section.append(SicratUI.badge(member.active?'Integrante activo':'Integrante inactivo',member.active));
         const list=$('<dl>',{class:'person-structure-data'});[['Nivel',member.level_name || 'Sin nivel'],['Responsable',member.responsible || 'Sin responsable directo'],['Estructura',member.name]].forEach(([label,value])=>list.append($('<div>').append($('<dt>').text(label),$('<dd>').text(value))));
-        const open=$('<a>',{class:'btn',href:`${homeURL}/structure/?structure=${encodeURIComponent(member.structure)}&member=${encodeURIComponent(member.id)}`}).append(SicratUI.icon('network'),document.createTextNode('Abrir estructura'));section.append(list,open);card.append(section);
+        const open=$('<a>',{class:'btn',href:`${homeURL}/structure/?structure=${encodeURIComponent(member.structure)}&member=${encodeURIComponent(member.id)}`}).append(SicratUI.icon('network'),document.createTextNode(member.active ? 'Ver en estructura' : 'Abrir estructura'));section.append(list);card.append(section);
+        if(member.active) actions.append(open); else section.append(open);
     });
-    if(!active.length&&context.can_form){const assign=$('<button>',{id:'person-assign-structure',type:'button',class:'btn bg-primary text-white mt-3'}).append(SicratUI.icon('users'),document.createTextNode('Asignar a estructura'));assign.on('click',()=>SicratFeedback.execute(assign[0],()=>AssignPersonStructure(person)).catch(identityError));card.append(assign);}
+    if(!active.length&&context.can_form&&context.assignment_structures?.length){const assign=$('<button>',{id:'person-assign-structure',type:'button',class:'btn bg-primary text-white mt-3'}).append(SicratUI.icon('users'),document.createTextNode(context.own_structure ? 'Agregar a mi estructura' : 'Asignar a estructura'));assign.on('click',()=>SicratFeedback.execute(assign[0],()=>AssignPersonStructure(person)).catch(identityError));actions.append(assign);}
 }
 
 function choosePersonNeighborhood(target, summary, current) {
@@ -176,16 +240,26 @@ function choosePersonNeighborhood(target, summary, current) {
 }
 
 function InitializePersonIdentity() {
-    document.getElementById('person-detail').addEventListener('close',()=>window.SicratPersonMap.destroy());
+    document.getElementById('person-detail').addEventListener('close',()=>{personRequestVersion++;detailMapCleanup?.();detailMapCleanup=null;selectedPerson=null;personRecord=null;personEditable=false;});
+    $('#person-edit').on('click',editPerson);
+    $('#person-edit-cancel').on('click',showPersonConsult);
     $(document).on('click', '.person-open', function () { openPerson($(this).attr('data-id')); });
     $(document).on('keydown', 'tr.person-open', function(event) { if (event.target===this && ['Enter',' '].includes(event.key)) { event.preventDefault(); openPerson($(this).attr('data-id')); } });
     $('#person-edit-form').on('submit', function (event) {
         event.preventDefault();
-        if (!personCan('edit') || !personEditable) return;
-        if (this.dataset.busy) return;
-        const form=this;
-        const data = Object.fromEntries(new FormData(this));
-        window.SicratFeedback.execute(form, () => identityRequest(`persons/${selectedPerson}`, 'put', data).done(function (response) { ShowToastMessage(response.data.identity_warnings?.length ? 'Información guardada. Hay coincidencias de identidad en otras fichas.' : 'Información guardada.', 'success'); GetPersons(true); openPerson(selectedPerson); })).catch(identityError);
+        if (this.hidden || !personCan('edit') || !personEditable) return;
+        const form = this, uuid = selectedPerson;
+        const data = Object.fromEntries(new FormData(form));
+        window.SicratFeedback.execute(form, async () => {
+            const cancel = document.getElementById('person-edit-cancel');
+            cancel.disabled = true;
+            try {
+                const response = await identityRequest(`persons/${uuid}`, 'put', data);
+                GetPersons(true);
+                if (selectedPerson===uuid) await openPerson(uuid);
+                ShowToastMessage(response.data.identity_warnings?.length ? 'Información guardada. Hay coincidencias de identidad en otras fichas.' : 'Información guardada.', 'success');
+            } finally { cancel.disabled = false; }
+        }).catch(identityError);
     });
     $('#person-participate').on('click', function () {
         if (!personCan('participate')) return;

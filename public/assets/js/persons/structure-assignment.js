@@ -22,10 +22,10 @@ window.AssignPersonStructure = async function(person) {
     structure.onchange=load;
     form.onsubmit=event=>{event.preventDefault();if(save.disabled)return;
         ui.run(async()=>{const data={person:person.id,...assignment.values(),participations:ui.selected(participations)};await ui.request(`structures/${structure.value}/members`,'POST',data);dialog.close();
-            if(selectedPerson===person.id){const fresh=await identityRequest(`persons/${person.id}`,'get');showPersonStructure(fresh.data);renderPersonParticipations(fresh.data);}
+            if(selectedPerson===person.id) await refreshPersonStructure(person.id);
             ui.message('Persona asignada a la estructura.');
         },form);
     };
-    try{const rows=await ui.pages('structures?assignment=1');if(closed)return;rows.forEach(row=>ui.option(structure,row.id,row.name));structure.value=person.structure?.own_structure || rows.find(row=>row.own)?.id || structure.value;if(!structure.value){status.textContent='No hay estructuras disponibles en esta elección.';return;}await load();}
+    try{const rows=person.structure.assignment_structures;if(closed)return;rows.forEach(row=>ui.option(structure,row.id,row.name));structure.value=person.structure?.own_structure || structure.value;if(!structure.value){status.textContent='No hay estructuras disponibles en esta elección.';return;}await load();}
     catch(error){status.textContent=error.message;SicratFeedback.error(error);}
 };

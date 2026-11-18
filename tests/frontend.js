@@ -19,6 +19,7 @@ function context() {
 		addEventListener(event, callback) { this.events[event] = callback; }
 	});
 	const jquery = selector => ({
+		ajaxError(callback) { this.errorHandler = callback; },
 		empty() { rendered[selector] = ''; return this; },
 		append(value) { rendered[selector] = (rendered[selector] || '') + value; return this; },
 		val() { return selector.includes('section') ? 'N/A' : ''; },

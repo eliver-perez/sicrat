@@ -13,7 +13,8 @@ class Element {
     prepend(...values) { this.children.unshift(...values); return this; }
     append(...values) { this.children.push(...values); return this; }
     empty() { this.children = []; return this; }
-    text(value) { this.textValue = value; return this; }
+    find() { return this; }
+    text(value) { if (value === undefined) return this.textValue; this.textValue = value; return this; }
     val(value) { if (value === undefined) return this.value; this.value = value; return this; }
     attr(name, value) { if (typeof name === 'object') Object.assign(this.attributes, name); else if (value === undefined) return this.attributes[name]; else this.attributes[name] = value; return this; }
     prop(name, value) { this.properties[name] = value; return this; }
@@ -47,7 +48,7 @@ jquery.ajax = options => {
     return {done(callback) { callback(response(options)); return this; }, fail() { return this; }, always(callback) { callback(); return this; }};
 };
 const dialogs = new Map();
-const scope = {console, $: jquery, homeURL: 'http://localhost', document: {createTextNode(text) {return new Element().text(text);},getElementById(id) { if (!dialogs.has(id)) dialogs.set(id, {open: false, showModal() { this.open = true; }}); return dialogs.get(id); }}, window: {location: {},SicratPersonCapabilities:{create:true,edit:true,participate:true,import:true}}, ShowToastMessage() {}, GetPersons() {}};
+const scope = {console, $: jquery, homeURL: 'http://localhost', SicratPersonMap:{coordinates(){return null;}}, SicratUI:{selectionTable(target,options){options.rows.forEach(row=>target.append(new Element().text(row.label)));}}, document: {createElement(tag){return new Element(tag);},createTextNode(text) {return new Element().text(text);},getElementById(id) { if (!dialogs.has(id)) dialogs.set(id, {open: false, addEventListener(){}, showModal() { this.open = true; }}); return dialogs.get(id); }}, window: {location: {},SicratPersonCapabilities:{create:true,edit:true,participate:true,import:true}}, ShowToastMessage() {}, GetPersons() {}};
 scope.loadOptions = (options) => { requests.push(options); options.success(response(options)); };
 const beforeJquery = vm.createContext({});
 for (const file of ['persons/identity.js', 'persons/import.js', 'users/accesses.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/assets/js', file), 'utf8'), beforeJquery);

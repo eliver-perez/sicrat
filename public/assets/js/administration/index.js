@@ -67,7 +67,13 @@ function InitializeValues(url) {
             for (const [code,data] of state.changes) {
                 await ui.request(`organizations/${element('module-organization').value}/modules/${code}`,'PUT',data); state.changes.delete(code);
             }
-            await modules(); ui.message('Módulos actualizados correctamente.');
+            await modules();
+            if (state.election && ui.allowed(state.me,'permisos.administrar')) {
+                state.permissions = (await ui.request('permissions')).data.permissions;
+                permissionOptions();
+                await inspectPermissions();
+            }
+            ui.message('Módulos actualizados correctamente.');
         } catch (error) {
             button.disabled = !state.changes.size; element('module-save-status').textContent = 'Error: quedan ' + state.changes.size + ' cambios sin guardar. ' + error.message; throw error;
         } finally { controls.forEach((control,index) => control.disabled = disabled[index]); }
@@ -147,17 +153,25 @@ function InitializeValues(url) {
     function renderPermissions() {
         const target = element('permission-list'); target.replaceChildren();
         const search = element('permission-search').value.toLocaleLowerCase(); const value = element('permission-state-filter').value;
-        const title = code => state.permissions.find(item => item.id === code)?.name || visual.label(code);
-        const rows = configured.filter(row => title(row.permission).toLocaleLowerCase().includes(search) && (value === '' || String(row.value) === value));
+        const catalog = new Map(state.permissions.map(item=>[item.id,item]));
+        const title = code => catalog.get(code)?.name || visual.label(code);
+        const category = row => visual.label(catalog.get(row.permission).module || row.permission.split('.')[0]);
+        const rows = configured.filter(row => catalog.has(row.permission) && title(row.permission).toLocaleLowerCase().includes(search) && (value === '' || String(row.value) === value));
         if (!rows.length) { target.append(ui.text('p','Sin permisos configurados que coincidan con la búsqueda.','ux-help')); return; }
         const table = document.createElement('table'); const head = document.createElement('tr');
         ['Permiso','Estado','Alcance','Origen'].forEach(label => head.append(ui.text('th',label))); table.append(head);
-        rows.forEach(row => {
-            const line = document.createElement('tr'); line.append(ui.text('td',title(row.permission)));
+        let group, section;
+        rows.sort((a,b)=>category(a).localeCompare(category(b),'es')).forEach(row => {
+            if (group!==category(row)) {
+                group=category(row); section=table.createTBody();
+                const heading=document.createElement('th'); heading.colSpan=4; heading.scope='rowgroup';
+                heading.textContent=group; section.insertRow().append(heading);
+            }
+            const line = section.insertRow(); line.append(ui.text('td',title(row.permission)));
             const status = document.createElement('td'); status.append(visual.badge(Number(row.value) ? 'Concedido' : 'Revocado',Boolean(Number(row.value)))); line.append(status,ui.text('td',scopes[row.scope] || visual.label(row.scope)));
             const isRole = form('permission-form').target.value === 'role';
             const role = form('permission-form').role.selectedOptions[0]?.textContent || '';
-            line.append(ui.text('td',(isRole ? 'Rol ' + role : 'Excepción individual') + ' · ' + (row.proceso === null ? (isRole && row.contexto !== 'global' ? 'Heredado del rol' : 'Configuración global') : 'Configurado para esta elección'))); table.append(line);
+            line.append(ui.text('td',(isRole ? 'Rol ' + role : 'Excepción individual') + ' · ' + (row.proceso === null ? (isRole && row.contexto !== 'global' ? 'Heredado del rol' : 'Configuración global') : 'Configurado para esta elección')));
         }); target.append(table);
     }
     async function inspectPermissions() {

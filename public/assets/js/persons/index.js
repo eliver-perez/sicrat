@@ -7,6 +7,8 @@ var new_person = false, modify_person = false, registering_person = false, modif
 var defaultSelectedState = 28;
 var defaultSelectedMunicipality = 1960;
 
+let quickMapCleanup = null;
+let personGenders = [];
 let searching = false;
 let lastSearchText = '';
 let lastSearchSection = '';
@@ -29,6 +31,7 @@ function InitializeValues(home) {
 	GetSections();
 	GetGenders();
 	$('#btn-filter-search').on('click', () => { personsPagination.reset(); GetPersons(true); });
+	window.SicratPersonsOverview.init();
 	InitializePersonIdentity();
 	InitializePersonImport();
 }
@@ -55,12 +58,26 @@ function NewPerson() {
 			$('#btn-persons-cancel').removeClass('hidden');
 		ClearPerson();
 		EnablePersonFields(false);
+        resetQuickLocation();
+        $('#select-persons-organization').off('change.quickLocation').on('change.quickLocation',resetQuickLocation);
 	}
+}
+
+function resetQuickLocation() {
+    const parent=document.getElementById('person-quick-location');
+    quickMapCleanup?.();
+    const fields=Array.from(parent.querySelectorAll('input'));
+    fields.forEach(field=>field.value='');
+    parent.hidden=false;
+    quickMapCleanup=SicratPersonMap.mount(parent,{organization:$('#select-persons-organization').val(),fields,id:'person-quick-map'});
 }
 
 function CancelPerson() {
 	if(new_person || modify_person) {
 		new_person = false;
+        $('#select-persons-organization').off('change.quickLocation');
+        quickMapCleanup?.(); quickMapCleanup=null;
+        $('#person-quick-location').prop('hidden',true);
 		modify_person = false;
 		if($('#btn-persons-new').hasClass('hidden'))
 			$('#btn-persons-new').removeClass('hidden');
@@ -88,6 +105,7 @@ function GetGenders() {
 		type: 'get',
 		dataType: "json",
 		success: function(response) {
+			personGenders = response.data.genders;
 			$.each(response.data.genders, function(k, v) {
 				$('#select-persons-gender').append($('<option>', {
 					value: v.id,
@@ -187,6 +205,7 @@ function GetSections() {
 }
 
 function GetPersons(force = false) {
+	if (window.SicratPersonsOverview?.active) { window.SicratPersonsOverview.refresh(); return; }
 	if(!searching && (force === true || lastSearchText != $('#field-filter-search').val() || lastSearchSection != $('#select-filter-section').val())) {
 		searching = true;
 		lastSearchText = $('#field-filter-search').val();
@@ -242,7 +261,9 @@ function RegisterPerson(confirmDuplicate = false) {
 				type: 'post',
 				data: {
 					organization: $('#select-persons-organization').val(),
-					confirm_duplicate: confirmDuplicate ? 1 : 0,
+					latitude: $('#person-quick-location [name=latitude]').val(),
+                    longitude: $('#person-quick-location [name=longitude]').val(),
+                    confirm_duplicate: confirmDuplicate ? 1 : 0,
 					phone: $('#person-quick-phone').val(),
 					email: $('#person-quick-email').val(),
 					curp: $('#person-quick-curp').val(),

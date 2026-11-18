@@ -41,10 +41,12 @@ phase7Api('drafts','POST',['casilla'=>$phase7Booths[2],'clave'=>Values::uuid()],
 verify(phase7Api('booths/'.$phase7Booths[2].'/history','GET',null,'phase7-0')['rows'][0]['uuid']===$saved['uuid'],'Retirar asignación conserva el historial propio autorizado.');
 phase7Api('assignments','PUT',['casillas'=>[$phase7Booths[2]],'usuarios'=>[$phase7Accounts[0]],'activo'=>1]);
 phase7Api('/api/organizations/'.$organizationIds[0].'/modules/jornada_electoral','PUT',['selected'=>0,'election'=>$phase7Election]);
-verify(phase7Api('summary?modo=validado')['total_acta']===225,'Módulo apagado conserva resultados vigentes autorizados.');
+phase7Api('summary?modo=validado','GET',null,'admin',403);
 phase7Api('drafts','POST',['casilla'=>$phase7Booths[1],'clave'=>Values::uuid()],'phase7-0',403);
-verify(request('phase7-0','GET','/media/'.$phase7Photo)['status']===200,'El modo histórico conserva la fotografía autorizada.');
+verify(in_array(request('phase7-0','GET','/media/'.$phase7Photo)['status'],[403,404],true),'La fotografía electoral requiere el módulo habilitado.');
 phase7Api('/api/organizations/'.$organizationIds[0].'/modules/jornada_electoral','PUT',['selected'=>1,'election'=>$phase7Election]);
+
+verify(phase7Api('summary?modo=validado')['total_acta']===225,'Rehabilitar Jornada recupera los resultados existentes.');
 
 // La misma cuenta trabaja en otra elección, con configuración y permisos independientes.
 $phase7ElectionB=phase7Api('/api/organizations/'.$organizationIds[0].'/electoral-process','POST',['process'=>'Jornada Fase 7 validación inicial','type'=>1,'character'=>1])['id'];

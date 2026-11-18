@@ -54,12 +54,25 @@ window.SicratDashboard = (() => {
         });
         const activity = node('db-activity'); activity.replaceChildren();
         if (!data.activity.length) empty(activity, 'Aún no hay movimientos recientes en tu ámbito.');
-        data.activity.forEach(item => {
+        data.activity.forEach((item,index) => {
             const row = make('article', undefined, 'db-list-item db-timeline-item'), content = make('div');
             content.append(make('p', item.actor + ' · ' + item.action, 'db-item-title'));
             if(item.subject)content.append(make('p',item.subject,'db-activity-subject'));
             content.append(make('p', item.module + ' · ' + date(item.date), 'db-item-meta'));row.append(make('span',undefined,'db-dot'),content);
-            if(item.url){const link=make('a',undefined,'db-activity-link');link.href=base+item.url;link.title='Ver registro';link.setAttribute('aria-label','Ver '+(item.subject||item.module));link.append(window.SicratUI.icon('eye'));row.append(link);}
+            const detail = make('div',undefined,'db-activity-detail');
+            detail.id = 'db-movement-'+index; detail.hidden = true;
+            const when = new Date(item.date.replace(' ','T')).toLocaleString('es-MX',{dateStyle:'full',timeStyle:'medium'});
+            const fields = make('dl');
+            for (const [label,value] of [['Usuario',item.actor],['Acción',item.action],['Módulo',item.module],['Elemento',item.subject],['Fecha y hora',when]]) {
+                if (value) fields.append(make('dt',label),make('dd',value));
+            }
+            detail.append(fields);
+            if(item.url){const link=make('a','Abrir registro','text-primary');link.href=base+item.url;detail.append(link);}
+            const eye = make('button',undefined,'db-activity-link');
+            eye.type='button'; eye.title='Ver detalle del movimiento'; eye.setAttribute('aria-label',eye.title);
+            eye.setAttribute('aria-controls',detail.id); eye.setAttribute('aria-expanded','false'); eye.append(window.SicratUI.icon('eye'));
+            eye.onclick=()=>{detail.hidden=!detail.hidden;eye.setAttribute('aria-expanded',String(!detail.hidden));};
+            row.append(eye,detail);
             activity.append(row);
         });
         charts.forEach(chart => chart.destroy()); charts = []; const container = node('db-charts'); container.replaceChildren();

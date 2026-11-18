@@ -15,6 +15,7 @@ class PersonImportController extends Controller
 {
     private function service(): PersonImportService { return new PersonImportService(new PersonImportRepository((new Database())->getConnection())); }
     public function upload(Request $request, Response $response): void { $response->success($this->service()->upload($request->file('file') ?? [], $request->input('organization'), $request->input('delimiter',',')), 'Archivo cargado.',201); }
+    public function cancel(Request $request, Response $response): void { $this->service()->cancel($request->route('id')); $response->success(); }
     public function configure(Request $request, Response $response): void { $response->success($this->service()->configure($request->route('id'),$request->input())); }
     public function preview(Request $request, Response $response): void { $response->success($this->service()->preview($request->route('id'),max(0,(int) $request->input('after',0)))); }
     public function decisions(Request $request, Response $response): void

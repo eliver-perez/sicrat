@@ -4,7 +4,8 @@
         <button type="button" id="person-import-open" class="btn bg-primary text-white">Importar personas</button>
         <?php endif; ?>
         <?php if (\App\Auth\Authorization::canAny(['superadmin','admin'])): ?>
-        <button type="button" id="person-map-settings-open" class="btn"><i data-lucide="map-pin" class="size-4"></i>Ubicación inicial del mapa</button>
+        <?php if (!$personCapabilities['create']): ?><label>Organización<select class="form-input" id="select-persons-organization"></select></label><?php endif; ?>
+        <button type="button" id="person-map-settings-open" class="btn"><i data-lucide="map-pin" class="size-4"></i>Vista inicial del mapa</button>
         <button type="button" id="identity-policy-open" class="btn">Reglas de identidad</button>
         <?php endif; ?>
     </div>
@@ -12,18 +13,26 @@
     <div id="person-duplicates" class="hidden p-4 border border-default-200"></div>
 </div>
 <dialog id="person-detail" class="card p-5 w-full max-w-3xl" aria-label="Ficha de persona">
-    <div class="flex justify-between mb-4"><h6 class="card-title" id="person-detail-title">Persona</h6><button type="button" class="btn" data-close onclick="document.getElementById('person-detail').close()">Cerrar</button></div>
-    <form id="person-edit-form">
+    <div class="ux-modal-header"><h6 class="card-title" id="person-detail-title">Persona</h6><button type="button" class="btn" data-close onclick="document.getElementById('person-detail').close()">Cerrar</button></div>
+    <div class="ux-actions" id="person-detail-actions">
+        <span id="person-structure-action"></span>
+        <?php if ($personCapabilities['edit']): ?><button type="button" class="btn" id="person-edit">Editar</button><?php endif; ?>
+    </div>
+    <div id="person-consult"></div>
+    <form id="person-edit-form" hidden>
         <div id="person-edit-fields" class="ux-full"></div>
-        <?php if ($personCapabilities['edit']): ?><button class="btn bg-primary text-white mt-4" type="submit">Guardar información</button><?php endif; ?>
+        <div class="ux-modal-footer ux-actions">
+            <button class="btn" id="person-edit-cancel" type="button">Cancelar</button>
+            <button class="btn bg-primary text-white" type="submit">Guardar</button>
+        </div>
     </form>
-    <section class="ux-section"><h6 class="card-title">Participación y estructura</h6>
+    <section id="person-context" class="ux-section"><h6 class="card-title">Participación y estructura</h6>
     <div id="person-participations" class="mb-4 overflow-x-auto"></div>
     <div id="person-structure" class="ux-section" aria-live="polite"></div>
     <div id="person-operational-activity" class="mb-4"></div>
     <?php if ($personCapabilities['participate']): ?>
-    <label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
-    <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button>
+    <details id="person-participation-options"><summary>Administrar participación electoral</summary><label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
+    <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button></details>
     <?php endif; ?></section>
 </dialog>
 <dialog id="identity-policy" class="card p-5" aria-label="Reglas de identidad">
@@ -43,7 +52,7 @@
     <form id="person-import-upload" class="my-4">
         <label>Archivo de personas<input type="file" name="file" accept=".csv,.xlsx" required class="form-input"></label>
         <label>Separador CSV <select name="delimiter" class="form-input"><option value=",">Coma</option><option value=";">Punto y coma</option><option value="&#9;">Tabulación</option></select></label>
-        <button class="btn bg-primary text-white mt-3" type="submit">Cargar para revisar</button>
+        <div class="ux-modal-footer"><button class="btn bg-primary text-white mt-3" type="submit">Cargar para revisar</button></div>
     </form>
     <form id="person-import-mapping" class="hidden">
         <div id="person-import-columns" class="grid grid-cols-2 gap-3"></div>
@@ -52,7 +61,7 @@
         <p class="ux-help">Altas automáticas revisa todo el archivo y crea sólo personas nuevas sin coincidencias. Duplicados, datos inválidos y referencias sin resolver quedan para revisión manual. No asigna participaciones electorales.</p>
         <label class="block my-4"><input type="checkbox" id="import-detect" checked> Revisar posibles duplicados</label>
         <p>Las reglas de CURP y clave de elector se aplican siempre.</p>
-        <button class="btn bg-primary text-white" type="submit">Continuar con la modalidad seleccionada</button>
+        <div class="ux-modal-footer"><button class="btn bg-primary text-white" type="submit">Continuar con la modalidad seleccionada</button></div>
     </form>
     <div id="person-import-preview" class="my-4 overflow-y-auto max-h-[480px]"></div>
     <p id="person-import-summary" role="status"></p>
@@ -62,20 +71,21 @@
     <button type="button" id="person-import-review" class="btn hidden">Revisar filas pendientes</button>
     <button type="button" id="person-import-next" class="btn bg-primary text-white hidden">Guardar decisiones y revisar siguiente lote</button>
     <button type="button" id="person-import-confirm" class="btn bg-primary text-white hidden">Confirmar importación</button>
+    <button type="button" id="person-import-cancel" class="btn hidden">Cancelar importación</button>
+    <button type="button" id="person-import-new" class="btn hidden">Seleccionar otro archivo</button>
 </dialog>
 
 <?php endif; ?>
 
 <?php if (\App\Auth\Authorization::canAny(['superadmin','admin'])): ?>
-<dialog id="person-map-settings" class="card p-5 w-full max-w-xl" aria-label="Ubicación inicial del mapa">
-    <form id="person-map-settings-form" class="ux-form-grid">
-        <h6 class="ux-full">Ubicación inicial del mapa de la organización</h6>
-        <p class="ux-help ux-full">Centro para personas sin coordenadas. No se asigna como domicilio.</p>
-        <label>Latitud predeterminada<input name="latitude" class="form-input" type="number" min="-90" max="90" step="any" required></label>
-        <label>Longitud predeterminada<input name="longitude" class="form-input" type="number" min="-180" max="180" step="any" required></label>
-        <label>Zoom predeterminado<input name="zoom" class="form-input" type="number" min="0" max="19" step="1" required></label>
-        <div class="ux-modal-footer ux-actions ux-full"><button type="submit" class="btn bg-primary text-white">Guardar</button><button type="button" class="btn" onclick="document.getElementById('person-map-settings').close()">Cancelar</button></div>
+<dialog id="person-map-settings" class="card p-5 w-full max-w-3xl" aria-label="Vista inicial del mapa">
+    <div class="ux-modal-header"><h6>Vista inicial del mapa</h6><button type="button" data-close class="btn" onclick="document.getElementById('person-map-settings').close()">Cerrar</button></div>
+    <form id="person-map-settings-form">
+        <p>Selecciona la zona que quieres mostrar al abrir los mapas de SICRAT. Esta ubicación sólo define la vista inicial; no modifica el domicilio de ninguna persona.</p>
+        <div id="person-settings-canvas" class="person-location-map" aria-label="Centro y zoom iniciales"></div>
+        <button type="button" class="btn" id="person-settings-locate">Usar mi ubicación actual</button>
+        <p class="ux-help" id="person-settings-status" role="status"></p>
+        <div class="ux-modal-footer ux-actions"><button type="submit" class="btn bg-primary text-white">Guardar vista inicial</button><button type="button" class="btn" onclick="document.getElementById('person-map-settings').close()">Cancelar</button></div>
     </form>
-    <button type="button" data-close class="btn" onclick="document.getElementById('person-map-settings').close()">Cerrar</button>
 </dialog>
 <?php endif; ?>

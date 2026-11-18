@@ -108,7 +108,13 @@ function InitializeValues(url) {
 		app.election=capabilities.election;
 		app.modules=capabilities.modules;
 		app.enabled=capabilities.modules.some(item=>item.code===app.module && item.enabled);
-		app.node('resources-mode').textContent=app.enabled ? (app.module==='finanzas' ? 'Operación habilitada. Importes en pesos mexicanos (MXN).' : 'Inventario común a todas las elecciones de la organización.') : 'Modo histórico: el módulo está deshabilitado. Puedes consultar datos anteriores según tus permisos.';
+		if (!app.enabled) {
+            app.node('resources-mode').textContent='El módulo está deshabilitado en este contexto.';
+            app.node('resources-new').hidden=true;
+            app.initialized=true;
+            return;
+        }
+        app.node('resources-mode').textContent=app.module==='finanzas' ? 'Operación habilitada. Importes en pesos mexicanos (MXN).' : 'Inventario común a todas las elecciones de la organización.';
 		const entities=app.module==='finanzas' ? ['resumen','presupuestos','gastos','anticipos','reembolsos','ingresos','aportaciones','pagos','flujo','categorias','cuentas','metodos','politicas','transferencias'] : ['resumen','articulos','existencias','movimientos','almacenes','categorias_inventario','origenes'];
 		const allowed=entities.filter(entity=>app.can(definitions[entity].read));
 		app.primaryEntity=allowed.find(entity=>!configuration.includes(entity)) || null;

@@ -83,9 +83,9 @@ class StructureService extends Service
         [$scope,$params] = $assignment ? $this->assignmentScope('estructura.ver',$process) : (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
         $effective = (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.ver',$process);
         $whole = $effective['super'] || array_intersect(['eleccion','organizacion'],$effective['scopes']['estructura.ver']) !== [];
-        $sql = "SELECT c.*,EXISTS(SELECT 1 FROM estructura e JOIN personas p ON p.id=e.persona JOIN usuarios u ON u.persona=p.id WHERE e.contenedor=c.id AND u.id=? AND e.activo=1 AND ($scope)) own_member FROM estructuras_organizacionales c JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.proceso=? AND ep.activo=1 WHERE c.activo=1";
-        $args = [Auth::id(),...$params,$process];
-        if (!$whole) { $sql .= " AND EXISTS (SELECT 1 FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.contenedor=c.id AND e.activo=1 AND ($scope))"; $args = [...$args,...$params]; }
+        $sql = "SELECT c.*,EXISTS(SELECT 1 FROM estructura e JOIN estructura_integrantes_procesos own ON own.integrante=e.id AND own.proceso=ep.proceso AND own.activo=1 JOIN usuarios u ON u.persona=e.persona WHERE e.contenedor=c.id AND u.id=? AND e.activo=1) own_member FROM estructuras_organizacionales c JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.proceso=? AND ep.activo=1 WHERE c.activo=1";
+        $args = [Auth::id(),$process];
+        if (!$whole) { $sql .= " HAVING own_member OR EXISTS (SELECT 1 FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.contenedor=c.id AND e.activo=1 AND ($scope))"; $args = [...$args,...$params]; }
         $sql .= ' ORDER BY c.nombre,c.id LIMIT ' . (int) $data['limit'] . ' OFFSET ' . (int) $data['offset'];
         return array_map(fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'version'=>(int) $row['version'],'cloned'=>(bool) $row['clonada_de'],'own'=>(bool) $row['own_member']],$this->repository->rows($sql,$args));
     }
@@ -148,7 +148,9 @@ class StructureService extends Service
     {
         $container = $this->repository->container($this->uuidStringToBinary($uuid)); $process = $this->visible($container);
         [$condition,$params] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);
-        $own = $this->repository->rows("SELECT e.id FROM estructura e JOIN personas p ON p.id=e.persona JOIN usuarios u ON u.persona=p.id WHERE e.contenedor=? AND u.id=? AND e.activo=1 AND ($condition)",[$container['id'],Auth::id(),...$params])[0] ?? null;
+        $own = $this->repository->rows("SELECT e.id,($condition) can_open FROM estructura e JOIN personas p ON p.id=e.persona
+            JOIN estructura_integrantes_procesos ep ON ep.integrante=e.id AND ep.proceso=? AND ep.activo=1
+            JOIN usuarios u ON u.persona=e.persona WHERE e.contenedor=? AND u.id=? AND e.activo=1",[...$params,$process,$container['id'],Auth::id()])[0] ?? null;
         $focus = null; $filter = ''; $args = [$container['id'],...$params];
         if ($parent !== null && $parent !== '') {
             if ($parent === 'mine') $focus = $own;
@@ -181,11 +183,15 @@ class StructureService extends Service
                 }
             } catch (HttpError $error) { if (!in_array($error->statusCode,[403,404,409],true)) throw $error; }
         }
-        $mapOne = fn ($row) => $row ? $this->mappedMember($this->repository->members((int)$container['id'],false,[(int)$row['id']])[0],$process) : null;
+        $ownMember = $own ? $this->mappedMember($ownRow,$process) + ['can_open'=>(bool)$own['can_open']] : null;
+        $focusMember = $focus && $own && $focus['id']===$own['id'] ? $ownMember : null;
+        if ($focus && !$focusMember) {
+            $focusMember = $this->mappedMember($this->repository->members((int)$container['id'],false,[(int)$focus['id']])[0],$process);
+        }
         $wanted = array_column($ids,'id');
         $members = $this->repository->members((int) $container['id'],false,$wanted);
         return ['id'=>$uuid,'name'=>$container['nombre'],'version'=>(int) $container['version'],'elections'=>array_map(fn ($pe) => ['id'=>$this->uuidBinaryToString($pe['uuid']),'name'=>$pe['proceso']],$this->repository->elections((int) $container['id'])),
-            'can_add_to_own'=>$canAddOwn,'own'=>$mapOne($own),'focus'=>$mapOne($focus),'members'=>array_map(fn ($row) => $this->mappedMember($row,$process),$members)];
+            'can_add_to_own'=>$canAddOwn,'own'=>$ownMember,'focus'=>$focusMember,'members'=>array_map(fn ($row) => $this->mappedMember($row,$process),$members)];
     }
 
     public function detail(string $uuid, string $memberUuid, array $page = ['limit'=>101,'offset'=>0]): array
@@ -223,7 +229,7 @@ class StructureService extends Service
         }
         $election = $this->repository->rows('SELECT proceso FROM procesos_electorales WHERE id=?',[$process])[0]['proceso'];
         $participates = $this->repository->rows('SELECT 1 FROM personas_procesos WHERE persona=? AND proceso=? AND activo=1',[$person,$process]) !== [];
-        $rows = $this->repository->rows('SELECT e.*,c.uuid container_uuid,c.nombre container_name,c.activo container_active FROM estructura e JOIN estructuras_organizacionales c ON c.id=e.contenedor JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.proceso=? AND ep.activo=1 WHERE e.persona=? ORDER BY e.activo DESC,e.id',[$process,$person]);
+        $rows = $this->repository->rows('SELECT e.*,c.uuid container_uuid,c.nombre container_name,c.activo container_active,projection.activo election_active FROM estructura e JOIN estructuras_organizacionales c ON c.id=e.contenedor JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.proceso=? AND ep.activo=1 LEFT JOIN estructura_integrantes_procesos projection ON projection.integrante=e.id AND projection.proceso=ep.proceso WHERE e.persona=? ORDER BY e.activo DESC,e.id',[$process,$person]);
         if ($rows !== []) {
             try { (new ScopeRepository($this->repository->connection()))->assertPerson($person,'estructura.ver',$process); }
             catch (HttpError $error) { if ($error->statusCode!==404) throw $error; return ['available'=>false,'message'=>'La estructura de esta persona está fuera de tu alcance de consulta.']; }
@@ -239,17 +245,38 @@ class StructureService extends Service
                 $boss = $this->repository->rows("SELECT TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) name FROM estructura e JOIN personas p ON p.id=e.persona WHERE e.id=? AND ($scope)",[$row['nodo_padre'],...$params]);
                 $responsible = $boss[0]['name'] ?? 'Fuera de tu alcance de consulta';
             }
-            $members[] = ['structure'=>$this->uuidBinaryToString($row['container_uuid']),'name'=>$row['container_name'],'id'=>$this->uuidBinaryToString($row['uuid']),'active'=>(bool)$row['activo'] && (bool)$row['container_active'],'responsible'=>$responsible,'level_name'=>$this->repository->rows('SELECT n.nombre FROM estructura_integrantes_procesos ep LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=?',[$row['id'],$process])[0]['nombre'] ?? null];
+            $members[] = ['structure'=>$this->uuidBinaryToString($row['container_uuid']),'name'=>$row['container_name'],'id'=>$this->uuidBinaryToString($row['uuid']),'active'=>(bool)$row['activo'] && (bool)$row['container_active'] && (bool)$row['election_active'],'responsible'=>$responsible,'level_name'=>$this->repository->rows('SELECT n.nombre FROM estructura_integrantes_procesos ep LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=? AND ep.proceso=?',[$row['id'],$process])[0]['nombre'] ?? null];
         }
+        $targets = [];
         $ownStructure = null;
         if ($canForm && !array_filter($members,static fn ($member) => $member['active'])) {
-            $own = $this->repository->rows('SELECT c.uuid FROM estructura_integrantes_procesos ep JOIN estructura e ON e.id=ep.integrante JOIN estructuras_organizacionales c ON c.id=e.contenedor JOIN usuarios u ON u.persona=e.persona WHERE ep.proceso=? AND ep.activo=1 AND e.activo=1 AND c.activo=1 AND u.id=?',[$process,Auth::id()])[0] ?? null;
-            if ($own) {
-                try { $context=$this->assignmentOptions($this->uuidBinaryToString($own['uuid']),['limit'=>2,'offset'=>0],'','mine'); if ($context['own']) $ownStructure=$this->uuidBinaryToString($own['uuid']); }
-                catch (HttpError $error) { if (!in_array($error->statusCode,[403,404,409],true)) throw $error; }
+            // Una incorporación afecta todas las elecciones activas del contenedor.
+            $rows = $this->repository->rows('SELECT c.uuid,c.nombre FROM estructuras_organizacionales c
+                JOIN estructuras_procesos ep ON ep.estructura=c.id AND ep.activo=1 AND ep.proceso=?
+                JOIN personas p ON p.organizacion=c.organizacion AND p.id=?
+                WHERE c.activo=1 AND NOT EXISTS (SELECT 1 FROM estructura e WHERE e.contenedor=c.id AND e.persona=p.id)
+                AND NOT EXISTS (SELECT 1 FROM estructuras_procesos other_pe JOIN estructura_integrantes_procesos other_ep
+                    ON other_ep.proceso=other_pe.proceso AND other_ep.persona=p.id AND other_ep.activo=1
+                    WHERE other_pe.estructura=c.id AND other_pe.activo=1) ORDER BY c.nombre,c.id',[$process,$person]);
+            foreach ($rows as $row) {
+                $uuid = $this->uuidBinaryToString($row['uuid']);
+                try {
+                    $offset = 0;
+                    do {
+                        $options = $this->assignmentOptions($uuid,['limit'=>2,'offset'=>$offset]);
+                        if ($options['own'] || $options['can_root'] || $options['candidates']) {
+                            $targets[] = ['id'=>$uuid,'name'=>$row['nombre']];
+                            if ($options['own']) $ownStructure = $uuid;
+                            break;
+                        }
+                        $offset = $options['pagination']['next_offset'];
+                    } while ($options['pagination']['has_more']);
+                } catch (HttpError $error) {
+                    if (!in_array($error->statusCode,[403,404,409],true)) throw $error;
+                }
             }
         }
-        return ['available'=>true,'election'=>$election,'participates'=>$participates,'can_form'=>$canForm,'own_structure'=>$ownStructure,'members'=>$members];
+        return ['available'=>true,'election'=>$election,'participates'=>$participates,'can_form'=>(bool)$targets,'assignment_structures'=>$targets,'own_structure'=>$ownStructure,'members'=>$members];
     }
 
     private function memberLevelOptions(array $member, int $process): array

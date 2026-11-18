@@ -20,7 +20,7 @@ function InitializeValues(url) {
         app.node('jornada-state').className='ux-badge '+(app.config?.estado==='abierta' ? 'ux-badge-success' : 'ux-badge-neutral');
         app.node('jornada-election').textContent=app.config?.eleccion || 'Elección de trabajo';
         app.node('jornada-clock').textContent=app.config ? 'Captura desde '+new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short',timeZone:app.config.zona}).format(new Date(app.config.captura_desde.replace(' ','T')+'Z'))+' · '+app.config.zona : 'Configura la fecha, la zona horaria y el horario de captura.';
-        app.node('jornada-status').textContent=app.enabled ? '' : 'Modo histórico: el módulo está deshabilitado. Puedes consultar los registros dentro de tus permisos.';
+        app.node('jornada-status').textContent=app.enabled ? '' : 'Jornada Electoral está deshabilitada para esta elección.';
         const actions=app.node('jornada-state-actions');actions.replaceChildren();
         for(const [action,permission,title,expected] of [['abrir','jornada.abrir','Abrir Jornada Electoral','preparacion'],['cerrar','jornada.cerrar','Cerrar Jornada Electoral','abierta'],['reabrir','jornada.reabrir','Reabrir Jornada Electoral','cerrada']]) {
             if(app.enabled && can(permission) && app.config?.estado===expected) actions.append(app.button(title,async()=>{
@@ -202,7 +202,7 @@ function InitializeValues(url) {
                         app, target, 'physical-booths', 'Casillas físicas',
                         'Consulta las casillas asociadas a la elección desde Mis casillas y capturas.', true
                     );
-                    booths.content.append(app.text('p', 'El módulo está deshabilitado; las casillas se conservan para consulta.', 'ux-help'));
+                    booths.content.append(app.text('p', 'Jornada Electoral está deshabilitada para esta elección.', 'ux-help'));
                 }
             }
         }

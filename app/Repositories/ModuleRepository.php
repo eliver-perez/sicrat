@@ -20,6 +20,12 @@ class ModuleRepository
         return $rows;
     }
 
+    public function enabledCodes(int $organization, ?int $process): array
+    {
+        return array_column(array_filter($this->catalog($organization, $process),
+            static fn(array $module): bool => $module['habilitado'] && (bool)$module['implementado']), 'codigo');
+    }
+
     public function require(string $module, int $process): void
     {
         $statement = $this->db->prepare('SELECT organizacion FROM procesos_electorales WHERE id=? AND estatus=1');

@@ -9,6 +9,15 @@ module.exports=async({base,directory,call,evaluate,waitFor,navigate,pause})=>{
     await dark();
     check(await evaluate('getComputedStyle(document.querySelector(".db-panel")).backgroundColor === "rgb(24, 36, 51)"'),'Dark card uses shared palette');
     check(await evaluate('document.querySelector(".db-activity-subject")?.textContent.length>0 && !!document.querySelector(".db-activity-link")'),'Activity has subject and detail action');
+    await evaluate('document.querySelector(".db-activity-link").click()');
+    check(await evaluate('(()=>{const b=document.querySelector(".db-activity-link"),d=document.getElementById(b.getAttribute("aria-controls"));return !d.hidden && d.textContent.includes("Fecha y hora") && d.textContent.includes("Usuario") && !/[a-f0-9]{8}-[a-f0-9]{4}-|\\/api\\/|datos_nuevos|entidad_id|[{}]/i.test(d.innerText);})()'),'Eye abre el detalle humano sin claves de auditoría');
+    for (const width of [320,390,768,1440]) {
+        await call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<768});
+        await pause(150);
+        check(await evaluate('document.documentElement.scrollWidth<=innerWidth+1 && document.querySelector(".db-activity-detail:not([hidden])").getBoundingClientRect().right<=innerWidth+1'),'Detalle de actividad sin desborde '+width);
+    }
+    await evaluate('document.querySelector(".db-activity-link").click()');
+
     check(await evaluate('getComputedStyle(document.querySelector(".sicrat-brand img")).filter.includes("invert(1)")'),'Negative SICRAT logo on dark background');
     for(const width of [390,1440]){
         await call('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<768});await pause(350);

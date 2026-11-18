@@ -151,6 +151,23 @@ function finishImport(string $id,string $token): array {
     } while (!$result['complete']);
     return $result['summary'];
 }
+// Una cancelación concurrente con el siguiente lote conserva las altas ya aplicadas.
+$partialCsv=$temporaryDirectory.'/cancelar.csv';
+file_put_contents($partialCsv,"Nombre\n".implode("\n",array_map(fn($i)=>'Parcial temporal '.$i,range(1,102))));
+$pendingImport=apiData(uploadImport('capture',$captureToken,$partialCsv,$organizationIds[0]))['id'];
+prepareImport($pendingImport,['name'=>0],0,$captureToken);
+$pendingPath='/api/person-imports/'.$pendingImport;
+apiData(request('capture','PUT',$pendingPath.'/decisions',['decisions'=>[['row'=>102,'action'=>'skip']]],$captureToken));
+apiData(request('capture','POST',$pendingPath.'/confirm',[],$captureToken));
+$firstBatch=apiData(request('capture','POST',$pendingPath.'/apply',[],$captureToken));
+verify(!$firstBatch['complete'] && $firstBatch['summary']['nuevo']===100,'Primer lote confirmado antes de cancelar');
+verify(request('other','DELETE',$pendingPath,[],$otherToken)['status']!==200,'Otra cuenta no cancela el proceso');
+apiData(request('capture','DELETE',$pendingPath,[],$captureToken));
+verify(request('capture','GET',$pendingPath)['status']===404 && request('capture','POST',$pendingPath.'/apply',[],$captureToken)['status']===404,'Cancelar elimina la revisión y evita aplicar más lotes');
+$probe=$connection->prepare('SELECT COUNT(*) FROM personas_importacion_filas WHERE importacion=?');
+$probe->execute([$pendingImport]);
+verify((int)$probe->fetchColumn()===0 && (int)$connection->query("SELECT COUNT(*) FROM personas WHERE nombre LIKE 'Parcial temporal %'")->fetchColumn()===100,'Se eliminaron filas y decisiones temporales y se conservaron 100 registros definitivos');
+
 $csv=$temporaryDirectory.'/personas.csv';
 $handle=fopen($csv,'wb'); fputcsv($handle,['Nombre','Correo','CURP','Columna desconocida'],',','"','');
 for ($row=0;$row<1205;$row++) fputcsv($handle,['Lote persona '.$row,'lote'.$row.'@example.com','','ignorar'],',','"','');

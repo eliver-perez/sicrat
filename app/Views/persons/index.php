@@ -12,10 +12,14 @@
 
                     <div class="<?= $personCapabilities['create'] ? 'lg:col-span-8' : 'lg:col-span-12'; ?>">
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header person-list-header">
                                 <h6 class="card-title">Personas</h6>
 
-                                <div class="flex gap-3 items-center">
+                                <div class="ux-actions" role="group" aria-label="Vista de personas">
+                                    <button class="btn btn-sm" type="button" id="persons-list-toggle" aria-pressed="true">Lista</button>
+                                    <button class="btn btn-sm" type="button" id="persons-map-toggle" aria-pressed="false">Mapa</button>
+                                </div>
+                                <div class="flex gap-3 items-center person-filters">
                                     <div class="relative">
                                         <select class="form-input form-input-sm"
                                             id="select-filter-section" aria-label="Filtrar por sección"
@@ -37,7 +41,7 @@
                                 </div>
                             </div>
 
-                            <div class="overflow-x-auto">
+                            <div id="persons-list-panel"><div class="overflow-x-auto">
                                 <div class="min-w-full inline-block align-middle">
                                     <div class="overflow-y-auto min-h-[480px] max-h-[480px]">
                                         <table id="table-persons" class="min-w-full divide-y divide-default-200 dark:divide-white/14">
@@ -59,6 +63,11 @@
                                         </table>
                                     </div>
                                 </div>
+                            </div>
+                            </div>
+                            <div id="persons-map-panel" class="p-3" hidden>
+                                <div id="persons-overview-map" aria-label="Personas con ubicación en la elección"></div>
+                                <p id="persons-map-status" class="ux-help" role="status"></p>
                             </div>
                         </div>
                     </div>
@@ -126,6 +135,9 @@
                                             </div>
                                         </details>
 
+                                        <div id="person-quick-location" class="ux-full" hidden>
+                                            <input type="hidden" name="latitude"><input type="hidden" name="longitude">
+                                        </div>
                                         <div class="lg:col-span-3 col-span-1">
                                             <div class="flex justify-end gap-2">
                                                 <button id="btn-persons-cancel" type="button" class="btn btn-sm hidden">Cancelar</button>
@@ -152,6 +164,7 @@
 <link rel="stylesheet" href="<?= escape_html(asset('css/structure-assignment.css')); ?>">
 <script src="<?= escape_html(asset('js/structure/assignment.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/map.js')); ?>" data-library="<?= escape_html(base_url('template/assets/maps-leaflet-kSd10Sau.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/persons/overview-map.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/structure-assignment.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/identity.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/activity.js')); ?>"></script>

@@ -152,6 +152,8 @@ class PersonIdentityService extends Service
             $statement = $this->repository->connection()->prepare('SELECT c.colonia neighborhood,l.id locality,l.localidad,m.id municipality,m.municipio,e.id state,e.estado FROM colonias c JOIN localidades l ON l.id=c.localidad JOIN municipios m ON m.id=l.municipio JOIN estados e ON e.id=m.estado WHERE c.id=?');
             $statement->execute([$data['neighborhood']]); $data['location'] = $statement->fetch(\PDO::FETCH_ASSOC) ?: null;
         }
+        $data['section_name'] = $person['seccion_numero'] === null ? null : str_pad((string)$person['seccion_numero'],4,'0',STR_PAD_LEFT);
+        $data['gender_name'] = $person['genero_nombre'];
         $data['structure'] = (new StructureService(new \App\Repositories\StructureRepository($this->repository->connection())))->personContext((int)$person['id']);
         $data['editable']=$this->personAction((int)$person['id'],'personas.editar',Auth::processId());
         $data['participations'] = array_map(fn ($row) => ['id' => $this->uuidBinaryToString($row['uuid']), 'process' => $row['proceso'], 'active' => (int) $row['activo'], 'process_active' => (int) $row['estatus'], 'can_participate'=>$this->personAction((int)$person['id'],'personas.participar',(int)$row['id'])], $this->repository->participations((int) $person['id']));

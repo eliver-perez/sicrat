@@ -17,7 +17,7 @@ module.exports=async function({fixture,directory,call,evaluate,waitFor,navigate,
     await click('#structure-members button[title="Ver ficha"]');await waitFor('document.getElementById("structure-member-dialog").open');
     check(await evaluate('document.getElementById("structure-member-name").textContent.includes("Descendiente UX")'),'Ficha desde icono');await close();
     await click('#structure-roots');await waitFor('document.getElementById("structure-navigation").textContent.startsWith("Inicio de la estructura")');
-    check(await evaluate('document.getElementById("structure-summary").hidden&&!document.getElementById("structure-navigation").textContent.includes("visible")'),'Inicio sin resumen obsoleto');
+    check(await evaluate('!document.getElementById("structure-summary").hidden && document.querySelector(".structure-stat-value").textContent==="Coordinador UX"&&!document.getElementById("structure-navigation").textContent.includes("visible")'),'Inicio muestra las tarjetas del titular');
     await click('#structure-all');await waitFor('document.querySelectorAll("#structure-members tr[data-member]").length===5');
     check(await evaluate('document.getElementById("structure-navigation").textContent.startsWith("Todos los integrantes")'),'Todos los integrantes');
     await click('#structure-members tr[data-member] td:nth-child(2)');await waitFor('document.getElementById("structure-member-dialog").open');checks++;await close();
