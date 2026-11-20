@@ -113,14 +113,41 @@
         <label>Nombre<input id="structure-map-search" type="search" class="form-input" maxlength="200" placeholder="Buscar por nombre"></label>
     </div>
     <div class="ux-actions structure-map-branch">
-        <button id="structure-map-find-branch" class="btn ux-secondary-action" type="button"><i data-lucide="network" class="size-4" aria-hidden="true"></i>Seleccionar rama</button>
-        <button id="structure-map-clear-branch" class="btn" type="button" hidden>Volver a mi estructura</button>
+        <button id="structure-map-find-branch" class="btn ux-secondary-action" type="button"><i data-lucide="network" class="size-4" aria-hidden="true"></i>Filtrar ramas</button>
+        <p id="structure-map-legend" class="ux-help" role="status">Mostrando toda mi estructura</p>
     </div>
     <div id="structure-map-canvas" class="person-overview-canvas" aria-label="Ubicaciones de la estructura"></div>
     <p id="structure-map-status" class="ux-help" role="status"></p>
 </dialog>
+<dialog id="structure-map-branches" class="card p-5" aria-labelledby="structure-map-branches-title">
+    <div class="ux-modal-header"><h6 id="structure-map-branches-title" class="card-title">Filtrar ramas del mapa</h6><button class="btn" type="button" data-close>Cerrar</button></div>
+    <div class="structure-branch-panels">
+        <section class="structure-branch-panel structure-branch-selected" aria-labelledby="structure-branch-selected-count">
+            <header class="structure-branch-header">
+                <h6 id="structure-branch-selected-count" aria-live="polite">Seleccionados (0)</h6>
+                <button type="button" class="btn structure-branch-remove" id="structure-branch-clear" disabled>Remover todos</button>
+            </header>
+            <ul id="structure-branch-selected" class="structure-branch-list"></ul>
+            <p id="structure-branch-empty" class="ux-help">Selecciona integrantes para combinar sus ramas.</p>
+        </section>
+        <section class="structure-branch-panel structure-branch-available" aria-labelledby="structure-branch-available-count">
+            <h6 id="structure-branch-available-count" aria-live="polite">Disponibles (0)</h6>
+            <form id="structure-branch-search-form" class="ux-inline-form structure-branch-controls">
+                <label>Buscar por nombre<input id="structure-branch-search" class="form-input" type="search" maxlength="200"></label>
+                <label>Ordenar por<select id="structure-branch-sort" class="form-input">
+                    <option value="name">Orden alfabético</option>
+                    <option value="level">Orden por nivel</option>
+                </select></label>
+            </form>
+            <ul id="structure-branch-available" class="structure-branch-list"></ul>
+            <p id="structure-branch-status" class="ux-help" role="status"></p>
+            <button type="button" class="btn" id="structure-branch-more" hidden>Ver más</button>
+        </section>
+    </div>
+</dialog>
 <?php require __DIR__ . '/../persons/detail.php'; ?>
 <script src="<?= escape_html(asset('js/persons/points-map.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/structure/map-branches.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/structure/map.js')); ?>"></script>
 <?php endif; ?>
 <link rel="stylesheet" href="<?= escape_html(asset('css/structure.css')); ?>">

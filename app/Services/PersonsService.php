@@ -71,6 +71,8 @@ class PersonsService extends Service
         }
     }
 
+    private const MAP_BRANCH_LIMIT = 100;
+
     public function map(array $query): array
     {
         $process = \App\Core\Auth::processId();
@@ -80,13 +82,19 @@ class PersonsService extends Service
         $statement->execute([$process]);
         $organization = (int)$statement->fetchColumn();
         Authorization::assertOrganization($organization);
-        foreach (['structure','branch','extent'] as $parameter) {
+        foreach (['structure','branch','branches','extent','search','sort'] as $parameter) {
             if (isset($query[$parameter]) && !is_string($query[$parameter])) throw new InvalidArgumentException('El filtro del mapa no es válido.');
         }
         $view = $query['view'] ?? '';
         $structure = $this->normalizeOptionalText($query['structure'] ?? null);
+        $selection = $this->normalizeOptionalText($query['branches'] ?? $query['branch'] ?? null);
+        $branches = $selection === null ? [] : explode(',',$selection);
+        if (count($branches)>self::MAP_BRANCH_LIMIT || ($branches !== [] && $structure === null)) {
+            throw new InvalidArgumentException('La selección de ramas no es válida.');
+        }
+        $branches = array_values(array_unique(array_map(fn ($uuid) => $this->uuidStringToBinary($uuid),$branches)));
         $structureScope = $structure !== null ? (new StructureService(new \App\Repositories\StructureRepository($db)))->mapScope(
-            $structure,$this->normalizeOptionalText($query['branch'] ?? null),(string)($query['extent'] ?? 'all'),$organization,$process
+            $structure,$branches,$view === 'branches' ? 'all' : ($query['extent'] ?? 'all'),$organization,$process,$view === 'branches'
         ) : null;
         if ($view === 'initial') {
             (new \App\Repositories\PermissionRepository($db))->require(\App\Core\Auth::id(), 'personas.ver', $process);
@@ -96,10 +104,20 @@ class PersonsService extends Service
             $search = trim((string)($query['search'] ?? ''));
             if (mb_strlen($search)>200) throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
             $page = \App\Core\Pagination::offset($query['offset'] ?? 0);
-            $rows = $this->personsRepository->mapBranches($structureScope,$organization,$search,$page);
+            $sort = $query['sort'] ?? 'name';
+            if (!in_array($sort,['name','level'],true)) throw new InvalidArgumentException('El orden de las ramas no es válido.');
+            $result = $this->personsRepository->mapBranches($structureScope,$organization,$search,$sort,$page,$branches);
             return [
-                'rows'=>array_map(fn ($row) => ['value'=>$this->uuidBinaryToString($row['uuid']),'label'=>$row['code'].' · '.$row['name'],'name'=>$row['name']],array_slice($rows,0,25)),
-                'pagination'=>\App\Core\Pagination::response($rows,25,$page),
+                'rows'=>array_map(fn ($row) => [
+                    'value'=>$this->uuidBinaryToString($row['uuid']),
+                    'person'=>$this->uuidBinaryToString($row['person_uuid']),
+                    'name'=>$row['name'],
+                    'level'=>$row['level_name'],
+                ],array_slice($result['rows'],0,25)),
+                'total'=>$result['total'],
+                'selected_matches'=>array_map(fn ($uuid) => $this->uuidBinaryToString($uuid),$result['selected_matches']),
+                'selection_limit'=>self::MAP_BRANCH_LIMIT,
+                'pagination'=>\App\Core\Pagination::response($result['rows'],25,$page),
             ];
         }
         $data = [];

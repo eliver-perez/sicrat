@@ -6,7 +6,7 @@ $personCapabilities ??= [
 ?>
 <script>window.SicratPersonCapabilities=<?= json_script($personCapabilities); ?>;</script>
 <dialog id="person-detail" class="card p-5 w-full max-w-3xl" aria-labelledby="person-detail-title">
-    <div class="ux-modal-header"><h6 class="card-title" id="person-detail-title">Persona</h6><button type="button" class="btn" data-close>Cerrar</button></div>
+    <div class="ux-modal-header"><h6 class="card-title" id="person-detail-title">Persona</h6><button id="person-detail-close" type="submit" form="person-detail-close-form" class="btn ux-modal-close ux-icon-action" title="Cerrar diálogo" aria-label="Cerrar diálogo"><i data-lucide="x" class="size-4" aria-hidden="true"></i></button></div>
     <div class="ux-actions" id="person-detail-actions">
         <span id="person-structure-action"></span>
         <?php if ($personCapabilities['edit']): ?><button type="button" class="btn ux-secondary-action" id="person-edit"><i data-lucide="pencil" class="size-4" aria-hidden="true"></i>Editar</button><?php endif; ?>
@@ -27,6 +27,7 @@ $personCapabilities ??= [
     <details id="person-participation-options"><summary>Administrar participación electoral</summary><label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
     <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button></details>
     <?php endif; ?></section>
+    <form id="person-detail-close-form" method="dialog" hidden></form>
 </dialog>
 <link rel="stylesheet" href="<?= escape_html(base_url('template/assets/maps-leaflet-CIGW-MKW.css')); ?>">
 <link rel="stylesheet" href="<?= escape_html(asset('css/persons-context.css')); ?>">

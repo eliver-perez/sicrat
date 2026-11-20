@@ -130,7 +130,7 @@ class StructureService extends Service
         return $process;
     }
 
-    public function mapScope(string $uuid, ?string $branch, string $extent, int $organization, int $process): array
+    public function mapScope(string $uuid, array $branches, string $extent, int $organization, int $process, bool $picker = false): array
     {
         $container = $this->repository->container($this->uuidStringToBinary($uuid));
         $this->visible($container);
@@ -143,37 +143,36 @@ class StructureService extends Service
             WHERE e.contenedor=? AND e.activo=1 AND u.id=?',[$process,$id,Auth::id()])[0] ?? null;
         if (!$own) throw new HttpError('Tu cuenta no está vinculada a un integrante activo de esta estructura.',404);
 
-        $scope = new ScopeRepository($this->repository->connection());
-        $ownId = $anchor = (int)$own['id'];
-        if ($branch !== null && $branch !== '') {
-            $member = $this->repository->member($this->uuidStringToBinary($branch),$id);
-            $descendant = $this->repository->rows('SELECT 1 FROM estructura_relaciones r
-                JOIN estructura_integrantes_procesos ep ON ep.integrante=r.descendiente AND ep.proceso=? AND ep.activo=1
-                WHERE r.ancestro=? AND r.descendiente=? AND r.profundidad>0',[$process,$anchor,$member['id']]);
-            if (!$member['activo'] || !$descendant) throw new HttpError('La rama no está disponible en tu estructura.',404);
-            $scope->assertPerson((int)$member['persona'],'estructura.ver',$process);
-            $anchor = (int)$member['id'];
-        }
-
         $depth = match ($extent) {
             'all' => '>0',
             'direct' => '=1',
             'indirect' => '>1',
             default => throw new InvalidArgumentException('El alcance del mapa no es válido.'),
         };
+        $scope = new ScopeRepository($this->repository->connection());
         [$condition,$params] = $scope->predicate('estructura.ver',$process);
-        // Mantener la pertenencia de la rama en la consulta que devuelve los datos.
-        if ($anchor !== $ownId) {
+        $depthFilter = "rel.profundidad$depth";
+        if ($branches !== []) {
             [$branchCondition,$branchParams] = $scope->predicate('estructura.ver',$process,'candidate');
-            $condition .= " AND EXISTS (SELECT 1 FROM estructura_relaciones link
-                JOIN estructura origin ON origin.id=link.ancestro AND origin.activo=1
-                JOIN estructura_integrantes_procesos own_projection ON own_projection.integrante=origin.id
-                    AND own_projection.proceso=projection.proceso AND own_projection.activo=1
-                JOIN personas candidate ON candidate.id=anchor.persona
-                WHERE link.ancestro=? AND link.descendiente=anchor.id AND link.profundidad>0 AND ($branchCondition))";
-            $params = [...$params,$ownId,...$branchParams];
+            $slots = implode(',',array_fill(0,count($branches),'?'));
+            $authorizedFrom = " FROM estructura_relaciones link
+                JOIN estructura branch ON branch.id=link.descendiente AND branch.contenedor=? AND branch.activo=1
+                JOIN estructura_integrantes_procesos bp ON bp.integrante=branch.id AND bp.proceso=? AND bp.activo=1
+                JOIN personas candidate ON candidate.id=branch.persona
+                WHERE link.ancestro=? AND link.profundidad>0 AND branch.uuid IN ($slots) AND ($branchCondition)";
+            $args = [$id,$process,$own['id'],...$branches,...$branchParams];
+            if (count($this->repository->rows('SELECT branch.id'.$authorizedFrom,$args)) !== count($branches)) {
+                throw new HttpError('Una de las ramas no está disponible en tu estructura.',404);
+            }
+            if (!$picker) {
+                // EXISTS combina ramas sin multiplicar la fila de un descendiente compartido.
+                $condition .= " AND EXISTS (SELECT 1".$authorizedFrom."
+                    AND EXISTS (SELECT 1 FROM estructura_relaciones team WHERE team.ancestro=branch.id
+                        AND team.descendiente=e.id AND team.profundidad$depth))";
+                $params = [...$params,...$args];
+                $depthFilter = 'rel.profundidad>0';
+            }
         }
-        // La tabla de relaciones es la misma que utiliza la navegación del equipo.
         return [
             'from' => " FROM estructura_relaciones rel
                 JOIN estructura e ON e.id=rel.descendiente
@@ -182,9 +181,27 @@ class StructureService extends Service
                 JOIN estructura_integrantes_procesos root_projection ON root_projection.integrante=anchor.id
                     AND root_projection.proceso=projection.proceso AND root_projection.activo=1
                 LEFT JOIN niveles_organizacionales level ON level.id=projection.nivel",
-            'where' => "rel.ancestro=? AND rel.profundidad$depth AND e.contenedor=? AND e.activo=1 AND ($condition)",
-            'params' => [$process,$anchor,$id,...$params],
+            'where' => "rel.ancestro=? AND $depthFilter AND e.contenedor=? AND e.activo=1 AND ($condition)",
+            'params' => [$process,$own['id'],$id,...$params],
         ];
+    }
+
+    private function editablePersons(array $members, int $process): array
+    {
+        if ($members === [] || !Authorization::canAny(['personas.ver']) || !Authorization::canAny(['personas.editar'])) return [];
+        $scope = new ScopeRepository($this->repository->connection());
+        try {
+            [$read,$readParams] = $scope->predicate('personas.ver',$process);
+            [$edit,$editParams] = $scope->predicate('personas.editar',$process);
+        } catch (HttpError $error) {
+            if ($error->statusCode === 403) return [];
+            throw $error;
+        }
+        $ids = array_values(array_unique(array_column($members,'persona')));
+        $slots = implode(',',array_fill(0,count($ids),'?'));
+        $rows = $this->repository->rows("SELECT p.id FROM personas p WHERE p.id IN ($slots) AND ($read) AND ($edit)",
+            [...$ids,...$readParams,...$editParams]);
+        return array_fill_keys(array_column($rows,'id'),true);
     }
 
     private function mappedMember(array $member, int $process): array
@@ -247,8 +264,9 @@ class StructureService extends Service
         }
         $wanted = array_column($ids,'id');
         $members = $this->repository->members((int) $container['id'],false,$wanted);
+        $editable = $focus ? $this->editablePersons($members,$process) : [];
         return ['id'=>$uuid,'name'=>$container['nombre'],'version'=>(int) $container['version'],'elections'=>array_map(fn ($pe) => ['id'=>$this->uuidBinaryToString($pe['uuid']),'name'=>$pe['proceso']],$this->repository->elections((int) $container['id'])),
-            'can_add_to_own'=>$canAddOwn,'own'=>$ownMember,'focus'=>$focusMember,'members'=>array_map(fn ($row) => $this->mappedMember($row,$process),$members)];
+            'can_add_to_own'=>$canAddOwn,'own'=>$ownMember,'focus'=>$focusMember,'members'=>array_map(fn ($row) => $this->mappedMember($row,$process) + ['person_editable'=>isset($editable[$row['persona']])],$members)];
     }
 
     public function detail(string $uuid, string $memberUuid, array $page = ['limit'=>101,'offset'=>0]): array
@@ -261,14 +279,18 @@ class StructureService extends Service
         $line = $this->repository->rows("SELECT e.uuid,p.uuid persona_uuid,TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) nombre,r.profundidad FROM estructura_relaciones r JOIN estructura e ON e.id=r.ancestro JOIN personas p ON p.id=e.persona WHERE r.descendiente=? AND r.profundidad>0 AND ($condition) ORDER BY r.profundidad DESC" . $limitSql,[$member['id'],...$params]);
         $team = $this->repository->rows("SELECT e.id,e.uuid,TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) nombre,r.profundidad FROM estructura_relaciones r JOIN estructura e ON e.id=r.descendiente JOIN personas p ON p.id=e.persona WHERE r.ancestro=? AND r.profundidad=1 AND e.activo=1 AND ($condition) ORDER BY e.id" . $limitSql,[$member['id'],...$params]);
         $full = $this->repository->members((int) $container['id'],false,[(int) $member['id']])[0];
-        $map = fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['nombre'],'depth'=>(int) $row['profundidad']];
+        $map = fn ($row) => ['id'=>$this->uuidBinaryToString($row['uuid']),'person'=>$this->uuidBinaryToString($row['persona_uuid']),'name'=>$row['nombre'],'depth'=>(int) $row['profundidad']];
+        $teamPage = array_slice($team,0,$page['limit']-1);
+        $teamMembers = array_column($this->repository->members((int)$container['id'],false,array_column($teamPage,'id')),null,'id');
+        $editable = $this->editablePersons($teamMembers,$process);
         $participations = (new PersonIdentityRepository($this->repository->connection()))->participations((int) $member['persona']);
         $levels = [];$levelOptions=[];
         foreach ($this->repository->rows('SELECT pe.id,pe.uuid,n.uuid nivel_uuid FROM estructura_integrantes_procesos ep JOIN procesos_electorales pe ON pe.id=ep.proceso LEFT JOIN niveles_organizacionales n ON n.id=ep.nivel WHERE ep.integrante=?',[$member['id']]) as $projection) {
             try { (new PermissionRepository($this->repository->connection()))->require(Auth::id() ?? 0,'estructura.ver',(int) $projection['id']); $key=$this->uuidBinaryToString($projection['uuid']);$levels[$key] = isset($projection['nivel_uuid']) ? $this->uuidBinaryToString($projection['nivel_uuid']) : null;$levelOptions[$key]=$this->memberLevelOptions($member,(int)$projection['id']); }
             catch (HttpError $error) { if (!in_array($error->statusCode,[401,403],true)) throw $error; }
         }
-        return [...$this->mappedMember($full,$process),'levels'=>$levels,'level_options'=>$levelOptions,'superiors'=>array_map($map,array_slice($line,0,$page['limit']-1)),'team'=>array_map(fn ($row) => [...$this->mappedMember($this->repository->members((int)$container['id'],false,[(int)$row['id']])[0],$process),'depth'=>(int)$row['profundidad']],array_slice($team,0,$page['limit']-1)),
+        return [...$this->mappedMember($full,$process),'levels'=>$levels,'level_options'=>$levelOptions,'superiors'=>array_map($map,array_slice($line,0,$page['limit']-1)),'team'=>array_map(fn ($row) => [...$this->mappedMember($teamMembers[$row['id']],$process),
+                'depth'=>(int)$row['profundidad'],'person_editable'=>isset($editable[$teamMembers[$row['id']]['persona']])],$teamPage),
             'superiors_pagination'=>\App\Core\Pagination::response($line,$page['limit']-1,$page['offset']),'team_pagination'=>\App\Core\Pagination::response($team,$page['limit']-1,$page['offset']),
             'participations'=>array_map(fn ($pe) => ['id'=>$this->uuidBinaryToString($pe['uuid']),'name'=>$pe['proceso'],'active'=>(int) $pe['activo']],$participations)];
     }

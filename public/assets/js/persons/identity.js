@@ -21,19 +21,28 @@ let personRecord = null;
 let personRequestVersion = 0;
 let personRequestFromOpenDialog = false;
 let detailMapCleanup = null;
+let personEditOnly = false;
+let personEditOrigin = null;
 // Cada módulo monta el mismo diálogo e inicializa su base de aplicación.
-function openPerson(uuid) {
+function openPerson(uuid, {edit = false, origin = null} = {}) {
     const dialog = document.getElementById('person-detail');
     personRequestFromOpenDialog = dialog.open;
     const version = ++personRequestVersion;
     return identityRequest(`persons/${encodeURIComponent(uuid)}`, 'get').done(function ({data:person}) {
         if (version !== personRequestVersion) return;
+        const editable = person.editable && personCan('edit');
+        if (edit && !editable) {
+            ShowToastMessage('No tienes permiso para editar a esta persona.','warning');
+            return;
+        }
         personRecord = person;
         selectedPerson = uuid;
-        personEditable = person.editable && personCan('edit');
+        personEditable = editable;
+        personEditOnly = edit;
+        personEditOrigin = origin;
         detailOrganization = person.organization;
         $('#person-detail-title').text([person.code,[person.name,person.last_name,person.last_name_2].filter(Boolean).join(' ')].join(' · '));
-        showPersonConsult();
+        if (!edit) showPersonConsult();
         renderPersonParticipations(person);
         showPersonStructure(person);
         const selector = $('#person-election-select').empty();
@@ -45,7 +54,11 @@ function openPerson(uuid) {
             dialog.showModal();
             dialog.scrollTop = 0;
         }
-        if (typeof window.InitializePersonOperations==='function') window.InitializePersonOperations(uuid,homeURL);
+        if (edit) {
+            editPerson();
+            document.querySelector('#person-edit-fields [name=name]')?.focus({preventScroll:true});
+        }
+        if (!edit && typeof window.InitializePersonOperations==='function') window.InitializePersonOperations(uuid,homeURL);
     }).fail(identityError);
 }
 
@@ -270,31 +283,45 @@ function choosePersonNeighborhood(target, summary, current) {
 function InitializePersonIdentity(onSaved = () => {}) {
     SicratPhase3.base = homeURL;
     const dialog = document.getElementById('person-detail');
-    dialog.querySelector('[data-close]').onclick = () => { if (dialog.open) dialog.close(); };
     dialog.addEventListener('close', () => {
         if (dialog.open) return;
         if (personRequestFromOpenDialog) personRequestVersion++;
         detailMapCleanup?.();
         detailMapCleanup = null;
         selectedPerson = personRecord = null;
-        personEditable = false;
+        personEditable = personEditOnly = false;
+        if (personEditOrigin?.isConnected) personEditOrigin.focus({preventScroll:true});
+        personEditOrigin = null;
     });
     $('#person-edit').on('click',function () { SicratPhase3.run(editPerson,this); });
-    $('#person-edit-cancel').on('click',showPersonConsult);
+    $('#person-edit-cancel').on('click',() => {
+        if (personEditOnly) dialog.close();
+        else showPersonConsult();
+    });
     $(document).on('click', '.person-open', function () { openPerson($(this).attr('data-id')); });
     $(document).on('keydown', 'tr.person-open', function(event) { if (event.target===this && ['Enter',' '].includes(event.key)) { event.preventDefault(); openPerson($(this).attr('data-id')); } });
     $('#person-edit-form').on('submit', function (event) {
         event.preventDefault();
-        if (this.hidden || !personCan('edit') || !personEditable) return;
-        const form = this, uuid = selectedPerson;
+        if (!dialog.open || this.hidden || !personCan('edit') || !personEditable) return;
+        const form = this, uuid = selectedPerson, editOnly = personEditOnly, version = personRequestVersion;
         const data = Object.fromEntries(new FormData(form));
+        const nameFields = ['name','last_name','last_name_2'];
+        const names = nameFields.map(key=>String(data[key] ?? personRecord[key] ?? '').trim());
+        const savedName = {
+            name:names.filter(Boolean).join(' '),
+            initials:names.slice(0,2).map(name=>Array.from(name)[0] || '').join('').toLocaleUpperCase('es'),
+            name_changed:nameFields.some((key,index)=>String(personRecord[key] ?? '')!==names[index]),
+        };
         window.SicratFeedback.execute(form, async () => {
             const cancel = document.getElementById('person-edit-cancel');
             cancel.disabled = true;
             try {
                 const response = await identityRequest(`persons/${uuid}`, 'put', data);
-                onSaved(uuid);
-                if (selectedPerson===uuid) await openPerson(uuid);
+                onSaved(uuid,savedName);
+                if (dialog.open && version===personRequestVersion) {
+                    if (editOnly) dialog.close();
+                    else await openPerson(uuid);
+                }
                 ShowToastMessage(response.data.identity_warnings?.length ? 'Información guardada. Hay coincidencias de identidad en otras fichas.' : 'Información guardada.', 'success');
             } finally { cancel.disabled = false; }
         }).catch(identityError);

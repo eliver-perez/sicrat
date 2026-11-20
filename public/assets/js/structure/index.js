@@ -9,6 +9,60 @@ function InitializeValues(url) {
     const submit = (id, work) => element(id).addEventListener('submit', event => { event.preventDefault();const values=new FormData(event.target); ui.run(() => work(values),event.currentTarget); });
     const visual = window.SicratUI;
     const structureMap = window.InitializeStructureMap?.(() => structureState.id);
+    if (structureMap) InitializePersonIdentity(updatePerson);
+
+    function personText(node, member, prefix = '') {
+        if (member?.person) {
+            node.dataset.structurePerson = member.person;
+            node.dataset.personPrefix = prefix;
+        } else {
+            delete node.dataset.structurePerson;
+            delete node.dataset.personPrefix;
+        }
+        if (member) node.textContent = prefix + member.name;
+        return node;
+    }
+
+    function updatePerson(id, saved) {
+        structureMap.personSaved(id,saved);
+        if (!saved.name_changed) return;
+        const rename = person => {
+            if (person?.person !== id) return;
+            person.name = saved.name;
+            person.initials = saved.initials;
+        };
+        [
+            structureState.own,structureState.focus,structureState.preview,structureState.member,
+            ...structureState.members,...(structureState.allMembers || []),...structureState.trail,
+            ...(structureState.superiors || [])
+        ].forEach(rename);
+        document.querySelectorAll(`[data-structure-person="${CSS.escape(id)}"]`).forEach(node=>{
+            const label = node.dataset.personPrefix + saved.name;
+            if (node.dataset.personLabel !== undefined) node.setAttribute('aria-label',label);
+            else node.textContent = label;
+        });
+        document.querySelectorAll(`[data-structure-initials="${CSS.escape(id)}"]`).forEach(node=>{
+            node.textContent = saved.initials;
+        });
+        if (structureState.trail.some(item=>item.person===id)) renderBreadcrumb();
+        if (structureState.member && (structureState.member.person===id || structureState.superiors.some(item=>item.person===id))) {
+            window.SicratStructureBreadcrumb(element('structure-line'),structureState.superiors,structureState.member,openMember);
+        }
+    }
+
+    function memberAction(title, icon, work) {
+        const button = ui.text('button',title,'btn text-primary');
+        button.type = 'button';
+        visual.action(button,title,icon);
+        button.addEventListener('click',event=>{event.stopPropagation();ui.run(()=>work(button),button);});
+        return button;
+    }
+
+    function addPersonEdit(actions, member) {
+        if (member.person_editable && structureMap) {
+            actions.append(memberAction('Editar persona','pencil',origin=>openPerson(member.person,{edit:true,origin})));
+        }
+    }
     [
         ['structure-create','plus','Nueva estructura'],['structure-clone','copy','Crear copia independiente'],
         ['structure-associate','link','Asociar elección'],['structure-add','plus','Agregar integrante'],
@@ -25,7 +79,9 @@ function InitializeValues(url) {
         ].forEach(([label,value,icon,color],index) => {
             const card=ui.text('div','','card structure-stat'+(index<2?' structure-stat-name':''));
             const symbol=ui.text('span','','structure-stat-icon');symbol.style.setProperty('--stat-color',color);symbol.append(visual.icon(icon));
-            const content=ui.text('div','','structure-stat-content');content.append(ui.text('span',label,'structure-stat-label'),ui.text('strong',String(value),'structure-stat-value'));
+            const content=ui.text('div','','structure-stat-content');const display = ui.text('strong',String(value),'structure-stat-value');
+            if (index===0) personText(display,member);
+            content.append(ui.text('span',label,'structure-stat-label'),display);
             card.append(symbol,content);target.append(card);
         });
     }
@@ -47,7 +103,7 @@ function InitializeValues(url) {
         if (structureState.id && rows.some(row => row.id === structureState.id)) select.value = structureState.id;
         structureState.id = select.value || null; structureState.offset = 0;
         element('structure-add').disabled=!structureState.id;
-        if (structureMap) structureMap.disabled = !structureState.id;
+        if (structureMap) structureMap.launch.disabled = !structureState.id;
         ['structure-hierarchy','structure-mine','structure-roots','structure-all','structure-previous','structure-next','structure-history','structure-requests'].forEach(id=>element(id).disabled=!structureState.id);
         if (structureState.id) {
             if(structureState.loadedStructure && structureState.loadedStructure!==structureState.id){structureState.parent='mine';structureState.trail=[];structureState.view='hierarchy';structureState.flatSearch='';element('structure-flat-search').value='';}
@@ -66,10 +122,11 @@ function InitializeValues(url) {
             element('structure-flat-search-form').hidden=hierarchical;
             element('structure-panels').classList.toggle('structure-flat',!hierarchical);element('structure-preview').hidden=!hierarchical;element('structure-breadcrumb').hidden=!hierarchical;
             element('structure-hierarchy').setAttribute('aria-pressed',String(hierarchical));element('structure-all').setAttribute('aria-pressed',String(!hierarchical));
-            element('structure-primary-title').textContent=focus ? `Equipo directo de ${focus.name}` : hierarchical ? 'Inicio de la estructura' : 'Todos los integrantes';
+            const heading = personText(element('structure-primary-title'),focus,'Equipo directo de ');
+            if (!focus) heading.textContent = hierarchical ? 'Inicio de la estructura' : 'Todos los integrantes';
             if(hierarchical && focus){const index=structureState.trail.findIndex(item=>item.id===focus.id);structureState.trail=index<0 ? [...structureState.trail,focus] : [...structureState.trail.slice(0,index),focus];}
             renderBreadcrumb();
-            navigation.append(ui.text('h6',focus ? focus.name : structureState.parent === '' ? 'Todos los integrantes' : 'Inicio de la estructura','card-title'));
+            navigation.append(personText(ui.text('h6',structureState.parent === '' ? 'Todos los integrantes' : 'Inicio de la estructura','card-title'),focus));
             if (focus) {
                 const open = ui.text('button','Abrir ficha del responsable','btn text-primary');open.type='button';open.onclick=()=>ui.run(()=>openMember(focus.id));if(focus.can_open!==false)navigation.append(open);
                 if (focus.responsible_visible) { const back=ui.text('button','Subir al responsable','btn');back.type='button';back.onclick=()=>ui.run(()=>{if(!structureState.trail.some(item=>item.id===focus.responsible))structureState.trail=[];return browse(focus.responsible);});navigation.append(back); }
@@ -94,7 +151,7 @@ function InitializeValues(url) {
     function clearPreview() {
         ++structureState.previewVersion;structureState.preview=null;structureState.previewOffset=0;
         element('structure-preview').removeAttribute('aria-busy');element('structure-preview-members').replaceChildren();
-        element('structure-preview-title').textContent='Equipo directo';element('structure-preview-status').textContent='Selecciona un integrante para consultar su equipo directo.';
+        personText(element('structure-preview-title'),null).textContent='Equipo directo';element('structure-preview-status').textContent='Selecciona un integrante para consultar su equipo directo.';
         ['structure-preview-enter','structure-preview-table','structure-preview-pages'].forEach(id=>element(id).hidden=true);
         element('structure-members').querySelectorAll('tr').forEach(row=>{row.classList.remove('structure-selected');row.removeAttribute('aria-current');});
     }
@@ -102,17 +159,21 @@ function InitializeValues(url) {
         body.replaceChildren();
         members.forEach(member=>{
             const row=document.createElement('tr');row.dataset.member=member.id;row.tabIndex=0;
-            row.setAttribute('aria-label',`${structureState.view==='all' ? 'Ver ficha de' : 'Seleccionar a'} ${member.name}`);
+            const labelPrefix = structureState.view==='all' ? 'Ver ficha de ' : 'Seleccionar a ';
+            row.dataset.structurePerson = member.person;
+            row.dataset.personPrefix = labelPrefix;
+            row.dataset.personLabel = '';
+            row.setAttribute('aria-label',labelPrefix+member.name);
             const boss=members.find(candidate=>candidate.id===member.responsible) || (focus?.id===member.responsible ? focus : null);
             [member.code,member.name,member.level_name || 'Sin nivel',boss?.name || (member.responsible ? 'Consultar superiores' : 'Sin responsable'),`${member.direct_count} / ${member.team_count}`,`${member.has_account ? 'Con cuenta' : 'Sin cuenta'} · ${member.active ? 'Activo' : 'Inactivo'}`].forEach(value=>row.append(ui.text('td',value,'p-3')));
-            row.cells[1].append(ui.text('small',member.code,'structure-code-label'));
+            row.cells[1].replaceChildren(personText(ui.text('span',''),member),ui.text('small',member.code,'structure-code-label'));
+            if (boss) personText(row.cells[3],boss);
             const select=async()=>{if(structureState.view==='all')return openMember(member.id);if(preview)await browse(focus.id);await selectPreview(member.id);};
             const enter=async()=>{if(structureState.view==='all')structureState.trail=[];if(preview && !structureState.trail.some(item=>item.id===focus.id))structureState.trail.push(focus);await browse(member.id);};
             const cell=document.createElement('td'),actions=ui.text('div','','ux-actions justify-end');
-            [['Ver ficha','eye',()=>openMember(member.id)],['Ver equipo','users',enter]].forEach(([title,icon,work])=>{
-                const button=ui.text('button',title,'btn text-primary');button.type='button';visual.action(button,title,icon);
-                button.addEventListener('click',event=>{event.stopPropagation();ui.run(work,button);});actions.append(button);
-            });cell.append(actions);row.append(cell);body.append(row);
+            actions.append(memberAction('Ver ficha','eye',()=>openMember(member.id)),memberAction('Ver equipo','users',enter));
+            if (focus) addPersonEdit(actions,member);
+            cell.append(actions);row.append(cell);body.append(row);
             row.addEventListener('click',event=>{if(!event.target.closest('button'))ui.run(select,row);});
             row.addEventListener('keydown',event=>{if(event.target===row && ['Enter',' '].includes(event.key)){event.preventDefault();if(!event.repeat)ui.run(select,row);}});
         });
@@ -128,7 +189,7 @@ function InitializeValues(url) {
             const response=await ui.request(`structures/${structureState.id}?limit=25&offset=${offset}&parent=${encodeURIComponent(id)}`);
             if(version!==structureState.previewVersion)return;
             structureState.preview=response.data.focus;structureState.previewOffset=offset;
-            summary(response.data.focus);element('structure-preview-title').textContent=`Equipo directo de ${response.data.focus.name}`;
+            summary(response.data.focus);personText(element('structure-preview-title'),response.data.focus,'Equipo directo de ');
             element('structure-preview-status').textContent=response.data.members.length ? '' : 'Esta persona no tiene integrantes en este nivel.';
             renderMembers(element('structure-preview-members'),response.data.members,response.data.focus,true);
             element('structure-preview-enter').hidden=false;element('structure-preview-table').hidden=!response.data.members.length;
@@ -186,18 +247,24 @@ function InitializeValues(url) {
         if(reset && !member.team.length)team.append(ui.text('p','Sin integrantes a cargo.','ux-help'));
         for(const person of member.team){
             const card=ui.text('div','','structure-team-card');card.tabIndex=0;card.setAttribute('role','link');card.setAttribute('aria-label',`Abrir equipo de ${person.name}`);
-            const content=ui.text('div','','structure-team-copy');content.append(ui.text('strong',person.name),ui.text('span',person.level_name || 'Sin nivel','ux-help'));
+            const content=ui.text('div','','structure-team-copy');content.append(personText(ui.text('strong',''),person),ui.text('span',person.level_name || 'Sin nivel','ux-help'));
             content.append(ui.text('small',person.direct_count || person.team_count ? `${person.direct_count} ${person.direct_count===1?'integrante directo':'integrantes directos'} · ${person.team_count} en su estructura` : 'Sin integrantes a cargo'));
             const initials=ui.text('span',person.initials || person.name.charAt(0),'structure-initials');initials.setAttribute('aria-hidden','true');
-            const detail=ui.text('button','Ver ficha','btn');detail.type='button';visual.action(detail,'Ver ficha','eye');detail.onclick=event=>{event.stopPropagation();ui.run(()=>openMember(person.id),detail);};
+            initials.dataset.structureInitials = person.person;
+            card.dataset.structurePerson = person.person;
+            card.dataset.personPrefix = 'Abrir equipo de ';
+            card.dataset.personLabel = '';
+            const actions = ui.text('div','','structure-team-actions');
+            actions.append(memberAction('Ver ficha','eye',()=>openMember(person.id)));
+            addPersonEdit(actions,person);
             const navigate=async()=>{element('structure-member-dialog').close();await browse(person.id);};
             card.onclick=event=>{if(!event.target.closest('button'))ui.run(navigate);};card.onkeydown=event=>{if(event.target===card && ['Enter',' '].includes(event.key)){event.preventDefault();if(!event.repeat)ui.run(navigate);}};
-            card.append(initials,content,detail);team.append(card);
+            card.append(initials,content,actions);team.append(card);
         }
     }
     async function openMember(id) {
         const member = (await ui.request(`structures/${structureState.id}/members/${id}`)).data; structureState.member = member;
-        element('structure-member-name').textContent = `${member.code} · ${member.name}`; element('structure-member-summary').textContent = `${member.level_name || 'Sin nivel'} · ${member.has_account ? 'Con cuenta' : 'Sin cuenta'} · Equipo directo: ${member.direct_count} · Tamaño de la estructura: ${member.team_count}`;
+        personText(element('structure-member-name'),member,`${member.code} · `); element('structure-member-summary').textContent = `${member.level_name || 'Sin nivel'} · ${member.has_account ? 'Con cuenta' : 'Sin cuenta'} · Equipo directo: ${member.direct_count} · Tamaño de la estructura: ${member.team_count}`;
         renderCoordination(member,true);
         element('structure-administration').open=false;
         structureState.coordinationOffset = 25;

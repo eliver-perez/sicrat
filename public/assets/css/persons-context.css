@@ -82,3 +82,8 @@
     .person-filters { grid-column:1/-1; grid-row:2; min-width:0 }
     .person-view-switch { grid-column:2; grid-row:1 }
 }
+
+#person-detail #person-detail-close { width:2.75rem; height:2.75rem; min-height:2.75rem }
+/* Los avisos de la ficha no interceptan el cierre ni los controles del formulario. */
+#person-detail .swal2-container:has(.swal2-toast) { top:auto; bottom:0; pointer-events:none }
+#person-detail .swal2-container .swal2-toast { pointer-events:none }

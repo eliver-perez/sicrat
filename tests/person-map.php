@@ -51,6 +51,25 @@ verify(count($group)===1 && $group[0]['count']===2 && $structurePoints()[0]['lev
 $branches = phase3Ok('/api/persons/map?structure='.$contextStructure.'&view=branches','GET',null,'context')['rows'];
 verify(array_column($branches,'value')===[$contextMembers['child'],$contextMembers['grand']],'Selector de ramas ofrece sólo descendientes autorizados.');
 phase3Status(404,$structureMap.'&branch='.$contextMembers['alternative'],'GET',null,'context');
+$mapSelection = $contextMembers['child'].','.$contextMembers['grand'];
+verify(array_column($structurePoints('&branches='.$mapSelection),'id')===[$contextPeople['grand']],'Selección múltiple conserva la unión autorizada.');
+verify(array_column($structurePoints('&branches='.$contextMembers['child'].','.$contextMembers['child']),'id')===[$contextPeople['grand']],'Un UUID repetido no duplica puntos.');
+phase3Status(404,$structureMap.'&branches='.$contextMembers['child'].','.$contextMembers['alternative'],'GET',null,'context');
+phase3Status(422,$structureMap.'&branches='.$contextMembers['child'].',no-es-un-uuid','GET',null,'context');
+$pickerPath = '/api/persons/map?structure='.$contextStructure.'&view=branches';
+phase3Status(404,$pickerPath.'&branches='.$contextMembers['alternative'],'GET',null,'context');
+$options = phase3Ok($pickerPath.'&sort=level&branches='.$contextMembers['child'],'GET',null,'context');
+verify($options['total']===2 && $options['selected_matches']===[$contextMembers['child']] && $options['rows'][0]['level']==='Base'
+    && !array_key_exists('code',$options['rows'][0]) && !array_key_exists('label',$options['rows'][0]),'Disponibles cuenta búsquedas y excluye selecciones sin enviar códigos.');
+verify(array_column(phase3Ok($pickerPath.'&sort=level','GET',null,'context')['rows'],'value')===[$contextMembers['grand'],$contextMembers['child']],'Orden por nombre de nivel.');
+verify(array_column(phase3Ok($pickerPath.'&search=JOSE','GET',null,'context')['rows'],'value')===[$contextMembers['grand']],'Búsqueda por nombre sin distinguir acentos.');
+$contextStructurePath = '/api/structures/'.$contextStructure;
+verify(phase3Ok($contextStructurePath.'?parent=mine','GET',null,'context')['members'][0]['person_editable'],'Equipo directo muestra permiso real de edición.');
+phase3Grant($contextUser,'personas.editar',$contextElection,'directos');
+verify(!phase3Ok($contextStructurePath.'/members/'.$contextMembers['child'],'GET',null,'context')['team'][0]['person_editable'],'El equipo del modal oculta edición fuera del alcance de Personas.');
+phase3Status(404,'/api/persons/'.$contextPeople['grand'],'PUT',['name'=>'Edición fuera de alcance'],'context');
+phase3Grant($contextUser,'personas.editar',$contextElection,'organizacion');
+
 phase3Status(404,$mapPath.'&structure='.$flowStructure,'GET',null,'context');
 phase3Grant($contextUser,'personas.ver',$contextElection,'directos');
 verify(array_column($structurePoints(),'id')===[$contextPeople['child']],'Personas limita los puntos del mapa aunque Estructura permita más.');
@@ -83,6 +102,7 @@ $detail = phase3Ok('/api/persons/'.$contextPeople['root'],'GET',null,'context');
 verify(!$detail['structure']['can_form'] && $detail['structure']['members'][0]['active'],'Integrante activo conserva acción de consulta');
 $reader=phase3Ok('/api/users','POST',['organization'=>$organizationIds[0],'username'=>'mapa-consulta','password'=>'Consulta segura prueba','name'=>'Sólo lectura','type'=>8,'process'=>$contextElection])['id'];
 foreach (['personas.ver','estructura.ver'] as $permission) phase3Grant($reader,$permission,$contextElection,'organizacion');
+phase3Grant($reader,'personas.editar',$contextElection,'organizacion',0);
 $phase3Tokens['mapreader']=login('mapreader','mapa-consulta','Consulta segura prueba');
 phase3Ok('/api/auth/election','POST',['process'=>$contextElection],'mapreader');
 $readerDetail=phase3Ok('/api/persons/'.$contextPeople['candidate'],'GET',null,'mapreader');
@@ -91,3 +111,28 @@ $emptyRoot=phase3Ok('/api/structures/'.$contextStructure.'?parent=mine','GET',nu
 verify($emptyRoot['focus']===null && $emptyRoot['own']===null,'La cuenta sin membresía no recibe tarjetas ajenas');
 
 phase3Status(404,$structureMap,'GET',null,'mapreader');
+
+verify(!phase3Ok('/api/structures/'.$contextStructure.'?parent='.$contextMembers['child'],'GET',null,'mapreader')['members'][0]['person_editable'],'El usuario de consulta no recibe acción de edición.');
+
+// Una rama contiene a la otra y ambas alcanzan a la misma persona.
+$overlapElection = phase3Ok('/api/organizations/'.$organizationIds[0].'/electoral-process','POST',['process'=>'Solapamiento de ramas','type'=>1,'character'=>1,'status'=>1])['id'];
+phase3Ok('/api/auth/election','POST',['process'=>$overlapElection]);
+$overlapLevel = phase3Ok('/api/structure-levels','POST',['associated_role'=>3,'election'=>$overlapElection,'name'=>'Coordinación','order'=>1,'can_recruit'=>1,'same_level'=>1])['id'];
+$overlapStructure = phase3Ok('/api/structures','POST',['name'=>'Equipo para el mapa combinado','elections'=>[$overlapElection]])['id'];
+$overlapMembers = [];
+$overlapPeople = [];
+foreach (['Titular','Primera rama','Segunda rama','Descendiente compartido'] as $index=>$name) {
+    $overlapPeople[] = phase3Ok('/api/persons','POST',['organization'=>$organizationIds[0],'name'=>$name]+$mapPosition)['id'];
+    $overlapMembers[] = phase3Ok('/api/structures/'.$overlapStructure.'/members','POST',[
+        'person'=>$overlapPeople[$index],'responsible'=>$overlapMembers[$index-1] ?? null,'levels'=>[$overlapElection=>$overlapLevel],
+    ])['id'];
+}
+$overlapUser = phase3Ok('/api/users','POST',['organization'=>$organizationIds[0],'username'=>'coordinacion-mapa','password'=>'Mapa seguro de prueba','name'=>'Mapa combinado','type'=>3,'process'=>$overlapElection,'person'=>$overlapPeople[0]])['id'];
+foreach (['personas.ver','estructura.ver'] as $permission) phase3Grant($overlapUser,$permission,$overlapElection,'organizacion');
+$phase3Tokens['mapoverlap'] = login('mapoverlap','coordinacion-mapa','Mapa seguro de prueba');
+phase3Ok('/api/auth/election','POST',['process'=>$overlapElection],'mapoverlap');
+$overlap = $mapPath.'&structure='.$overlapStructure.'&branches='.$overlapMembers[1].','.$overlapMembers[2];
+$group = phase3Ok($overlap,'GET',null,'mapoverlap')['points'];
+verify(count($group)===1 && $group[0]['count']===2,'Un descendiente compartido cuenta una sola vez en el agrupamiento.');
+verify(array_column(phase3Ok($overlap.'&view=people','GET',null,'mapoverlap')['points'],'id')===array_slice($overlapPeople,2),'La página del agrupamiento contiene personas únicas.');
+verify(array_column(phase3Ok($overlap.'&view=people&extent=direct','GET',null,'mapoverlap')['points'],'id')===array_slice($overlapPeople,2),'Equipo directo se aplica dentro de cada rama seleccionada.');

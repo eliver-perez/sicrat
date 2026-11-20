@@ -136,19 +136,32 @@ class PersonsRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function mapBranches(array $structure, int $organization, string $search, int $offset): array
+    public function mapBranches(array $structure, int $organization, string $search, string $sort, int $offset, array $selected): array
     {
         $name = "TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno))";
-        $sql = "SELECT e.uuid,$name name,p.codigo_persona code" . $structure['from'] .
-            ' JOIN personas p ON p.id=e.persona WHERE ' . $structure['where'] . ' AND p.organizacion=?';
+        $from = $structure['from'] . ' JOIN personas p ON p.id=e.persona WHERE ' . $structure['where'] . ' AND p.organizacion=?';
         $params = [...$structure['params'],$organization];
         if ($search !== '') {
-            $sql .= " AND ($name COLLATE utf8mb4_unicode_ci LIKE ? OR CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?)";
+            $from .= " AND ($name COLLATE utf8mb4_unicode_ci LIKE ? OR CONVERT(p.codigo_persona USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?)";
             $params = [...$params,"%$search%","%$search%"];
         }
-        $statement = $this->db->prepare($sql . ' ORDER BY name,e.id LIMIT 26 OFFSET ' . $offset);
+        $statement = $this->db->prepare('SELECT COUNT(*)' . $from);
         $statement->execute($params);
-        return $statement->fetchAll(PDO::FETCH_ASSOC);
+        $total = (int)$statement->fetchColumn();
+        $matches = [];
+        if ($selected !== []) {
+            $slots = implode(',',array_fill(0,count($selected),'?'));
+            $statement = $this->db->prepare('SELECT e.uuid' . $from . " AND e.uuid IN ($slots)");
+            $statement->execute([...$params,...$selected]);
+            $matches = $statement->fetchAll(PDO::FETCH_COLUMN);
+            $from .= " AND e.uuid NOT IN ($slots)";
+            $params = [...$params,...$selected];
+        }
+        $order = $sort === 'level' ? 'level_name IS NULL,level_name COLLATE utf8mb4_unicode_ci,' : '';
+        $statement = $this->db->prepare("SELECT e.uuid,p.uuid person_uuid,$name name,level.nombre level_name" . $from
+            . " ORDER BY {$order}name COLLATE utf8mb4_unicode_ci,e.id LIMIT 26 OFFSET " . $offset);
+        $statement->execute($params);
+        return ['rows'=>$statement->fetchAll(PDO::FETCH_ASSOC),'total'=>$total,'selected_matches'=>$matches];
     }
 
     public function sectionExists(array $data): bool {

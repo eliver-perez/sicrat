@@ -77,6 +77,11 @@ module.exports = async ({f,call,evaluate,waitFor,navigate,api,click}) => {
     await api('auth/election','POST',{process:f.election});await navigate('/structure/');
     await waitFor('document.getElementById("structure-navigation").textContent.includes("Tu usuario no se encuentra registrado")');
     check(await evaluate('document.getElementById("structure-summary").hidden'),'Usuario sin membresía recibe el mensaje correspondiente');
+    await evaluate(`document.querySelector('#structure-members [data-member="${f.members.root}"] [aria-label="Ver ficha"]').click()`);
+    await waitFor('document.getElementById("structure-member-dialog").open && document.querySelector("#structure-team .structure-team-card")');
+    const personEdit = '#structure-team [aria-label="Editar persona"]';
+    check(await evaluate(`!document.querySelector(${JSON.stringify(personEdit)})`),'Sin permiso de edición el equipo conserva sólo las acciones de consulta');
+
     await navigate('/persons/');await waitFor('document.querySelector("#table-persons tr.person-open")');await evaluate(`openPerson(${JSON.stringify(f.persons.candidate)})`);
     await waitFor('document.getElementById("person-detail").open');
     check(await evaluate('!document.getElementById("person-assign-structure")'),'Sin permiso para formar equipo se oculta la acción');
