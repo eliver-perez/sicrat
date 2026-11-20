@@ -85,7 +85,7 @@ module.exports=async({directory,call,evaluate,waitFor,navigate,api,click,shot})=
     check(await evaluate('(()=>{const r=document.getElementById("person-location-map").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.height<=innerHeight*.45+1})()'),'Mapa responsive dentro de ficha');await shot('context-map-mobile');
     await evaluate('Swal.close();document.getElementById("person-edit-form").requestSubmit()');await waitFor('document.querySelector(".swal2-title")?.textContent==="Información guardada."');await waitFor('jQuery.active===0');await waitFor('SicratPwa.send("STATUS").then(status=>!status.validating)');
     person=(await api(`persons/${f.persons.candidate}`)).data;check(Number(person.latitude)===26.4&&Number(person.longitude)===-99.02,'Coordenadas persisten');
-    await evaluate('document.querySelector(".person-map-section").open=true');await waitFor('document.querySelector("#person-location-map .leaflet-marker-icon")');check(await evaluate('Math.abs(__contextMap.getCenter().lat-26.4)<.001&&Math.abs(__contextMap.getCenter().lng+99.02)<.001&&__contextMap.getZoom()===14'),'Coordenadas existentes tienen prioridad sobre centro configurado');
+    await waitFor('document.querySelector("#person-location-map .leaflet-marker-icon")');check(await evaluate('Math.abs(__contextMap.getCenter().lat-26.4)<.001&&Math.abs(__contextMap.getCenter().lng+99.02)<.001&&__contextMap.getZoom()===14'),'Coordenadas existentes tienen prioridad sobre centro configurado');
     await click('#person-edit');
     await evaluate('document.querySelector("#person-edit-fields [name=latitude]").value="";document.querySelector("#person-edit-fields [name=longitude]").value="";Swal.close();document.getElementById("person-edit-form").requestSubmit()');await waitFor('document.querySelector(".swal2-title")?.textContent==="Información guardada."');await waitFor('jQuery.active===0');await waitFor('SicratPwa.send("STATUS").then(status=>!status.validating)');
     const savedLocation=await api(`persons/${f.persons.candidate}`);check(savedLocation.status===200,JSON.stringify(savedLocation));person=savedLocation.data;check(person.latitude===null&&person.longitude===null,'Se puede eliminar la ubicación sin obligación');
@@ -113,6 +113,7 @@ module.exports=async({directory,call,evaluate,waitFor,navigate,api,click,shot})=
     await click('#person-map-settings-open');await waitFor('document.getElementById("person-map-settings").open');await viewport(true);
     check(await evaluate('(()=>{const b=Array.from(document.querySelectorAll("#person-map-settings .ux-modal-footer button"),e=>e.getBoundingClientRect());return Math.abs(b[0].top-b[1].top)<1&&Math.abs(b[0].height-b[1].height)<1})()'),'Botones alineados en móvil');await shot('context-map-settings-mobile');
     await evaluate('document.getElementById("person-map-settings").close()');
+    checks+=await require('./structure-map-browser.js')({f,call,evaluate,waitFor,navigate,api,click,shot});
     checks+=await require('./person-map-browser.js')({f,call,evaluate,waitFor,navigate,api,click});
     checks+=await require('./own-responsible-level-browser.js')({directory,call,evaluate,waitFor,navigate,api,click,shot});
     console.log(`Personas ↔ Estructura: ${checks} comprobaciones Chrome, mapa y contexto.`);return checks;

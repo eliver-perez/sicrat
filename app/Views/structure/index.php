@@ -5,7 +5,11 @@
 <p id="phase3-message" role="status" class="mb-4 text-primary"></p>
 <div class="card p-5 mb-5" id="structure-workspace">
     <h6 class="card-title mb-3">Mi estructura / equipo</h6>
-    <div class="ux-actions mb-4 structure-toolbar"><select id="structure-select" class="form-input" aria-label="Estructura organizacional"></select><button id="structure-create" class="btn bg-primary text-white" type="button">Nueva</button><button id="structure-clone" class="btn" type="button">Copiar</button><button id="structure-associate" class="btn" type="button">Asociar</button></div>
+    <div class="ux-actions mb-4 structure-toolbar"><select id="structure-select" class="form-input" aria-label="Estructura organizacional"></select><button id="structure-create" class="btn bg-primary text-white" type="button">Nueva</button><button id="structure-clone" class="btn" type="button">Copiar</button><button id="structure-associate" class="btn" type="button">Asociar</button>
+    <?php if (\App\Auth\Authorization::canAny(['personas.ver'])): ?>
+    <button id="structure-map-open" class="btn ux-secondary-action" type="button" disabled><i data-lucide="map" class="size-4" aria-hidden="true"></i>Mapa de mi estructura</button>
+    <?php endif; ?>
+    </div>
     <nav class="ux-tabs" aria-label="Modo de consulta"><button id="structure-hierarchy" class="btn" type="button" aria-pressed="true">Estructura</button><button id="structure-all" class="btn" type="button" aria-pressed="false">Todos los integrantes</button></nav>
     <nav id="structure-breadcrumb" aria-label="Ruta de la estructura" class="structure-breadcrumb"></nav>
     <div id="structure-navigation" class="ux-section" aria-live="polite"></div>
@@ -96,6 +100,29 @@
     </form>
 </dialog>
 <dialog id="structure-list-dialog" class="card p-5 w-full max-w-2xl"><h6 id="structure-list-title" class="mb-4">Historial</h6><div id="structure-list-content" class="overflow-x-auto"></div><button id="structure-list-more" class="btn" type="button">Ver más</button><button type="button" data-close class="btn">Cerrar</button></dialog>
+<?php if (\App\Auth\Authorization::canAny(['personas.ver'])): ?>
+<dialog id="structure-map-dialog" class="card p-5" aria-labelledby="structure-map-title">
+    <div class="ux-modal-header"><h6 id="structure-map-title" class="card-title">Mapa de mi estructura</h6><button type="button" class="btn" data-close>Cerrar</button></div>
+    <div class="structure-map-filters">
+        <label>Alcance<select id="structure-map-extent" class="form-input">
+            <option value="all">Toda mi estructura</option>
+            <option value="direct">Equipo directo</option>
+            <option value="indirect">Dependientes indirectos</option>
+        </select></label>
+        <label>Sección<select id="structure-map-section" class="form-input"><option value="">Todas las secciones</option></select></label>
+        <label>Nombre<input id="structure-map-search" type="search" class="form-input" maxlength="200" placeholder="Buscar por nombre"></label>
+    </div>
+    <div class="ux-actions structure-map-branch">
+        <button id="structure-map-find-branch" class="btn ux-secondary-action" type="button"><i data-lucide="network" class="size-4" aria-hidden="true"></i>Seleccionar rama</button>
+        <button id="structure-map-clear-branch" class="btn" type="button" hidden>Volver a mi estructura</button>
+    </div>
+    <div id="structure-map-canvas" class="person-overview-canvas" aria-label="Ubicaciones de la estructura"></div>
+    <p id="structure-map-status" class="ux-help" role="status"></p>
+</dialog>
+<?php require __DIR__ . '/../persons/detail.php'; ?>
+<script src="<?= escape_html(asset('js/persons/points-map.js')); ?>"></script>
+<script src="<?= escape_html(asset('js/structure/map.js')); ?>"></script>
+<?php endif; ?>
 <link rel="stylesheet" href="<?= escape_html(asset('css/structure.css')); ?>">
 <script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>
 <link rel="stylesheet" href="<?= escape_html(asset('css/structure-assignment.css')); ?>">

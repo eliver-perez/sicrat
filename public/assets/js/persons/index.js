@@ -8,7 +8,6 @@ var defaultSelectedState = 28;
 var defaultSelectedMunicipality = 1960;
 
 let quickMapCleanup = null;
-let personGenders = [];
 let searching = false;
 let lastSearchText = '';
 let lastSearchSection = '';
@@ -32,7 +31,7 @@ function InitializeValues(home) {
 	GetGenders();
 	$('#btn-filter-search').on('click', () => { personsPagination.reset(); GetPersons(true); });
 	window.SicratPersonsOverview.init();
-	InitializePersonIdentity();
+	InitializePersonIdentity(() => GetPersons(true));
 	InitializePersonImport();
 }
 
@@ -105,7 +104,6 @@ function GetGenders() {
 		type: 'get',
 		dataType: "json",
 		success: function(response) {
-			personGenders = response.data.genders;
 			$.each(response.data.genders, function(k, v) {
 				$('#select-persons-gender').append($('<option>', {
 					value: v.id,

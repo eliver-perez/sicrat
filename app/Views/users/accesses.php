@@ -1,6 +1,6 @@
 <dialog id="user-access-dialog" class="card p-5 w-full max-w-2xl" aria-label="Accesos y persona de la cuenta">
-    <div class="flex justify-between mb-4"><h6 class="card-title">Accesos de la cuenta seleccionada</h6><button class="btn" type="button" data-close onclick="document.getElementById('user-access-dialog').close()">Cerrar</button></div>
-    <section class="ux-section"><h6>Accesos electorales</h6><p class="ux-help">Cada elección puede tener un rol y estado de acceso diferentes.</p><div id="user-access-list" class="mb-4 overflow-x-auto"></div><details id="user-access-editor"><summary class="btn">Agregar o editar acceso</summary>
+    <div class="ux-modal-header"><h6 class="card-title">Accesos de la cuenta seleccionada</h6><button class="btn" type="button" data-close onclick="document.getElementById('user-access-dialog').close()">Cerrar</button></div>
+    <section class="ux-section"><h6>Accesos electorales</h6><p class="ux-help">Cada elección puede tener un rol y estado de acceso diferentes.</p><div id="user-access-list" class="relative mb-4 overflow-x-auto"></div><details id="user-access-editor"><summary id="user-access-add" class="btn self-start"><i data-lucide="plus" class="size-4" aria-hidden="true"></i>Agregar acceso</summary>
     <form id="user-access-form" class="ux-form-grid my-3">
         <label>Elección <select id="user-access-process" class="form-input" required></select></label>
         <label>Rol en esta elección <select id="user-access-type" class="form-input" required></select></label>

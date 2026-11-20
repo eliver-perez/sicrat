@@ -9,13 +9,19 @@ module.exports = async ({f,call,evaluate,waitFor,navigate,api,click}) => {
     }
     await navigate('/persons/');
     await waitFor('document.getElementById("select-filter-section").options.length');
+    await click('#persons-view-toggle');
+    check(await evaluate('document.querySelector("#persons-list-toggle").getAttribute("aria-checked")==="true"'),'Menú compacto indica Lista como vista activa');
     await click('#persons-map-toggle');
+    check(await evaluate('document.querySelector("#persons-map-toggle").getAttribute("aria-checked")==="true" && document.getElementById("persons-view-menu").hidden'),'Menú confirma Mapa y se cierra');
     await waitFor('document.querySelector("#persons-overview-map .person-cluster")');
     await evaluate('document.getElementById("light-dark-mode").click()');
     if (await evaluate('document.documentElement.dataset.theme!=="dark"')) await click('#light-dark-mode');
     for (const w of [320,390,768,1440]) {
         await width(w);
         check(await evaluate(fits+' && document.getElementById("persons-overview-map").getBoundingClientRect().right<=innerWidth+1'),'Mapa sin desborde '+w);
+        await click('#persons-view-toggle');
+        check(await evaluate('(()=>{const r=document.getElementById("persons-view-menu").getBoundingClientRect();return r.left>=0 && r.right<=innerWidth+1;})()'),'Menú dentro del viewport '+w);
+        await click('#persons-view-toggle');
     }
     await waitFor('document.querySelector("#persons-overview-map .person-cluster")');
     await click('#persons-overview-map .person-cluster');
@@ -29,11 +35,14 @@ module.exports = async ({f,call,evaluate,waitFor,navigate,api,click}) => {
     }
     await evaluate('document.getElementById("person-detail").close()');
     await evaluate('const search=document.getElementById("field-filter-search");search.value="Claudio";search.dispatchEvent(new Event("input"));');
-    await waitFor('document.querySelectorAll("#persons-overview-map .person-map-pin").length===1');
-    await click('#persons-overview-map .person-map-pin');await click('.leaflet-popup .person-popup button');
+    await waitFor('document.querySelector("#persons-overview-map .person-map-pin[title*=Claudio]") && document.getElementById("persons-map-status").textContent.startsWith("1 persona")');
+    await click('#persons-overview-map .person-map-pin[title*=Claudio]');
+    await waitFor('document.querySelector("#persons-overview-map .leaflet-popup strong")?.textContent.includes("Claudio")');
+    await click('#persons-overview-map .leaflet-popup .person-popup button');
     await waitFor('document.getElementById("person-detail").open && document.getElementById("person-consult").textContent.includes("Claudio Javier")');
     check(await evaluate('!document.getElementById("person-assign-structure") && document.querySelector("#person-structure-action a").textContent.includes("Ver en estructura")'),'El marcador abre la ficha compartida con la acción válida');
     await evaluate('document.getElementById("person-detail").close()');
+    await click('#persons-view-toggle');
     await click('#persons-list-toggle');
     await click('#btn-persons-new');
     await evaluate('document.querySelector("#person-quick-location details").open=true');
@@ -71,5 +80,6 @@ module.exports = async ({f,call,evaluate,waitFor,navigate,api,click}) => {
     await navigate('/persons/');await waitFor('document.querySelector("#table-persons tr.person-open")');await evaluate(`openPerson(${JSON.stringify(f.persons.candidate)})`);
     await waitFor('document.getElementById("person-detail").open');
     check(await evaluate('!document.getElementById("person-assign-structure")'),'Sin permiso para formar equipo se oculta la acción');
+    check(await evaluate('!document.querySelector("#person-consult .person-map-section")'),'La ficha sin coordenadas omite el mapa de consulta');
     return checks;
 };

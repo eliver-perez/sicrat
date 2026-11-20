@@ -8,6 +8,7 @@ class Element {
 	set textContent(value) { this._text = String(value); this.children = []; }
 	get textContent() { return this._text + this.children.map(child => child.textContent || '').join(''); }
 	append(...children) { this.children.push(...children); }
+	after() {}
 	replaceChildren(...children) { this._text = ''; this.children = children; }
 	setAttribute(name, value) { this[name] = value; }
 	querySelectorAll() { return []; }
@@ -50,6 +51,8 @@ async function main() {
 	assert.ok(node('notifications-list').textContent.includes('<img src=x onerror=alert(1)>')); checks++;
 	assert.equal(node('services-backups').hidden, true); checks++;
 	assert.equal(node('services-audit').hidden, true); checks++;
+	assert.equal(pager.hidden,true); checks++;
+	assert.equal(pager.children.length,0); checks++;
 	assert.equal(calls.some(call => call.path.startsWith('backups')), false); checks++;
 	assert.equal(calls.some(call => call.path.startsWith('notification-config')), false); checks++;
 	const visit = element => [element, ...element.children.flatMap(visit)];

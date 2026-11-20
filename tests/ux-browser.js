@@ -107,7 +107,7 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
     await waitFor('document.querySelector(".person-open")');
     await evaluate('document.querySelector(".person-open").click()');
     await waitFor('document.getElementById("person-detail").open');
-    verify(await evaluate('document.getElementById("person-edit-form").hidden && Array.from(document.querySelectorAll("#person-consult h6")).map(item=>item.textContent).join("|")==="Datos personales|Contacto|Datos electorales|Domicilio|Ubicación"'),'Ficha de Persona agrupada');
+    verify(await evaluate('document.getElementById("person-edit-form").hidden && Array.from(document.querySelectorAll("#person-consult h6")).map(item=>item.textContent).join("|")==="Datos personales|Contacto|Datos electorales|Domicilio"'),'Ficha de Persona agrupada');
     for (const [width,height,label] of sizes) {
         await size(width,height); await capture('person-dialog-' + label);
         verify(await evaluate('(() => { const rect=document.getElementById("person-detail").getBoundingClientRect(); return rect.left>=0 && rect.right<=innerWidth+1 && rect.top>=0 && rect.bottom<=innerHeight+1; })()'),'Modal de Persona dentro del viewport ' + label);
@@ -127,11 +127,35 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
     await capture('import-review-wide'); await size(390,844); await capture('import-review-mobile');
     await evaluate('document.getElementById("person-import").close(); document.getElementById("identity-policy-open").click()');
     await waitFor('document.getElementById("identity-policy").open'); await dialogReview('identity-policy','identity-policy');
-    await navigate('/users/'); await waitFor('document.querySelector("#table-users tbody tr[data-id]")');
-    await evaluate('document.querySelector("#table-users tbody tr[data-id]").click()');
+    await navigate('/users/'); await waitFor('document.querySelector("#table-users [data-user-access]")');
+    verify(await evaluate('document.querySelector("#table-users [data-user-access]").getAttribute("aria-label")==="Administrar accesos" && document.querySelector("#table-users [data-lucide=key-round]")'),'Administrar accesos usa KeyRound');
+    await evaluate('document.querySelector("#table-users [data-user-access]").click()');
     await waitFor('document.getElementById("user-access-dialog").open');
     verify(await evaluate('document.getElementById("user-access-dialog").textContent.includes("Accesos electorales") && document.getElementById("user-access-dialog").textContent.includes("Persona vinculada")'),'Accesos y persona separados');
+    verify(await evaluate('document.getElementById("user-access-add").textContent.trim()==="Agregar acceso" && !!document.querySelector("#user-access-add [data-lucide=plus]")'),'Agregar acceso incluye Plus');
+    await waitFor('document.querySelector("#user-access-list [data-lucide=pencil]") && document.getElementById("user-access-process").options.length>0');
+    await evaluate('document.querySelector("#user-access-list button.ux-icon-action").click()');
+    verify(await evaluate('document.getElementById("user-access-editor").open && !!document.getElementById("user-access-process").value'),'Lápiz carga el acceso de la fila');
+    await evaluate('document.getElementById("user-access-editor").open=false');
+    await evaluate('document.getElementById("user-access-add").click()');
+    verify(await evaluate('document.getElementById("user-access-editor").open'),'Agregar acceso abre el formulario existente');
+    for (const width of [320,390,768,1440]) {
+        await size(width,900);
+        const geometry = await evaluate(`(() => {
+            const dialog = document.getElementById('user-access-dialog');
+            return {viewport:innerWidth,page:document.documentElement.scrollWidth,
+                dialog:dialog.clientWidth,content:dialog.scrollWidth};
+        })()`);
+        verify(geometry.page<=geometry.viewport+1 && geometry.content<=geometry.dialog+1,'Usuarios y accesos a '+width+' px '+JSON.stringify(geometry));
+    }
     await capture('user-dialog-wide'); await size(390,844); await capture('user-dialog-mobile');
+    const accessLight = await evaluate('getComputedStyle(document.getElementById("user-access-dialog")).backgroundColor');
+    await evaluate('if (document.documentElement.dataset.theme!=="dark") document.getElementById("light-dark-mode").click()');
+    await waitFor('document.documentElement.dataset.theme==="dark"');
+    verify(await evaluate(`getComputedStyle(document.getElementById('user-access-dialog')).backgroundColor!==${JSON.stringify(accessLight)}`),'Accesos hereda la superficie de modo oscuro');
+    await pause(350);
+    await capture('user-dialog-dark-mobile');
+    await evaluate('document.getElementById("light-dark-mode").click()');
     await size(1600,1000); await navigate('/structure/'); await waitFor('document.querySelector("#structure-members button")');
     await evaluate('document.querySelector("#structure-members button").click()'); await waitFor('document.getElementById("structure-member-dialog").open');
     await capture('structure-dialog-wide'); await size(390,844); await capture('structure-dialog-mobile');
@@ -150,15 +174,25 @@ module.exports = async function ({base,directory,call,evaluate,waitFor,navigate,
     await evaluate('document.getElementById("structure-administration").open=true;document.getElementById("structure-create-account").click()'); await waitFor('document.getElementById("structure-account-dialog").open'); await dialogReview('structure-account-dialog','create-account');
     await evaluate('document.getElementById("structure-member-dialog").close()'); await election('Proceso 1');
     await size(1600,1000); await navigate('/services/');
-    await waitFor('document.querySelectorAll("#notifications-list tr").length > 0 || document.getElementById("notifications-list").textContent.includes("Sin registros")');
+    await waitFor('document.querySelector("#notifications-list .services-notification, #notifications-list .services-empty")');
     verify(await evaluate('document.getElementById("audit-list").children.length===0 && document.getElementById("backups-list").children.length===0'),'Servicios no carga datasets de pestañas inactivas');
-    for (const name of ['audit','approvals','files','exports','jobs','deliveries','backups']) {
-        await tab('services',name);
-        await pause(300);
-        await capture('service-' + name + '-wide');
-        await size(390,844); await bounds('Servicio ' + name + ' móvil'); await capture('service-' + name + '-mobile');
-        await size(1600,1000);
+    await evaluate('if (document.documentElement.dataset.theme!=="dark") document.getElementById("light-dark-mode").click()');
+    await waitFor('document.documentElement.dataset.theme==="dark"');
+    for (const name of ['notifications','audit','approvals','files','exports','jobs','deliveries','backups']) {
+        await tab('services',name,`document.getElementById('${name}-list').childElementCount > 0`);
+        verify(await evaluate(`document.querySelector('#services-tab-${name} [data-lucide]') && document.getElementById('services-tab-${name}').getAttribute('aria-selected')==='true'`),'Pestaña con icono y estado activo');
+        for (const width of [320,390,768,1440]) {
+            await size(width,900);
+            await bounds('Servicio ' + name + ' ' + width);
+            verify(await evaluate(`document.getElementById('services-${name}').scrollWidth<=document.getElementById('services-${name}').clientWidth+1`),'Contenido de '+name+' contiene su desbordamiento a '+width+' px');
+            if (width===390 || width===1440) await capture('service-' + name + '-' + width);
+        }
     }
+    await tab('services','deliveries');
+    verify(await evaluate('document.querySelectorAll("#notification-config-form [role=switch]").length===2 && document.querySelector("#notification-config-form button").offsetWidth < document.getElementById("notification-config-form").offsetWidth'),'Canales con switches y acción compacta');
+    verify(await evaluate('document.getElementById("deliveries-list").textContent.includes("Destinatario") || document.querySelector("#deliveries-list .services-empty").textContent==="No hay envíos registrados."'),'Envíos muestra destinatario o estado vacío');
+    await tab('services','approvals');
+    verify(await evaluate('document.querySelector("[data-pager=approvals]").hidden && document.querySelector("[data-refresh=approvals]").getAttribute("aria-label")==="Actualizar"'),'Aprobaciones sin paginación de una página y acción compacta');
     await tab('services','audit');
     await waitFor('document.querySelectorAll("#audit-filter select[name=user] option").length > 1');
     verify(await evaluate('!document.getElementById("audit-filter").textContent.includes("(ID)") && document.getElementById("audit-filter").querySelectorAll("input[type=number]").length===0'),'Auditoría filtra por nombres');

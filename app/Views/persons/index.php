@@ -10,15 +10,11 @@
 
                 <div class="grid lg:grid-cols-12 gap-5 mb-5">
 
-                    <div class="<?= $personCapabilities['create'] ? 'lg:col-span-8' : 'lg:col-span-12'; ?>">
+                    <div class="<?= $personCapabilities['create'] ? 'min-w-0 lg:col-span-8' : 'min-w-0 lg:col-span-12'; ?>">
                         <div class="card">
                             <div class="card-header person-list-header">
                                 <h6 class="card-title">Personas</h6>
 
-                                <div class="ux-actions" role="group" aria-label="Vista de personas">
-                                    <button class="btn btn-sm" type="button" id="persons-list-toggle" aria-pressed="true">Lista</button>
-                                    <button class="btn btn-sm" type="button" id="persons-map-toggle" aria-pressed="false">Mapa</button>
-                                </div>
                                 <div class="flex gap-3 items-center person-filters">
                                     <div class="relative">
                                         <select class="form-input form-input-sm"
@@ -38,6 +34,13 @@
                                     <button id="btn-filter-search" class="btn btn-sm bg-transparent text-primary border border-dashed border-primary hover:bg-primary/20 ">
                                         <i data-lucide="search" class="size-4 me-1"></i>Buscar
                                     </button>
+                                </div>
+                                <div class="person-view-switch">
+                                    <button class="btn" type="button" id="persons-view-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="persons-view-menu"></button>
+                                    <div id="persons-view-menu" role="menu" aria-label="Vista de personas" hidden>
+                                        <button class="btn" type="button" id="persons-list-toggle" role="menuitemradio" aria-checked="true"><i data-lucide="list" class="size-4" aria-hidden="true"></i>Lista<i data-lucide="check" class="size-4 person-view-check" aria-hidden="true"></i></button>
+                                        <button class="btn" type="button" id="persons-map-toggle" role="menuitemradio" aria-checked="false"><i data-lucide="map" class="size-4" aria-hidden="true"></i>Mapa<i data-lucide="check" class="size-4 person-view-check" aria-hidden="true"></i></button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -74,7 +77,7 @@
 
                     
                     <?php if ($personCapabilities['create']): ?>
-                    <div class="lg:col-span-4">
+                    <div class="min-w-0 lg:col-span-4">
                         <div class="card">
                             <div class="card-body">
                                 <h6 class="card-title mb-4">Alta rápida</h6>
@@ -155,19 +158,14 @@
                     <?php endif; ?>
                 </div>
 
-<script>window.SicratPersonCapabilities=<?= json_script($personCapabilities); ?>;</script>
 <?php require __DIR__ . '/phase2.php'; ?>
 <script src="<?= escape_html(asset('js/persons/index.js')); ?>"></script>
-<link rel="stylesheet" href="<?= escape_html(base_url('template/assets/maps-leaflet-CIGW-MKW.css')); ?>">
-<link rel="stylesheet" href="<?= escape_html(asset('css/persons-context.css')); ?>">
 <script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>
 <link rel="stylesheet" href="<?= escape_html(asset('css/structure-assignment.css')); ?>">
 <script src="<?= escape_html(asset('js/structure/assignment.js')); ?>"></script>
-<script src="<?= escape_html(asset('js/persons/map.js')); ?>" data-library="<?= escape_html(base_url('template/assets/maps-leaflet-kSd10Sau.js')); ?>"></script>
+<?php require __DIR__ . '/detail.php'; ?>
+<script src="<?= escape_html(asset('js/persons/points-map.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/overview-map.js')); ?>"></script>
-<script src="<?= escape_html(asset('js/persons/structure-assignment.js')); ?>"></script>
-<script src="<?= escape_html(asset('js/persons/identity.js')); ?>"></script>
-<script src="<?= escape_html(asset('js/persons/activity.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/import.js')); ?>"></script>
 
 <script>

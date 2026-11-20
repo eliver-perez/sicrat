@@ -44,6 +44,17 @@ class CommonServicesController extends Controller
 		$response->success($service->detail($uuid));
 	}
 	public function cancelApproval(Request $request,Response $response): void { (new ApprovalService($this->repository))->cancel($request->route('id'),Values::text($request->input('reason'),500)); $response->success(); }
+	public function files(Request $request,Response $response): void
+	{
+		$process=Auth::processId();
+		$organization=Auth::organizationId();
+		if ($organization===null && $process!==null) $organization=(int)($this->repository->one('SELECT organizacion FROM procesos_electorales WHERE id=?',[$process])['organizacion'] ?? 0);
+		if (!$organization) {
+			$response->success(['rows'=>[],'pagination'=>\App\Core\Pagination::response([],25,0)]);
+			return;
+		}
+		$response->success((new FileService($this->repository))->listing($organization,$process,$request->query()));
+	}
 	public function upload(Request $request,Response $response): void
 	{
 		[$organization,$process]=$this->context($request);
@@ -87,7 +98,10 @@ class CommonServicesController extends Controller
 		[$organization,$process]=$this->context($request);
 		(new Access($this->repository))->broad($organization,$process,'notificaciones.administrar');
 		$limit=\App\Core\Pagination::limit($request->query('limit',25)); $offset=\App\Core\Pagination::offset($request->query('offset',0));
-		$rows=$this->repository->rows('SELECT id,canal,estado,intentos,externo_id,error,fecha,enviado_en FROM notificaciones_envios WHERE organizacion=? AND proceso <=> ? ORDER BY fecha DESC,id LIMIT '.($limit+1).' OFFSET '.$offset,[$organization,$process]);
+		$rows=$this->repository->rows("SELECT d.id,d.canal,d.estado,d.intentos,d.externo_id,d.error,d.fecha,d.enviado_en,
+			TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno)) destinatario_nombre
+			FROM notificaciones_envios d JOIN personas p ON p.id=d.persona AND p.organizacion=d.organizacion
+			WHERE d.organizacion=? AND d.proceso <=> ? ORDER BY d.fecha DESC,d.id LIMIT ".($limit+1).' OFFSET '.$offset,[$organization,$process]);
 		$response->success(['rows'=>array_slice($rows,0,$limit),'pagination'=>\App\Core\Pagination::response($rows,$limit,$offset)]);
 	}
 	public function exports(Request $request,Response $response): void

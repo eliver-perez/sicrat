@@ -171,6 +171,7 @@ $router->get('/api/approvals', [\App\Controllers\CommonServicesController::class
 $router->get('/api/approvals/{id}', [\App\Controllers\CommonServicesController::class,'approval'], 'approvals.read');
 $router->put('/api/approvals/{id}', [\App\Controllers\CommonServicesController::class,'approval'], 'approvals.resolve');
 $router->post('/api/approvals/{id}/cancel', [\App\Controllers\CommonServicesController::class,'cancelApproval'], 'approvals.read');
+$router->get('/api/files', [\App\Controllers\CommonServicesController::class,'files'], 'files.read');
 $router->post('/api/files', [\App\Controllers\CommonServicesController::class,'upload'], 'files.upload');
 $router->delete('/api/files/{id}', [\App\Controllers\CommonServicesController::class,'deleteFile'], 'files.delete');
 $router->get('/media/{id}', [\App\Controllers\CommonServicesController::class,'media'], 'authenticated');

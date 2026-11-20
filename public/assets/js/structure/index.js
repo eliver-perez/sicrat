@@ -8,6 +8,7 @@ function InitializeValues(url) {
     const action = (id, work) => element(id).addEventListener('click', event => ui.run(work,event.currentTarget));
     const submit = (id, work) => element(id).addEventListener('submit', event => { event.preventDefault();const values=new FormData(event.target); ui.run(() => work(values),event.currentTarget); });
     const visual = window.SicratUI;
+    const structureMap = window.InitializeStructureMap?.(() => structureState.id);
     [
         ['structure-create','plus','Nueva estructura'],['structure-clone','copy','Crear copia independiente'],
         ['structure-associate','link','Asociar elección'],['structure-add','plus','Agregar integrante'],
@@ -46,6 +47,7 @@ function InitializeValues(url) {
         if (structureState.id && rows.some(row => row.id === structureState.id)) select.value = structureState.id;
         structureState.id = select.value || null; structureState.offset = 0;
         element('structure-add').disabled=!structureState.id;
+        if (structureMap) structureMap.disabled = !structureState.id;
         ['structure-hierarchy','structure-mine','structure-roots','structure-all','structure-previous','structure-next','structure-history','structure-requests'].forEach(id=>element(id).disabled=!structureState.id);
         if (structureState.id) {
             if(structureState.loadedStructure && structureState.loadedStructure!==structureState.id){structureState.parent='mine';structureState.trail=[];structureState.view='hierarchy';structureState.flatSearch='';element('structure-flat-search').value='';}

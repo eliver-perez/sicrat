@@ -130,6 +130,63 @@ class StructureService extends Service
         return $process;
     }
 
+    public function mapScope(string $uuid, ?string $branch, string $extent, int $organization, int $process): array
+    {
+        $container = $this->repository->container($this->uuidStringToBinary($uuid));
+        $this->visible($container);
+        if (!(int)$container['activo'] || (int)$container['organizacion'] !== $organization) {
+            throw new HttpError('La estructura no está disponible en la elección seleccionada.',404);
+        }
+        $id = (int)$container['id'];
+        $own = $this->repository->rows('SELECT e.id FROM estructura e JOIN usuarios u ON u.persona=e.persona
+            JOIN estructura_integrantes_procesos ep ON ep.integrante=e.id AND ep.proceso=? AND ep.activo=1
+            WHERE e.contenedor=? AND e.activo=1 AND u.id=?',[$process,$id,Auth::id()])[0] ?? null;
+        if (!$own) throw new HttpError('Tu cuenta no está vinculada a un integrante activo de esta estructura.',404);
+
+        $scope = new ScopeRepository($this->repository->connection());
+        $ownId = $anchor = (int)$own['id'];
+        if ($branch !== null && $branch !== '') {
+            $member = $this->repository->member($this->uuidStringToBinary($branch),$id);
+            $descendant = $this->repository->rows('SELECT 1 FROM estructura_relaciones r
+                JOIN estructura_integrantes_procesos ep ON ep.integrante=r.descendiente AND ep.proceso=? AND ep.activo=1
+                WHERE r.ancestro=? AND r.descendiente=? AND r.profundidad>0',[$process,$anchor,$member['id']]);
+            if (!$member['activo'] || !$descendant) throw new HttpError('La rama no está disponible en tu estructura.',404);
+            $scope->assertPerson((int)$member['persona'],'estructura.ver',$process);
+            $anchor = (int)$member['id'];
+        }
+
+        $depth = match ($extent) {
+            'all' => '>0',
+            'direct' => '=1',
+            'indirect' => '>1',
+            default => throw new InvalidArgumentException('El alcance del mapa no es válido.'),
+        };
+        [$condition,$params] = $scope->predicate('estructura.ver',$process);
+        // Mantener la pertenencia de la rama en la consulta que devuelve los datos.
+        if ($anchor !== $ownId) {
+            [$branchCondition,$branchParams] = $scope->predicate('estructura.ver',$process,'candidate');
+            $condition .= " AND EXISTS (SELECT 1 FROM estructura_relaciones link
+                JOIN estructura origin ON origin.id=link.ancestro AND origin.activo=1
+                JOIN estructura_integrantes_procesos own_projection ON own_projection.integrante=origin.id
+                    AND own_projection.proceso=projection.proceso AND own_projection.activo=1
+                JOIN personas candidate ON candidate.id=anchor.persona
+                WHERE link.ancestro=? AND link.descendiente=anchor.id AND link.profundidad>0 AND ($branchCondition))";
+            $params = [...$params,$ownId,...$branchParams];
+        }
+        // La tabla de relaciones es la misma que utiliza la navegación del equipo.
+        return [
+            'from' => " FROM estructura_relaciones rel
+                JOIN estructura e ON e.id=rel.descendiente
+                JOIN estructura anchor ON anchor.id=rel.ancestro AND anchor.activo=1 AND anchor.contenedor=e.contenedor
+                JOIN estructura_integrantes_procesos projection ON projection.integrante=e.id AND projection.proceso=? AND projection.activo=1
+                JOIN estructura_integrantes_procesos root_projection ON root_projection.integrante=anchor.id
+                    AND root_projection.proceso=projection.proceso AND root_projection.activo=1
+                LEFT JOIN niveles_organizacionales level ON level.id=projection.nivel",
+            'where' => "rel.ancestro=? AND rel.profundidad$depth AND e.contenedor=? AND e.activo=1 AND ($condition)",
+            'params' => [$process,$anchor,$id,...$params],
+        ];
+    }
+
     private function mappedMember(array $member, int $process): array
     {
         [$scope,$params] = (new ScopeRepository($this->repository->connection()))->predicate('estructura.ver',$process);

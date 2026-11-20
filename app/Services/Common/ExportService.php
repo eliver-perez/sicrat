@@ -130,7 +130,9 @@ class ExportService
 	public function listing(array $filters): array
 	{
 		$actor=(new Access($this->repository))->actor(); $limit=Pagination::limit($filters['limit'] ?? 25); $offset=Pagination::offset($filters['offset'] ?? 0);
-		$rows=$this->repository->rows('SELECT uuid,tipo,formato,estado,fecha,expira_en,error FROM exportaciones WHERE solicitante=? ORDER BY id DESC LIMIT '.($limit+1).' OFFSET '.$offset,[$actor]);
+		$rows=$this->repository->rows("SELECT e.uuid,e.tipo,e.formato,e.estado,e.fecha,e.expira_en,e.error,a.nombre_original archivo_nombre
+			FROM exportaciones e LEFT JOIN archivos a ON a.id=e.archivo AND a.estado='activo' AND e.estado='completada' AND e.expira_en>NOW()
+			WHERE e.solicitante=? ORDER BY e.id DESC LIMIT ".($limit+1).' OFFSET '.$offset,[$actor]);
 		foreach ($rows as &$row) $row['uuid']=Values::uuidText($row['uuid']);
 		return ['rows'=>array_slice($rows,0,$limit),'pagination'=>Pagination::response($rows,$limit,$offset)];
 	}

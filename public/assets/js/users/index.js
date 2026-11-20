@@ -183,11 +183,12 @@ function GetUsers() {
 										${v.active == 1 ? 'Activo' : 'Inactivo'}
 									</span>
 								</td>
-								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.last_active_date)}</td><td><button type="button" class="btn">Administrar accesos</button></td>
+								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.last_active_date)}</td><td class="px-3.5 py-2.5"><button type="button" class="btn" data-user-access></button></td>
 							</tr>`;
 			});
 			if (!rows) rows = '<tr><td colspan="7" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 			$('#table-users tbody').append(rows);
+			document.querySelectorAll('[data-user-access]').forEach(button => SicratUI.action(button,'Administrar accesos','key-round'));
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) { 
 			try {

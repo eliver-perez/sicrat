@@ -7,7 +7,7 @@
 
 
                 <div class="grid lg:grid-cols-12 gap-5 mb-5">
-                    <div class="lg:col-span-8">
+                    <div class="min-w-0 lg:col-span-8">
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="card-title">Usuarios</h6>
@@ -38,7 +38,7 @@
                     </div>
 
 
-                    <div class="lg:col-span-4">
+                    <div class="min-w-0 lg:col-span-4">
                         <div class="card">
                             <div class="card-body">
                                 <h6 class="card-title mb-4">Detalles</h6>

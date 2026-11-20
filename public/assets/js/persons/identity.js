@@ -19,10 +19,14 @@ function showPersonDuplicates(data, continueNew) {
 
 let personRecord = null;
 let personRequestVersion = 0;
+let personRequestFromOpenDialog = false;
 let detailMapCleanup = null;
+// Cada módulo monta el mismo diálogo e inicializa su base de aplicación.
 function openPerson(uuid) {
+    const dialog = document.getElementById('person-detail');
+    personRequestFromOpenDialog = dialog.open;
     const version = ++personRequestVersion;
-    return identityRequest(`persons/${uuid}`, 'get').done(function ({data:person}) {
+    return identityRequest(`persons/${encodeURIComponent(uuid)}`, 'get').done(function ({data:person}) {
         if (version !== personRequestVersion) return;
         personRecord = person;
         selectedPerson = uuid;
@@ -37,8 +41,10 @@ function openPerson(uuid) {
         $('#person-participation-options').prop('open',false).prop('hidden',!personCan('participate') || !person.participation_choices.length);
         selector.closest('label').prop('hidden',!personCan('participate') || !person.participation_choices.length);
         $('#person-participate').prop('hidden',!personCan('participate') || !person.participation_choices.length);
-        const dialog = document.getElementById('person-detail');
-        if (!dialog.open) dialog.showModal();
+        if (!dialog.open) {
+            dialog.showModal();
+            dialog.scrollTop = 0;
+        }
         if (typeof window.InitializePersonOperations==='function') window.InitializePersonOperations(uuid,homeURL);
     }).fail(identityError);
 }
@@ -74,18 +80,25 @@ function showPersonConsult() {
         section.append(filled.length ? list : $('<p>',{class:'ux-help'}).text('Sin dato'));
         box.append(section);
     });
-    const section = $('<section>').append($('<h6>').text('Ubicación')); box.append(section);
     const point = SicratPersonMap.coordinates(person.latitude,person.longitude);
     if (point) {
-        section.append($('<small>').text(point.join(', ')));
+        const section = $('<section>',{class:'ux-full'}).append($('<h6>').text('Ubicación'));
+        box.append(section);
         detailMapCleanup = SicratPersonMap.mount(section[0],{point,id:'person-location-map'});
-    } else section.append($('<p>',{class:'ux-help'}).text('Sin ubicación registrada'));
+    }
 }
 
+let personSectionsRequest, personGendersRequest;
+function personSections() {
+    return personSectionsRequest ??= SicratPhase3.pages('sections','sections').catch(error => {
+        personSectionsRequest = null;
+        throw error;
+    });
+}
 function editPerson() {
     if (!personEditable || !personRecord) return;
-    personMode(true);
     const person = personRecord;
+    personMode(true);
     const fields = $('#person-edit-fields').empty();
     const groups = {};
     const categories = {personal:'Datos personales',contact:'Contacto',address:'Domicilio'};
@@ -99,17 +112,32 @@ function editPerson() {
         control.attr({name: key, class: 'form-input'}).val(person[key] ?? '').prop('disabled',!personEditable);
         if (['latitude','longitude'].includes(key)) control.attr({type:'number',step:'any',min:key==='latitude'?-90:-180,max:key==='latitude'?90:180}).prop('required',false);
         if (key === 'name') control.prop('required', true);
-        if (key === 'section') {
-            control.append($('<option>', {value: '', text: 'Sin sección'}));
-            $('#select-filter-section option').each(function () { if (this.value && this.value!=='N/A') control.append($('<option>', {value: this.value, text: this.textContent})); });
-            if (person.section && !Array.from(control[0].options).some(option=>option.value===person.section)) control.append($('<option>',{value:person.section,text:person.section_name || 'Sección registrada'}));
-            control.val(person.section || '');
-        }
-        if (key === 'gender') {
-            control.append($('<option>', {value: '', text: 'Sin género'}));
-            personGenders.forEach(gender=>control.append($('<option>',{value:gender.id,text:gender.genero})));
-            if (person.gender && !personGenders.some(g=>g.id===person.gender)) control.append($('<option>',{value:person.gender,text:person.gender_name || person.gender}));
-            control.val(person.gender || '');
+        if (key === 'section' || key === 'gender') {
+            control.prop('disabled',true);
+            const section = key === 'section';
+            const empty = section ? 'Sin sección' : 'Sin género';
+            const currentLabel = section ? person.section_name || 'Sección registrada' : person.gender_name || person.gender;
+            const load = section ? personSections() : (personGendersRequest ??= SicratPhase3.pages('genders','genders').catch(error => {
+                personGendersRequest = null;
+                throw error;
+            }));
+            const fill = options => {
+                control.empty().append($('<option>',{value:'',text:empty}));
+                options.forEach(option=>control.append($('<option>',{value:option.id,text:section ? option.section : option.genero})));
+                if (person[key] && !options.some(option=>option.id===person[key])) {
+                    control.append($('<option>',{value:person[key],text:currentLabel}));
+                }
+                control.val(person[key] || '');
+            };
+            fill([]);
+            load.then(options => {
+                if (control[0].isConnected) {
+                    fill(options);
+                    control.prop('disabled',false);
+                }
+            }).catch(error => {
+                if (control[0].isConnected) SicratFeedback.error(error);
+            });
         }
         if (key === 'neighborhood') {
             control.append($('<option>', {value: '', text: 'Sin colonia'}));
@@ -239,9 +267,19 @@ function choosePersonNeighborhood(target, summary, current) {
     })();
 }
 
-function InitializePersonIdentity() {
-    document.getElementById('person-detail').addEventListener('close',()=>{personRequestVersion++;detailMapCleanup?.();detailMapCleanup=null;selectedPerson=null;personRecord=null;personEditable=false;});
-    $('#person-edit').on('click',editPerson);
+function InitializePersonIdentity(onSaved = () => {}) {
+    SicratPhase3.base = homeURL;
+    const dialog = document.getElementById('person-detail');
+    dialog.querySelector('[data-close]').onclick = () => { if (dialog.open) dialog.close(); };
+    dialog.addEventListener('close', () => {
+        if (dialog.open) return;
+        if (personRequestFromOpenDialog) personRequestVersion++;
+        detailMapCleanup?.();
+        detailMapCleanup = null;
+        selectedPerson = personRecord = null;
+        personEditable = false;
+    });
+    $('#person-edit').on('click',function () { SicratPhase3.run(editPerson,this); });
     $('#person-edit-cancel').on('click',showPersonConsult);
     $(document).on('click', '.person-open', function () { openPerson($(this).attr('data-id')); });
     $(document).on('keydown', 'tr.person-open', function(event) { if (event.target===this && ['Enter',' '].includes(event.key)) { event.preventDefault(); openPerson($(this).attr('data-id')); } });
@@ -255,7 +293,7 @@ function InitializePersonIdentity() {
             cancel.disabled = true;
             try {
                 const response = await identityRequest(`persons/${uuid}`, 'put', data);
-                GetPersons(true);
+                onSaved(uuid);
                 if (selectedPerson===uuid) await openPerson(uuid);
                 ShowToastMessage(response.data.identity_warnings?.length ? 'Información guardada. Hay coincidencias de identidad en otras fichas.' : 'Información guardada.', 'success');
             } finally { cancel.disabled = false; }

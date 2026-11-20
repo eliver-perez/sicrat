@@ -127,7 +127,9 @@ class ApprovalService
 			$where.=" AND ($scope)"; $params=[...$params,...$scopeParameters];
 		}
 		$limit=Pagination::limit($filters['limit'] ?? 25); $offset=Pagination::offset($filters['offset'] ?? 0);
-		$rows=$this->repository->rows("SELECT id,uuid,estado,entidad,entidad_id,fecha,solicitante FROM aprobaciones a WHERE $where ORDER BY id DESC LIMIT ".($limit+1).' OFFSET '.$offset,$params);
+		$rows=$this->repository->rows("SELECT id,uuid,estado,entidad,entidad_id,fecha,solicitante,
+			(SELECT TRIM(CONCAT_WS(' ',u.nombre,u.paterno,u.materno)) FROM usuarios u WHERE u.id=a.solicitante) solicitante_nombre
+			FROM aprobaciones a WHERE $where ORDER BY id DESC LIMIT ".($limit+1).' OFFSET '.$offset,$params);
 		foreach ($rows as &$row) $row['uuid']=Values::uuidText($row['uuid']);
 		return ['rows'=>array_slice($rows,0,$limit),'pagination'=>Pagination::response($rows,$limit,$offset)];
 	}

@@ -15,6 +15,21 @@ class FileService
 	{
 		$this->storage=$storage ?? new PrivateStorage(); $this->owners=$owners ?? new ResourceRegistry($repository);
 	}
+	public function listing(int $organization,?int $process,array $filters): array
+	{
+		$access=new Access($this->repository);
+		$actor=$access->actor();
+		$access->context($organization,$process,'archivos.ver',$actor);
+		[$scope,$params]=$this->owners->listingPredicate($process,$actor,'archivos.ver',['personas']);
+		$limit=\App\Core\Pagination::limit($filters['limit'] ?? 25);
+		$offset=\App\Core\Pagination::offset($filters['offset'] ?? 0);
+		$rows=$this->repository->rows("SELECT a.uuid,a.nombre_original,a.mime_type,a.tamanio,a.f_registro,a.estado
+			FROM archivos a JOIN archivos_variantes v ON v.archivo=a.id AND v.variante='normal'
+			WHERE a.organizacion=? AND a.proceso <=> ? AND a.estado='activo' AND ($scope)
+			ORDER BY a.f_registro DESC,a.id DESC LIMIT ".($limit+1).' OFFSET '.$offset,[$organization,$process,...$params]);
+		foreach ($rows as &$row) $row['uuid']=Values::uuidText($row['uuid']);
+		return ['rows'=>array_slice($rows,0,$limit),'pagination'=>\App\Core\Pagination::response($rows,$limit,$offset)];
+	}
 	public function upload(array $file,int $organization,?int $process,string $entity,int $record): array
 	{
 		$actor=(new Access($this->repository))->actor();

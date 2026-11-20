@@ -12,29 +12,6 @@
     <p>El padrón pertenece a la organización. Registrar o importar una persona no la incorpora a una elección.</p>
     <div id="person-duplicates" class="hidden p-4 border border-default-200"></div>
 </div>
-<dialog id="person-detail" class="card p-5 w-full max-w-3xl" aria-label="Ficha de persona">
-    <div class="ux-modal-header"><h6 class="card-title" id="person-detail-title">Persona</h6><button type="button" class="btn" data-close onclick="document.getElementById('person-detail').close()">Cerrar</button></div>
-    <div class="ux-actions" id="person-detail-actions">
-        <span id="person-structure-action"></span>
-        <?php if ($personCapabilities['edit']): ?><button type="button" class="btn" id="person-edit">Editar</button><?php endif; ?>
-    </div>
-    <div id="person-consult"></div>
-    <form id="person-edit-form" hidden>
-        <div id="person-edit-fields" class="ux-full"></div>
-        <div class="ux-modal-footer ux-actions">
-            <button class="btn" id="person-edit-cancel" type="button">Cancelar</button>
-            <button class="btn bg-primary text-white" type="submit">Guardar</button>
-        </div>
-    </form>
-    <section id="person-context" class="ux-section"><h6 class="card-title">Participación y estructura</h6>
-    <div id="person-participations" class="mb-4 overflow-x-auto"></div>
-    <div id="person-structure" class="ux-section" aria-live="polite"></div>
-    <div id="person-operational-activity" class="mb-4"></div>
-    <?php if ($personCapabilities['participate']): ?>
-    <details id="person-participation-options"><summary>Administrar participación electoral</summary><label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
-    <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button></details>
-    <?php endif; ?></section>
-</dialog>
 <dialog id="identity-policy" class="card p-5" aria-label="Reglas de identidad">
     <h6 class="card-title mb-4">Reglas de identidad de la organización seleccionada</h6>
     <form id="identity-policy-form">

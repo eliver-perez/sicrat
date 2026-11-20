@@ -145,6 +145,12 @@ $other4=phase4Api('/api/persons','POST',['organization'=>$organizationIds[0],'na
 $otherUpload=phase4Upload('otra.png',$png,$other4['id']); verify($otherUpload['status']===200,'Archivo de otra persona de la misma organización.');
 verify(request('limited4','GET','/media/'.$otherUpload['json']['data']['uuid'])['status']===404,'UUID de la misma organización no evade alcance propio.');
 verify(phase4Upload('otra.png',$png,$other4['id'],'limited4')['status']===404,'Subir archivo exige alcance sobre propietario.');
+$limitedFiles=phase4Api('/api/files','GET',null,'limited4')['rows'];
+verify(in_array($file4['uuid'],array_column($limitedFiles,'uuid'),true) &&
+    !in_array($otherUpload['json']['data']['uuid'],array_column($limitedFiles,'uuid'),true) &&
+    !isset($limitedFiles[0]['ruta'],$limitedFiles[0]['sha256']),'Tabla de archivos aplica alcance del propietario y devuelve sólo metadatos de presentación.');
+phase4Api('/api/files','GET',null,'capture',403);
+
 $foreign4=phase4Api('/api/users','POST',['organization'=>$organizationIds[1],'username'=>'fase4-otra-organizacion','password'=>'Fase4 otro seguro','type'=>2,'name'=>'Otro administrador']);
 phase4Api('/api/users/'.$foreign4['id'].'/accesses','POST',['process'=>$processIds[1],'type'=>2]);
 $phase3Tokens['foreign4']=login('foreign4','fase4-otra-organizacion','Fase4 otro seguro');

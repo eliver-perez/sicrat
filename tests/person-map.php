@@ -37,6 +37,34 @@ verify(count($firstPage['points'])===25 && $firstPage['has_more'] && !$lastPage[
     && [...array_column($firstPage['points'],'id'),...array_column($lastPage['points'],'id')]===$coincidentIds,
     'El grupo entrega páginas acotadas sin omitir ni repetir personas');
 verify(phase3Ok('/api/persons/'.$contextPeople['candidate'],'GET',null,'context')['latitude']===null,'El centro inicial no crea una ubicación personal');
+$structureMap = $mapPath.'&structure='.$contextStructure;
+phase3Ok('/api/persons/'.$contextPeople['grand'],'PUT',$mapPosition);
+$structurePoints = static fn (string $filter = ''): array => phase3Ok($structureMap.'&view=people'.$filter,'GET',null,'context')['points'];
+verify(array_column($structurePoints(),'id')===[$contextPeople['child'],$contextPeople['grand']],'Mapa de estructura devuelve sólo descendientes activos del usuario.');
+verify(array_column($structurePoints('&extent=direct'),'id')===[$contextPeople['child']],'Equipo directo usa profundidad uno.');
+verify(array_column($structurePoints('&extent=indirect'),'id')===[$contextPeople['grand']],'Dependientes indirectos usan profundidad mayor a uno.');
+verify(array_column($structurePoints('&branch='.$contextMembers['child']),'id')===[$contextPeople['grand']],'Rama autorizada excluye su titular y otras ramas.');
+verify(array_column($structurePoints('&search=JOSE'),'id')===[$contextPeople['grand']],'Nombre filtra sin distinguir acentos.');
+verify($structurePoints('&section='.$mapSection)===[],'Sección también acota el mapa de estructura.');
+$group = phase3Ok($structureMap,'GET',null,'context')['points'];
+verify(count($group)===1 && $group[0]['count']===2 && $structurePoints()[0]['level']!==null,'Agrupación y nivel reutilizan el alcance del mapa.');
+$branches = phase3Ok('/api/persons/map?structure='.$contextStructure.'&view=branches','GET',null,'context')['rows'];
+verify(array_column($branches,'value')===[$contextMembers['child'],$contextMembers['grand']],'Selector de ramas ofrece sólo descendientes autorizados.');
+phase3Status(404,$structureMap.'&branch='.$contextMembers['alternative'],'GET',null,'context');
+phase3Status(404,$mapPath.'&structure='.$flowStructure,'GET',null,'context');
+phase3Grant($contextUser,'personas.ver',$contextElection,'directos');
+verify(array_column($structurePoints(),'id')===[$contextPeople['child']],'Personas limita los puntos del mapa aunque Estructura permita más.');
+phase3Status(404,'/api/persons/'.$contextPeople['grand'],'GET',null,'context');
+phase3Grant($contextUser,'personas.ver',$contextElection,'organizacion');
+phase3Grant($contextUser,'estructura.ver',$contextElection,'directos');
+verify(array_column($structurePoints(),'id')===[$contextPeople['child']],'Estructura limita los puntos aunque Personas permita más.');
+phase3Status(404,$structureMap.'&branch='.$contextMembers['grand'],'GET',null,'context');
+phase3Grant($contextUser,'estructura.ver',$contextElection,'organizacion');
+phase3Ok('/api/persons/'.$contextPeople['grand'],'PUT',['latitude'=>'','longitude'=>'']);
+$attachSection=$connection->prepare('INSERT IGNORE INTO secciones_procesos (proceso,seccion,activo,registrado_por,fecha)
+    SELECT pe.id,se.id,1,1,NOW() FROM procesos_electorales pe JOIN secciones_electorales se ON se.uuid=? WHERE pe.uuid=?');
+$attachSection->execute([$sectionUuid,$uuidService->uuidStringToBinary($contextElection)]);
+
 $modulePath = '/api/organizations/'.$organizationIds[0].'/modules/tareas_metas';
 $rolePath = '/api/roles/3/permissions';
 phase3Ok($modulePath,'PUT',['authorized'=>1,'selected'=>1]);
@@ -61,3 +89,5 @@ $readerDetail=phase3Ok('/api/persons/'.$contextPeople['candidate'],'GET',null,'m
 verify(!$readerDetail['structure']['can_form'],'Sin permiso de incorporación no hay acción de asignación');
 $emptyRoot=phase3Ok('/api/structures/'.$contextStructure.'?parent=mine','GET',null,'mapreader');
 verify($emptyRoot['focus']===null && $emptyRoot['own']===null,'La cuenta sin membresía no recibe tarjetas ajenas');
+
+phase3Status(404,$structureMap,'GET',null,'mapreader');

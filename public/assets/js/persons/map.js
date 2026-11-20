@@ -47,13 +47,14 @@
     }
 
     function mount(parent, {organization, fields, point, id}) {
-        const details = node('details','','ux-full ux-section person-map-section');
+        const details = node(fields ? 'details' : 'div','',fields ? 'ux-full ux-section person-map-section' : 'person-map-section');
         const canvas = node('div','','person-location-map');
         canvas.id = id;
         canvas.setAttribute('aria-label',fields ? 'Mapa para seleccionar ubicación' : 'Ubicación registrada');
         const help = node('p', fields ? 'Toca el mapa o arrastra el marcador para ajustar el punto.' : 'Ubicación registrada.','ux-help');
         help.setAttribute('role','status');
-        details.append(node('summary',fields ? 'Ubicación en mapa (opcional)' : 'Ver punto registrado'));
+        if (fields) details.append(node('summary','Ubicación en mapa (opcional)'));
+        else canvas.classList.add('person-location-preview');
         const actions = node('div','','person-map-actions');
         const button = node('button','Usar mi ubicación actual','btn');
         button.type = 'button';
@@ -82,8 +83,8 @@
             if (position && map) map.setView(position,Math.max(14,map.getZoom()),{animate:false});
         }
         fields?.forEach(field => field.addEventListener('change',manual));
-        details.ontoggle = async () => {
-            if (!details.open || disposed || loading) return;
+        async function load() {
+            if ((fields && !details.open) || disposed || loading) return;
             if (map) { map.invalidateSize(); return; }
             loading = true; button.disabled = true;
             try {
@@ -99,8 +100,11 @@
                 button.disabled = false;
             } catch { help.textContent = 'No fue posible cargar el mapa.'; }
             finally { loading = false; }
-        };
-        details.open = !!fields;
+        }
+        if (fields) {
+            details.ontoggle = load;
+            details.open = true;
+        } else load();
         return () => {
             disposed = true; cancelLocate(); map?.remove(); details.remove();
             fields?.forEach(field => field.removeEventListener('change',manual));

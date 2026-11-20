@@ -80,9 +80,27 @@ class PersonsService extends Service
         $statement->execute([$process]);
         $organization = (int)$statement->fetchColumn();
         Authorization::assertOrganization($organization);
-        if (($query['view'] ?? '') === 'initial') {
+        foreach (['structure','branch','extent'] as $parameter) {
+            if (isset($query[$parameter]) && !is_string($query[$parameter])) throw new InvalidArgumentException('El filtro del mapa no es válido.');
+        }
+        $view = $query['view'] ?? '';
+        $structure = $this->normalizeOptionalText($query['structure'] ?? null);
+        $structureScope = $structure !== null ? (new StructureService(new \App\Repositories\StructureRepository($db)))->mapScope(
+            $structure,$this->normalizeOptionalText($query['branch'] ?? null),(string)($query['extent'] ?? 'all'),$organization,$process
+        ) : null;
+        if ($view === 'initial') {
             (new \App\Repositories\PermissionRepository($db))->require(\App\Core\Auth::id(), 'personas.ver', $process);
             return (new \App\Repositories\PersonIdentityRepository($db))->mapSettings($organization);
+        }
+        if ($view === 'branches' && $structureScope) {
+            $search = trim((string)($query['search'] ?? ''));
+            if (mb_strlen($search)>200) throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
+            $page = \App\Core\Pagination::offset($query['offset'] ?? 0);
+            $rows = $this->personsRepository->mapBranches($structureScope,$organization,$search,$page);
+            return [
+                'rows'=>array_map(fn ($row) => ['value'=>$this->uuidBinaryToString($row['uuid']),'label'=>$row['code'].' · '.$row['name'],'name'=>$row['name']],array_slice($rows,0,25)),
+                'pagination'=>\App\Core\Pagination::response($rows,25,$page),
+            ];
         }
         $data = [];
         foreach (['south'=>90,'north'=>90,'west'=>180,'east'=>180] as $key=>$bound) {
@@ -93,13 +111,13 @@ class PersonsService extends Service
         if ($data['south']>$data['north'] || $data['west']>$data['east']) throw new InvalidArgumentException('La zona del mapa no es válida.');
         $data['rows'] = max(1,min(16,(int)($query['rows'] ?? 8)));
         $data['columns'] = max(1,min(24,(int)($query['columns'] ?? 12)));
-        $data['list'] = ($query['view'] ?? '') === 'people';
+        $data['list'] = $view === 'people';
         $data['offset'] = max(0,(int)($query['offset'] ?? 0));
         $data['search'] = $this->normalizeOptionalText($query['search'] ?? null);
         if (mb_strlen($data['search'] ?? '')>200) throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
         $section = $this->normalizeOptionalText($query['section'] ?? null);
         $data['section'] = !$section || $section==='N/A' ? null : $this->uuidStringToBinary($section);
-        $rows = $this->personsRepository->mapRows($data,$organization,$process);
+        $rows = $this->personsRepository->mapRows($data,$organization,$process,$structureScope);
         $more = $data['list'] && count($rows)>25;
         if ($more) array_pop($rows);
         $points = [];
@@ -107,6 +125,7 @@ class PersonsService extends Service
             $point = ['latitude'=>(float)$row['latitude'],'longitude'=>(float)$row['longitude'],'count'=>(int)$row['quantity']];
             if ($point['count']===1) {
                 $point += ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['name'],'code'=>$row['code'],'section'=>$row['section']];
+                if ($structureScope) $point['level'] = $row['level_name'];
             } else {
                 $point['bounds'] = array_map('floatval',array_intersect_key($row,array_flip(['south','north','east','west'])));
             }
