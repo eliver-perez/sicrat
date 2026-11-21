@@ -1,0 +1,156 @@
+/* El azul marino del logotipo se reserva para encabezados, selección y navegación. */
+:root {
+    --operation-navy:#022249;
+    --operation-slate:#263b52;
+    --operation-heading:var(--operation-navy);
+    --operation-on-heading:#f6f9fc;
+    --operation-accent:var(--operation-navy);
+    --operation-selection:#eaf0f6;
+}
+[data-theme="dark"] {
+    --operation-heading:var(--operation-slate);
+    --operation-accent:#bfd5e7;
+    --operation-selection:#253649;
+}
+h4:has(> .operation-title-icon) {
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+}
+.operation-title-icon {
+    width:1.2rem;
+    height:1.2rem;
+    flex-shrink:0;
+    color:var(--operation-accent);
+}
+#operations-message:empty { display:none }
+.operation-card-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:.65rem 1.1rem;
+    margin-block-end:.9rem;
+    padding-block-end:.75rem;
+    border-bottom:1px solid var(--color-default-200);
+}
+.operation-card-header > p { flex:1 1 20rem; margin:0 }
+.operation-toolbar { display:flex; align-items:flex-end; gap:.6rem; margin-block-end:.85rem }
+.operation-filters {
+    flex:1 1 auto;
+    min-width:0;
+    display:flex;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:.65rem;
+}
+.operation-filters > label,
+.operation-filters > .transport-picker {
+    flex:1 1 8rem;
+    min-width:0;
+}
+.operation-filters > label:first-child { flex-basis:12rem }
+.operation-filters > label:has([name="section_number"]) { flex:0 1 5.25rem }
+.operation-filters .form-input, .transport-edit .form-input { width:100%; min-width:0 }
+.operation-filters label, .transport-picker > span { font-size:.875rem; font-weight:600 }
+.operation-filter-actions { display:flex; flex-wrap:wrap; gap:.5rem }
+.operation-toolbar :is(.operation-filter-actions .btn,.person-view-switch > .btn,.transport-picker-controls > .btn) { min-height:2.45rem }
+#operations-root > .ux-tabs .btn[aria-current="page"] {
+    background:var(--operation-heading);
+    border-color:var(--operation-heading);
+    color:var(--operation-on-heading);
+}
+#operation-detail-tabs [role="tab"].active {
+    background:var(--operation-selection);
+    border-color:var(--operation-accent);
+    color:var(--operation-accent);
+}
+#operations-root .op-table-scroll {
+    position:relative;
+    border:1px solid var(--color-default-200);
+    border-radius:.5rem;
+}
+#operations-root .op-table-scroll thead th,
+main:has(#operations-root) .ux-entity-selector .ux-selection-table thead th {
+    background:var(--operation-heading);
+    border-bottom-color:var(--operation-heading);
+    color:var(--operation-on-heading);
+    font-size:.8125rem;
+}
+#operations-root .op-table-scroll tbody tr:hover { background:var(--color-default-100) }
+#operations-root .op-table-scroll tbody tr:is(:focus-within,[aria-selected="true"]) { background:var(--operation-selection) }
+#operations-root .op-table-scroll tbody tr:last-child td { border-bottom:0 }
+#operations-root .op-table-scroll td { overflow-wrap:anywhere; min-width:5rem }
+#operations-root .op-table-scroll td:has(> .ux-icon-action) { min-width:0; white-space:nowrap }
+#operations-root .op-table-scroll .ux-icon-action + .ux-icon-action { margin-inline-start:.25rem }
+.operation-empty {
+    display:flex;
+    align-items:center;
+    gap:.7rem;
+    padding:.85rem 1rem;
+    border:1px dashed var(--color-default-300);
+    border-radius:.5rem;
+    background:var(--color-default-50);
+    color:var(--color-default-700);
+}
+.operation-empty svg { color:var(--operation-accent) }
+.transport-picker { min-width:0 }
+.transport-picker-controls { display:flex; gap:.3rem; margin-block-start:.35rem }
+.transport-picker-controls > button:first-child { flex:1; justify-content:flex-start; min-width:0 }
+.transport-picker-controls > button:first-child > span {
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    flex:1;
+    text-align:start;
+}
+.transport-coordination { display:block; margin-block-start:.2rem }
+.transport-summary {
+    display:flex;
+    flex-wrap:wrap;
+    gap:.3rem .95rem;
+    margin-block-end:.75rem;
+    padding:.5rem .7rem;
+    color:var(--color-default-700);
+    background:var(--operation-selection);
+    border-inline-start:3px solid var(--operation-accent);
+    border-radius:.35rem;
+    font-size:.8125rem;
+}
+.transport-summary strong { color:var(--operation-accent) }
+#transport-map-status { min-height:1.25rem; margin-block-end:.3rem }
+#transport-map { height:clamp(300px,53dvh,570px) }
+.transport-popup > * { display:block; overflow-wrap:anywhere }
+.transport-popup + .transport-popup { border-top:1px solid var(--color-default-200); margin-block-start:.35rem; padding-block-start:.35rem }
+.transport-popup-actions { display:flex; gap:.25rem; margin-block:.35rem }
+#transport-map .transport-popup-actions .btn { font-size:.75rem; padding:.25rem .4rem }
+#operation-detail-dialog.transport-detail-dialog { width:min(46rem,calc(100% - 1rem)); max-width:none }
+main:has(#operations-root) .ux-entity-selector-compact { width:min(32rem,calc(100% - 1rem)); max-width:none }
+.ux-entity-selector-compact .ux-selector-results { max-height:15rem }
+.ux-entity-selector-compact .ux-search-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:stretch }
+.ux-entity-selector-compact .ux-selection-table :is(td,th) { padding-block:.45rem }
+[data-theme="dark"] .ux-entity-selector-compact { color-scheme:dark }
+.transport-confirm { padding:.65rem .8rem }
+.transport-confirm > summary { cursor:pointer; font-weight:600 }
+.transport-confirm > form.ux-section { border:0; padding:.65rem 0 0; margin:0 }
+#operation-detail-dialog .transport-edit { gap:.7rem; padding:.8rem }
+.transport-edit textarea { min-height:4.25rem; resize:vertical }
+.transport-edit .ux-modal-footer { position:static; margin:0; padding-block-start:.65rem }
+#operations-root .ux-chat-sidebar-head .card-title { display:flex; align-items:center; gap:.45rem }
+#operations-root .ux-chat-sidebar-head .card-title > svg { color:var(--operation-accent) }
+#operations-root .ux-chat-conversation-item.active {
+    background:var(--operation-selection);
+    border-inline-start-color:var(--operation-accent);
+}
+#operations-root :is(.btn,[role="tab"],[data-open-chat]):focus-visible {
+    outline:2px solid var(--color-primary);
+    outline-offset:2px;
+}
+@media (max-width:640px) {
+    .operation-card { padding:.75rem }
+    .operation-toolbar:has(.person-view-switch) { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start }
+    .operation-toolbar .person-view-switch { grid-column:2; grid-row:1 }
+    .operation-filters > label:has([name="section_number"]) { flex:1 1 5rem }
+    .operation-filter-actions { flex-basis:100% }
+    #operation-detail-dialog .transport-edit { grid-template-columns:minmax(0,1fr) }
+}

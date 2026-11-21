@@ -102,10 +102,7 @@ class PersonsRepository
         $from = $structure ? $structure['from'] . ' JOIN personas p ON p.id=e.persona JOIN personas_domicilios d ON d.persona=p.id'
             : ' FROM personas_domicilios d JOIN personas p ON p.id=d.persona';
         $from .= " LEFT JOIN secciones_electorales se ON se.id=p.seccion LEFT JOIN usuarios r ON r.id=p.registrado_por
-            WHERE d.latitud BETWEEN ? AND ? AND d.longitud BETWEEN ? AND ?
-            AND d.id=(SELECT first_address.id FROM personas_domicilios first_address WHERE first_address.persona=p.id
-                      ORDER BY principal DESC,id LIMIT 1)
-            AND p.organizacion=?";
+            WHERE " . PersonMapRepository::ADDRESS_FILTER . " AND p.organizacion=?";
         $area = [$data['south'],$data['north'],$data['west'],$data['east'],$organization];
         if ($structure) {
             $from .= ' AND ' . $structure['where'];
@@ -116,24 +113,13 @@ class PersonsRepository
             $params = [...$area,$process,$process,...$params];
         }
         $from .= $filters;
-        $level = $structure ? 'level.nombre' : 'NULL';
-        $name = "TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno))";
-        if ($data['list']) {
-            $sql = "SELECT 1 quantity,p.uuid,$name name,p.codigo_persona code,se.seccion section,$level level_name,d.latitud latitude,d.longitud longitude"
-                . $from . ' ORDER BY p.id LIMIT 26 OFFSET ' . $data['offset'];
-        } else {
-            // Reclasifica sólo el viewport. Las celdas coincidentes tienen una lista paginada.
-            $sql = "SELECT COUNT(*) quantity,IF(COUNT(*)=1,MIN(p.uuid),NULL) uuid,
-                IF(COUNT(*)=1,MIN($name),NULL) name,IF(COUNT(*)=1,MIN(p.codigo_persona),NULL) code,
-                IF(COUNT(*)=1,MIN(se.seccion),NULL) section,IF(COUNT(*)=1,MIN($level),NULL) level_name,AVG(d.latitud) latitude,AVG(d.longitud) longitude,
-                MIN(d.latitud) south,MAX(d.latitud) north,MIN(d.longitud) west,MAX(d.longitud) east" . $from .
-                ' GROUP BY FLOOR((d.latitud-?)/?), FLOOR((d.longitud-?)/?)';
-            $params = [...$params, $data['south'],max(0.0000001,($data['north']-$data['south'])/$data['rows']),
-                $data['west'],max(0.0000001,($data['east']-$data['west'])/$data['columns'])];
-        }
-        $statement = $this->db->prepare($sql);
-        $statement->execute($params);
-        return $statement->fetchAll(PDO::FETCH_ASSOC);
+        $columns = [
+            'name'=>"TRIM(CONCAT_WS(' ',p.nombre,p.paterno,p.materno))",
+            'code'=>'p.codigo_persona',
+            'section'=>'se.seccion',
+        ];
+        if ($structure) $columns['level'] = 'level.nombre';
+        return (new PersonMapRepository($this->db))->rows($data,$from,$params,$columns);
     }
 
     public function mapBranches(array $structure, int $organization, string $search, string $sort, int $offset, array $selected): array

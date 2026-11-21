@@ -207,6 +207,8 @@ $router->post('/api/operations/case-categories/{kind}',[$operations,'categories'
 $router->put('/api/operations/case-categories/{kind}/{id}',[$operations,'categories'],'operations.access');
 $router->get('/api/operations/indicators',[$operations,'indicators'],'operations.access');
 $router->get('/api/operations/transport-summary',[$operations,'transportSummary'],'operations.access');
+$router->get('/api/operations/transport-map',[$operations,'transportMap'],'operations.access');
+$router->get('/api/operations/transport-coordinators',[$operations,'transportCoordinators'],'operations.access');
 $router->get('/api/operations/contacts',[$operations,'contacts'],'operations.access');
 $router->get('/api/operations/message-policy',[$operations,'policy'],'operations.access');
 $router->put('/api/operations/message-policy',[$operations,'policy'],'operations.access');

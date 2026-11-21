@@ -47,6 +47,7 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) 
             }
         }
     }
+    await require('./transport-browser.js')({call,evaluate,waitFor,navigate,fixtures,bounds,capture,verify});
     await call('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});
     await navigate('/operations/?module=interacciones');await waitFor('!!window.SicratOperations.list && window.SicratOperations.entity==="interacciones"');
     await evaluate('document.getElementById("operation-new").click()');await waitFor('!!window.SicratOperations.createDTO');

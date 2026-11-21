@@ -8,7 +8,7 @@ function InitializeValues(url) {
 	app.create=async parent=> {
 		const target=app.node('operation-create-fields');target.replaceChildren();app.node('operation-create-form').reset();app.node('operation-create-title').textContent=app.entity==='conversaciones' ? ({direct:'Nueva conversación',group:'Nuevo grupo',announcement:'Nuevo anuncio'}[app.chatCreateKind || 'direct']) : parent ? 'Distribuir meta' : app.definition.newLabel;app.createDTO=null;
 		const dialog=app.node('operation-create-dialog');if(!dialog.open)dialog.showModal();
-		if(app.entity==='conversaciones')app.node('operation-create-form').querySelector('button:not([type]),button[type=submit]').textContent=app.chatCreateKind==='direct' ? 'Abrir conversación' : app.chatCreateKind==='announcement' ? 'Crear anuncio' : 'Crear grupo';
+		if(app.entity==='conversaciones')window.SicratUI.labeledAction(app.node('operation-create-form').querySelector('button:not([type]),button[type=submit]'),app.chatCreateKind==='direct' ? 'Abrir conversación' : app.chatCreateKind==='announcement' ? 'Crear anuncio' : 'Crear grupo',app.chatCreateKind==='direct' ? 'message-circle' : 'plus');
 		app.createDTO=await window.SicratOperationForms[app.definition.create](app,target,parent || null);app.editingSurvey=null;
 	};
 	app.editSurvey=async row=> {
@@ -18,11 +18,24 @@ function InitializeValues(url) {
 		if(!app.createDTO)throw new Error('Espera a que termine de cargar el formulario.');const data=app.createDTO(event.currentTarget);let result;
 		if(app.editingSurvey){await app.api('operations/encuestas/'+app.editingSurvey.uuid,'PUT',{...data,version:app.editingSurvey.version});result={uuid:app.editingSurvey.uuid};}
 		else result=await app.api('operations/'+app.entity,'POST',data);
-		app.node('operation-create-dialog').close();await app.list.reset();if(result.uuid)await app.open(result.uuid);app.notice(app.entity==='conversaciones' ? app.chatCreateKind==='direct' ? 'Conversación abierta.' : app.chatCreateKind==='announcement' ? 'Anuncio creado.' : 'Grupo creado.' : app.editingSurvey ? 'Borrador guardado.' : 'Registro guardado.');
+		app.node('operation-create-dialog').close();
+		await app.list.reset();
+		if(result.uuid) await app.open(result.uuid);
+		if(app.entity!=='conversaciones') app.notice(app.editingSurvey ? 'Borrador guardado.' : 'Registro guardado.');
 	}));
 	app.node('operation-new').addEventListener('click',app.guard(()=>{if(app.entity==='conversaciones'){app.chatNewMenu.open=!app.chatNewMenu.open;return;}return app.create();}));
-	app.node('operation-filter').addEventListener('submit',app.guard(async event=>{app.filters=app.values(event.currentTarget);await app.list.reset();if(app.entity==='transporte')await transportSummary();}));
-	app.node('operation-refresh').addEventListener('click',app.guard(async()=>{await app.list.load();if(app.entity==='conversaciones')await app.messagePager?.load();}));
+	app.node('operation-filter').addEventListener('submit',app.guard(async event=>{
+		app.filters=app.values(event.currentTarget);
+		if(app.transport) {
+			app.filters={...app.filters,search:app.filters.search.trim(),...app.transport.filter()};
+			await app.transport.refresh(true);
+		} else await app.list.reset();
+	}));
+	app.node('operation-refresh').addEventListener('click',app.guard(async()=>{
+		if(app.transport) await app.transport.refresh();
+		else await app.list.load();
+		if(app.entity==='conversaciones') await app.messagePager?.load();
+	}));
 	app.node('operation-export').addEventListener('click',app.guard(()=>app.exportDialog()));
 	app.node('operation-settings').addEventListener('click',app.guard(async()=> {
 		const target=app.node('operation-settings-content');target.replaceChildren();app.node('operation-settings-title').textContent=app.entity==='eventos' ? 'Tipos de evento' : 'Política de comunicación';
@@ -40,22 +53,36 @@ function InitializeValues(url) {
 			}
 		}app.node('operation-settings-dialog').showModal();
 	}));
-	async function transportSummary() {
-		const result=await app.api('operations/transport-summary?'+new URLSearchParams(app.filters));const target=app.node('operation-summary');target.replaceChildren();target.hidden=false;
-		if(!result.totals.length || !result.totals.some(row=>Number(row.cantidad))){target.append(app.text('p','Aún no hay necesidades de transporte registradas para esta elección.','card p-5 ux-help'));return;}
-		result.totals.forEach(row=>{const card=app.text('div','','card p-5');card.append(app.text('h6',({no_definido:'Personas con necesidad de transporte por definir',requiere:'Personas que requieren transporte',propio:'Personas con transporte propio'})[row.estado] || app.label(row.estado)),app.text('p',String(row.cantidad),'text-lg font-semibold'));if(row.estado==='requiere')card.append(app.text('p',row.coordinadas+' coordinadas · '+(Number(row.cantidad)-Number(row.coordinadas))+' pendientes','op-small-note'));target.append(card);});
-	}
 	async function initialize() {
 		app.me=await app.api('auth/me');app.modules=(await app.api('operations/capabilities')).modules;app.node('operation-help').textContent=app.definition.help;
 		const canCreate=app.entity==='conversaciones' ? ['mensajes.enviar','mensajes.crear_grupos','mensajes.crear_grupos_estructura'].some(permission=>app.can(permission)) : !!app.definition.create && app.can(app.definition.permission+'.crear');
-		app.node('operation-new').hidden=!canCreate;app.node('operation-new').textContent=app.definition.newLabel || 'Nuevo registro';
+		app.node('operation-new').hidden=!canCreate;window.SicratUI.labeledAction(app.node('operation-new'),app.definition.newLabel || 'Nuevo registro','plus');
 		app.node('operation-settings').hidden=!(app.entity==='eventos' && app.can('eventos.administrar')) && !(app.entity==='conversaciones' && app.can('mensajes.administrar_grupos')) && !(['peticiones','incidencias'].includes(app.entity) && app.can(app.entity+'.categorias'));
 		app.node('operation-export').hidden=!app.can('exportaciones.generar') || ['conversaciones','encuestas'].includes(app.entity);
-		const state=app.node('operation-filter').elements.state;app.definition.states.forEach(value=>window.SicratPhase3.option(state,value,app.label(value)));app.node('operation-state-filter').hidden=!app.definition.states.length;
-		if(app.entity==='conversaciones')window.SicratMessaging.layout(app);
-		const columns=app.entity==='transporte' ? [['Persona','titulo'],['Necesidad',row=>app.label(row.estado)],['Coordinación','coordinador'],['Proveedor','proveedor'],['Confirmación voluntaria',row=>row.confirmado_en || 'Sin registro voluntario']] : [['Registro',row=>row.folio ? row.folio+' · '+row.titulo : row.titulo],['Estado',row=>window.SicratUI.badge(app.label(row.estado),['completada','cerrada','publicada','finalizado'].includes(row.estado))],['Fecha','fecha']];
-		app.list=app.entity==='conversaciones' ? window.SicratChatHistory.conversations(app,app.node('operation-list')) : app.pager(app.node('operation-list'),()=> 'operations/'+app.entity+'?'+new URLSearchParams(app.filters),columns,(cell,row)=>cell.append(app.button(app.entity==='transporte' ? 'Coordinar' : 'Ver detalle',()=>app.open(row.uuid))));await app.list.load();
-		if(app.entity==='transporte')await transportSummary();
+		const transport=app.entity==='transporte' ? window.SicratTransport : null;
+		const state=app.node('operation-filter').elements.state;
+		app.definition.states.forEach(value=>window.SicratPhase3.option(state,value,transport?.needs[value] || app.label(value)));
+		app.node('operation-state-filter').hidden=!app.definition.states.length;
+		if(app.entity==='conversaciones') window.SicratMessaging.layout(app);
+		const columns=transport ? transport.columns(app) : [
+			['Registro',row=>row.folio ? row.folio+' · '+row.titulo : row.titulo],
+			['Estado',row=>window.SicratUI.badge(app.label(row.estado),['completada','cerrada','publicada','finalizado'].includes(row.estado))],
+			['Fecha','fecha'],
+		];
+		const rowAction=(cell,row)=>{
+			const ui=window.SicratUI;
+			cell.append(ui.action(app.button('Ver detalle',()=>app.open(row.uuid)),'Ver detalle','eye'));
+			if(transport && Number(row.can_coordinate)) {
+				cell.append(ui.action(app.button('Coordinar',()=>app.openDetail(row.uuid,'actions')),'Coordinar','bus'));
+			}
+		};
+		app.list=app.entity==='conversaciones'
+			? window.SicratChatHistory.conversations(app,app.node('operation-list'))
+			: app.pager(app.node('operation-list'),()=> 'operations/'+app.entity+'?'+new URLSearchParams(app.filters),columns,rowAction);
+		if(transport) {
+			app.transport=transport.init(app);
+			await app.transport.refresh();
+		} else await app.list.load();
 		const params=new URLSearchParams(location.search);
 		if(params.get('record'))await app.open(params.get('record'));
 		if(app.entity==='eventos' && params.get('event')) { const event=await app.api('operations/eventos/'+params.get('event'));if(Number(event.proceso)!==Number(app.me.process_id))app.notice('Selecciona la elección del evento en el encabezado para registrar asistencia.');else{await app.open(params.get('event'));app.notice('QR reconocido. Revisa al participante y registra la asistencia mediante la acción autorizada.');} }

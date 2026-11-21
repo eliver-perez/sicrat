@@ -89,6 +89,7 @@ verify(phase5Api('transporte/'.$phase5People[0])['confirmado_en']===null,'Coordi
 phase5Api('transporte/'.$phase5People[0].'/confirm','POST',['confirmed'=>1,'notes'=>'Confirmación voluntaria']);
 phase5Api('transporte/'.$phase5People[1],'PUT',['need'=>'propio']);
 $transportSummary=phase5Api('transport-summary'); verify(!str_contains(json_encode($transportSummary),'penalizacion'),'Resumen no utiliza ausencia de confirmación como desempeño.');
+require __DIR__.'/transport-map.php';
 phase5Api('message-policy','PUT',['policy'=>'todos']);
 $phase5Conversation=phase5Api('conversaciones','POST',['type'=>'DIRECTA','recipient'=>$phase5Accounts[1]],'phase5-0')['uuid'];
 $message=phase5Api('conversaciones/'.$phase5Conversation.'/send','POST',['text'=>'Coordinación <script>literal</script>','idempotency'=>'mensaje-prueba-1'],'phase5-0');
@@ -108,5 +109,5 @@ $phase3Tokens['phase5-capture']=login('phase5-capture','captura-a',' legacy secr
 phase5Api('tareas','GET',null,'phase5-capture',403);
 verify(request('admin','POST','/api/operations/interacciones',['person'=>$phase5People[0],'result'=>'Sin CSRF'])['status']===403,'CSRF protege los módulos nuevos.');
 require __DIR__.'/phase5-coverage.php';
-file_put_contents($temporaryDirectory.'/phase5-fixtures.json',json_encode(['election'=>$phase5ElectionUuid,'process'=>$phase5Process,'people'=>$phase5People,'accounts'=>$phase5Accounts,'task'=>$phase5Task,'survey'=>$phase5Survey,'event'=>$phase5Event,'petition'=>$phase5Petition,'conversation'=>$phase5Conversation],JSON_PRETTY_PRINT));
+file_put_contents($temporaryDirectory.'/phase5-fixtures.json',json_encode(['election'=>$phase5ElectionUuid,'process'=>$phase5Process,'people'=>$phase5People,'accounts'=>$phase5Accounts,'task'=>$phase5Task,'survey'=>$phase5Survey,'event'=>$phase5Event,'petition'=>$phase5Petition,'conversation'=>$phase5Conversation,'transportSection'=>$transportPaddedSection],JSON_PRETTY_PRINT));
 echo 'Fase 5: '.($checks-$phase5Start)." comprobaciones adicionales correctas.\n";

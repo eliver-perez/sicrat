@@ -9,7 +9,8 @@ window.SicratMessaging={
     layout(app) {
         const layout=app.text('div','','card ux-chat-layout'),sidebar=app.text('aside','','ux-chat-sidebar');
         const card=app.node('operation-filter').closest('.card');card.before(layout);
-        const head=app.text('div','','ux-chat-sidebar-head'),title=app.text('h6','Chats','card-title'),tools=app.text('div','','ux-actions');
+        const head=app.text('div','','ux-chat-sidebar-head'),title=app.text('h6','','card-title'),tools=app.text('div','','ux-actions');
+        title.append(window.SicratUI.icon('messages-square'),document.createTextNode('Conversaciones'));
         const newMenu=app.text('details','','ux-chat-menu'),newToggle=app.text('summary');newToggle.append(this.action(app.node('operation-new'),'Nueva conversación','plus'));const choices=app.text('div','','card ux-chat-menu-content');
         const choose=(kind,label)=>{const button=app.button(label,()=>{newMenu.open=false;app.chatCreateKind=kind;return app.create();});button.id='chat-new-'+kind;choices.append(button);};
         if(app.can('mensajes.enviar'))choose('direct','Nueva conversación');
@@ -19,7 +20,7 @@ window.SicratMessaging={
         const entries=app.text('div','','card ux-chat-menu-content');entries.append(app.node('operation-settings'),app.node('operation-refresh'),app.node('operation-export'));menu.append(toggle,entries);tools.append(menu);head.append(title,tools);
         const filter=app.node('operation-filter');filter.className='ux-chat-search';const input=filter.elements.search;input.placeholder='Buscar conversación…';input.setAttribute('aria-label','Buscar conversación');input.closest('label').replaceChildren(input);filter.prepend(window.SicratUI.icon('search'));
         const search=filter.querySelector('button:not([type])');this.action(search,'Buscar conversación','search');
-        sidebar.append(head,filter,app.text('p','Conversaciones','ux-chat-list-label'),app.node('operation-list'));
+        sidebar.append(head,filter,app.node('operation-list'));
         const room=app.text('section','','ux-chat-room'),placeholder=app.text('div','','ux-chat-empty');placeholder.id='chat-placeholder';placeholder.append(window.SicratUI.icon('message-circle'),app.text('h6','Tus conversaciones'),app.text('p','Selecciona un chat para ver los mensajes o inicia una conversación.'));room.append(placeholder);
         const dialog=app.node('operation-detail-dialog');dialog.classList.add('ux-chat-conversation');dialog.querySelectorAll(':scope > .ux-actions').forEach(element=>{if(!element.children.length)element.remove();});dialog.querySelectorAll('[data-close]').forEach(button=>button.hidden=true);room.append(dialog);layout.append(sidebar,room);card.remove();app.chatSidebar=sidebar;app.chatRoom=room;
         const back=this.action(app.button('Conversaciones',()=>{dialog.close();placeholder.hidden=false;this.select(app,null);responsive();}),'Volver a conversaciones','chevron-left');back.classList.add('ux-chat-back');app.chatBack=back;app.node('operation-help')?.remove();

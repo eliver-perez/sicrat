@@ -10,7 +10,7 @@
 		eventos:{permission:'eventos',title:'Eventos y brigadas',create:'event',newLabel:'Nuevo evento',help:'Reuniones, brigadas, caminatas y tipos configurables; asistencia individual, conteo agregado o sin control.',states:['programado','en_curso','finalizado','cancelado']},
 		peticiones:{permission:'peticiones',title:'Peticiones',create:'caseRecord',newLabel:'Nueva petición',help:'Solicitudes de personas registradas o externas, capturadas siempre por una cuenta autenticada.',states:['abierta','en_atencion','validacion','correccion','cerrada','cancelada']},
 		incidencias:{permission:'incidencias',title:'Incidencias',create:'caseRecord',newLabel:'Nueva incidencia',help:'Problemas operativos con responsables, seguimiento y cierre verificable.',states:['abierta','en_atencion','validacion','correccion','cerrada','cancelada']},
-		transporte:{permission:'transporte',title:'Transporte y logística',help:'Necesidades y coordinación de personas. Registrar un traslado es opcional; su ausencia no mide desempeño.',states:['no_definido','requiere','propio','pendiente','coordinada']},
+		transporte:{permission:'transporte',title:'Transporte y logística',help:'Necesidades y coordinación de personas. Registrar un traslado es opcional; su ausencia no mide desempeño.',states:['requiere','propio','no_definido']},
 		conversaciones:{permission:'mensajes',title:'Mensajería',create:'conversation',newLabel:'Nueva conversación',help:'Coordinación entre cuentas SICRAT. Los contactos sin cuenta reciben únicamente comunicaciones externas autorizadas.',states:[]}
 	};
 	Object.entries(definitions).forEach(([entity,definition])=>window.SicratOperations.handlers[entity]=definition);
@@ -80,11 +80,20 @@
 	definitions.transporte.detail=async(app,row,summary,actions)=>{
 		if(row.financial_references?.length){const finance=app.text('div');summary.append(app.text('h6','Referencias financieras opcionales','mt-4'),finance);app.table(finance,[['Folio','folio'],['Concepto','concepto'],['Estado',item=>app.label(item.estado)]],row.financial_references,(cell,item)=>{const link=app.text('a','Consultar registro','btn');link.href=window.SicratPhase3.base+'/resources/?module=finanzas&tab='+item.tipo+'&record='+item.uuid;cell.append(link);});}
 		app.description(summary,{'Persona':row.persona_nombre,'Necesidad':app.label(row.necesidad),'Coordinador':row.coordinador_nombre,'Proveedor':row.proveedor_nombre || row.proveedor_externo,'Observaciones logísticas':row.observaciones_logisticas,'Confirmación voluntaria':row.confirmado_en || 'Sin registro voluntario'});
-		if(app.can('transporte.editar')) {
-			let coordinator=null,provider=null;const form=app.form(actions,'Necesidad y coordinación',fields=>{const need=app.section(fields,'Necesidad de transporte'),providerFields=app.section(fields,'Proveedor'),observations=app.section(fields,'Observaciones');app.field(need,'need','Necesidad de transporte','select',row.necesidad,true,{no_definido:'No definido',requiere:'Requiere transporte',propio:'Se trasladará por cuenta propia'});app.field(providerFields,'external_provider','Proveedor externo opcional','text',row.proveedor_externo);app.field(observations,'notes','Observaciones logísticas','textarea',row.observaciones_logisticas);},async data=>{await app.api('operations/transporte/'+row.uuid,'PUT',{...data,coordinator:coordinator.values(),provider:provider.values(),version:row.version});await app.open(row.uuid);});
-			coordinator=await app.personPicker(app.section(form,'Coordinación'),'Persona que coordina','editar',false,row.coordinador_uuid ? [{uuid:row.coordinador_uuid,label:row.coordinador_nombre}] : []);provider=await app.personPicker(app.section(form,'Persona que realiza el traslado'),'Persona que realiza o consigue el traslado','editar',false,row.proveedor_uuid ? [{uuid:row.proveedor_uuid,label:row.proveedor_nombre}] : [],false,'transporte',false);
+		if(Number(row.actions.can_coordinate)) window.SicratTransport.edit(app,row,actions);
+		if(Number(row.actions.can_confirm) && row.logistics_uuid) {
+			const confirmation=app.text('details','','ux-section transport-confirm');
+			confirmation.append(app.text('summary','Confirmación voluntaria'));
+			actions.append(confirmation);
+			app.form(confirmation,'',fields=>{
+				app.check(fields,'confirmed','Confirmo que el traslado ocurrió');
+				app.field(fields,'date','Fecha y hora','datetime-local',forms.now(),true);
+				app.field(fields,'notes','Observación','textarea').maxLength=500;
+			},async(data,form)=>{
+				await app.api('operations/transporte/'+row.uuid+'/confirm','POST',{...data,confirmed:form.elements.confirmed.checked ? 1 : 0,version:row.version});
+				await Promise.all([app.openDetail(row.uuid,'actions'),app.transport.refresh()]);
+			},'Registrar confirmación voluntaria');
 		}
-		if(app.can('transporte.confirmar') && row.logistics_uuid)app.form(actions,'Confirmación estrictamente opcional',fields=>{fields.append(app.text('p','No registrar esta confirmación no implica incumplimiento ni modifica métricas de desempeño.','ux-full op-small-note'));app.check(fields,'confirmed','Confirmo que el traslado ocurrió');app.field(fields,'date','Fecha y hora','datetime-local',forms.now(),true);app.field(fields,'notes','Observación necesaria','textarea');},async(data,form)=>{await app.api('operations/transporte/'+row.uuid+'/confirm','POST',{...data,confirmed:form.elements.confirmed.checked ? 1 : 0,version:row.version});await app.open(row.uuid);},'Registrar confirmación voluntaria');
 	};
 	definitions.encuestas.detail=async(app,row,summary,actions)=>{
 		app.description(summary,{'Encuesta':row.encuesta,'Descripción':row.descripcion,'Versión':row.numero_version,'Estado':app.label(row.estado),'Inicio de aplicación':row.inicio,'Fin de aplicación':row.fin,'Frecuencia':row.frecuencia==='unica' ? 'Una vez por persona' : 'Cada '+row.intervalo+' '+app.label(row.unidad)});

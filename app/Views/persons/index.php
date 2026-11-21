@@ -37,7 +37,7 @@
                                 </div>
                                 <div class="person-view-switch">
                                     <button class="btn" type="button" id="persons-view-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="persons-view-menu"></button>
-                                    <div id="persons-view-menu" role="menu" aria-label="Vista de personas" hidden>
+                                    <div id="persons-view-menu" class="person-view-menu" role="menu" aria-label="Vista de personas" hidden>
                                         <button class="btn" type="button" id="persons-list-toggle" role="menuitemradio" aria-checked="true"><i data-lucide="list" class="size-4" aria-hidden="true"></i>Lista<i data-lucide="check" class="size-4 person-view-check" aria-hidden="true"></i></button>
                                         <button class="btn" type="button" id="persons-map-toggle" role="menuitemradio" aria-checked="false"><i data-lucide="map" class="size-4" aria-hidden="true"></i>Mapa<i data-lucide="check" class="size-4 person-view-check" aria-hidden="true"></i></button>
                                     </div>

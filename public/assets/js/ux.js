@@ -66,6 +66,47 @@ Object.assign(window.SicratUI, {
         button.dataset.uxIconReady='1';button.classList.add('ux-icon-action');button.title=title;button.setAttribute('aria-label',title);
         const label=document.createElement('span');label.className='ux-sr-only';label.textContent=title;button.replaceChildren(this.icon(icon),label);return button;
     },
+    labeledAction(button,title,icon) {
+        const label=document.createElement('span');
+        label.textContent=title;
+        button.replaceChildren(this.icon(icon),label);
+        return button;
+    },
+    viewMenu(button,menu,changed) {
+        const toggle=this.action(button,'Cambiar vista','layout-grid');
+        const options=[...menu.querySelectorAll('[role=menuitemradio]')];
+        const show=(open,focus=true)=>{
+            menu.hidden=!open;
+            toggle.setAttribute('aria-expanded',String(open));
+            if(focus) (open ? options.find(option=>option.getAttribute('aria-checked')==='true') || options[0] : toggle).focus();
+        };
+        toggle.addEventListener('click',()=>show(menu.hidden));
+        toggle.addEventListener('keydown',event=>{
+            if(!['ArrowUp','ArrowDown'].includes(event.key)) return;
+            event.preventDefault();
+            show(true);
+        });
+        options.forEach((option,index)=>{
+            option.tabIndex=-1;
+            option.addEventListener('click',()=>{
+                show(false);
+                if(option.getAttribute('aria-checked')==='true') return;
+                options.forEach(item=>item.setAttribute('aria-checked',String(item===option)));
+                changed(option,index);
+            });
+            option.addEventListener('keydown',event=>{
+                if(!['ArrowUp','ArrowDown','Home','End','Escape'].includes(event.key)) return;
+                event.preventDefault();
+                if(event.key==='Escape'){show(false);return;}
+                const next=event.key==='Home' ? 0 : event.key==='End' ? options.length-1
+                    : (index+(event.key==='ArrowDown' ? 1 : -1)+options.length)%options.length;
+                options[next].focus();
+            });
+        });
+        const outside=event=>{if(!menu.hidden && !toggle.parentElement.contains(event.target)) show(false,false);};
+        document.addEventListener('pointerdown',outside);
+        document.addEventListener('focusin',outside);
+    },
     layoutFields(container) {
         const children=Array.from(container.children);
         children.forEach(child=>{if(child.dataset.uxAutoWide){child.classList.remove('ux-full');delete child.dataset.uxAutoWide;}});
@@ -128,14 +169,15 @@ Object.assign(window.SicratUI, {
             });
         });target.append(table);
     },
-    async entitySelector({title,selected,load,choose}) {
+    async entitySelector({title,selected,load,choose,compact=false}) {
         const dialog=document.createElement('dialog');dialog.className='ux-entity-selector';
+        if(compact) dialog.classList.add('ux-entity-selector-compact');
         const header=document.createElement('div');const heading=document.createElement('h6');heading.textContent=title;const close=document.createElement('button');close.type='button';close.className='btn';close.dataset.close='entity-selector';close.textContent='Cerrar';close.addEventListener('click',()=>dialog.close());header.append(heading,close);
-        const form=document.createElement('form');form.className='ux-inline-form ux-search-row';const search=document.createElement('input');search.type='search';search.className='form-input';search.placeholder='Buscar por nombre o código';search.setAttribute('aria-label',search.placeholder);const find=document.createElement('button');find.type='submit';find.className='btn';find.textContent='Buscar';form.append(search,find);
+        const form=document.createElement('form');form.className='ux-inline-form ux-search-row';const search=document.createElement('input');search.type='search';search.className='form-input';search.placeholder='Buscar por nombre o código';search.setAttribute('aria-label',search.placeholder);const find=document.createElement('button');find.type='submit';find.className='btn';find.textContent='Buscar';if(compact) this.labeledAction(find,'Buscar','search');form.append(search,find);
         const list=document.createElement('div');list.className='ux-selector-results';const pager=document.createElement('div');pager.className='ux-pagination';let offset=0,nonce=0;
         const refresh=async()=>{const request=++nonce;list.textContent='Cargando…';const data=await load(search.value,offset);if(request!==nonce || !dialog.open)return;list.replaceChildren();if(!data.rows.length)list.textContent='No hay coincidencias.';
             this.selectionTable(list,{rows:data.rows,selected:new Set([selected]),label:title,choose:async row=>{await choose(row);dialog.close();}});
-            pager.replaceChildren();const previous=document.createElement('button');previous.type='button';previous.className='btn';previous.textContent='Anterior';previous.disabled=!offset;previous.addEventListener('click',window.SicratFeedback.guard(async()=>{offset=Math.max(0,offset-25);await refresh();}));const next=document.createElement('button');next.type='button';next.className='btn';next.textContent='Siguiente';next.disabled=!data.pagination.has_more;next.addEventListener('click',window.SicratFeedback.guard(async()=>{offset+=25;await refresh();}));const page=document.createElement('span');page.textContent='Página '+(offset/25+1);pager.append(previous,page,next);
+            pager.replaceChildren();pager.hidden=!offset && !data.pagination.has_more;const previous=document.createElement('button');previous.type='button';previous.className='btn';previous.textContent='Anterior';previous.disabled=!offset;previous.addEventListener('click',window.SicratFeedback.guard(async()=>{offset=Math.max(0,offset-25);await refresh();}));const next=document.createElement('button');next.type='button';next.className='btn';next.textContent='Siguiente';next.disabled=!data.pagination.has_more;next.addEventListener('click',window.SicratFeedback.guard(async()=>{offset+=25;await refresh();}));const page=document.createElement('span');page.textContent='Página '+(offset/25+1);pager.append(previous,page,next);
         };
         let timer;search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>{offset=0;window.SicratFeedback.guard(refresh)();},300);});dialog.addEventListener('close',()=>clearTimeout(timer),{once:true});
         form.addEventListener('submit',window.SicratFeedback.guard(async()=>{offset=0;await refresh();}));dialog.append(header,form,list,pager);document.querySelector('main').append(dialog);dialog.addEventListener('close',()=>{nonce++;dialog.remove();},{once:true});this.dialog(dialog);dialog.showModal();search.focus();await refresh();

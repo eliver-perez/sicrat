@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Core\Service;
 use App\Auth\Authorization;
 use App\Repositories\PersonsRepository;
+use App\Repositories\PersonMapRepository;
 use App\Repositories\OrganizationsRepository;
 use App\Repositories\SectionsRepository;
 use App\Repositories\SettingsRepository;
@@ -120,36 +121,13 @@ class PersonsService extends Service
                 'pagination'=>\App\Core\Pagination::response($result['rows'],25,$page),
             ];
         }
-        $data = [];
-        foreach (['south'=>90,'north'=>90,'west'=>180,'east'=>180] as $key=>$bound) {
-            $value = filter_var($query[$key] ?? null, FILTER_VALIDATE_FLOAT);
-            if ($value === false || abs($value)>$bound) throw new InvalidArgumentException('La zona del mapa no es válida.');
-            $data[$key] = $value;
-        }
-        if ($data['south']>$data['north'] || $data['west']>$data['east']) throw new InvalidArgumentException('La zona del mapa no es válida.');
-        $data['rows'] = max(1,min(16,(int)($query['rows'] ?? 8)));
-        $data['columns'] = max(1,min(24,(int)($query['columns'] ?? 12)));
-        $data['list'] = $view === 'people';
-        $data['offset'] = max(0,(int)($query['offset'] ?? 0));
+        $data = PersonMapRepository::viewport($query);
         $data['search'] = $this->normalizeOptionalText($query['search'] ?? null);
         if (mb_strlen($data['search'] ?? '')>200) throw new InvalidArgumentException('La búsqueda no puede exceder 200 caracteres.');
         $section = $this->normalizeOptionalText($query['section'] ?? null);
         $data['section'] = !$section || $section==='N/A' ? null : $this->uuidStringToBinary($section);
         $rows = $this->personsRepository->mapRows($data,$organization,$process,$structureScope);
-        $more = $data['list'] && count($rows)>25;
-        if ($more) array_pop($rows);
-        $points = [];
-        foreach ($rows as $row) {
-            $point = ['latitude'=>(float)$row['latitude'],'longitude'=>(float)$row['longitude'],'count'=>(int)$row['quantity']];
-            if ($point['count']===1) {
-                $point += ['id'=>$this->uuidBinaryToString($row['uuid']),'name'=>$row['name'],'code'=>$row['code'],'section'=>$row['section']];
-                if ($structureScope) $point['level'] = $row['level_name'];
-            } else {
-                $point['bounds'] = array_map('floatval',array_intersect_key($row,array_flip(['south','north','east','west'])));
-            }
-            $points[] = $point;
-        }
-        return ['points'=>$points,'has_more'=>$more];
+        return PersonMapRepository::result($rows,$data['list'],['name','code','section','level']);
     }
 
     public function create(array $data): ?array {

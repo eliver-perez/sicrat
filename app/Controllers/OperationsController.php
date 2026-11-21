@@ -121,6 +121,8 @@ class OperationsController extends Controller
 	}
 	public function indicators(Request $request,Response $response): void { $response->success((new GoalService($this->repository))->indicators()); }
 	public function transportSummary(Request $request,Response $response): void { $response->success((new TransportService($this->repository))->summary($request->query())); }
+	public function transportMap(Request $request,Response $response): void { $response->success((new TransportService($this->repository))->map($request->query())); }
+	public function transportCoordinators(Request $request,Response $response): void { $response->success((new TransportService($this->repository))->coordinators($request->query())); }
 	public function contacts(Request $request,Response $response): void { $response->success((new MessagingService($this->repository))->contacts($request->query())); }
 	public function policy(Request $request,Response $response): void { $response->success((new MessagingService($this->repository))->policy($request->query(),$request->method()==='PUT' ? $request->input() : null)); }
 	public function outgoing(Request $request,Response $response): void { $response->success(['id'=>(new MessagingService($this->repository))->outgoing($request->input())],'Comunicación autorizada en cola.',202); }

@@ -1,5 +1,5 @@
 'use strict';
-window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
+window.SicratPointsMap = ({canvas, status: notice, filters, query, select, describe, actions}) => {
     let map, layer, request, timer, generation = 0, active = false, fittingPopup = false;
     let suspended, needsRefresh = false;
     const text = (tag,value,css) => SicratPhase3.text(tag,value,css);
@@ -14,9 +14,9 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
         box.append(text('strong',person.name), text('small',[person.code,person.section != null && 'Sección '+String(person.section).padStart(4,'0'),person.level].filter(Boolean).join(' · ')));
         return box;
     }
-    function showPerson(id, marker) {
+    function perform(action, marker) {
         const selection = suspended = {marker};
-        Promise.resolve(select(id)).catch(() => { if (suspended === selection) resume(); });
+        Promise.resolve().then(action).catch(() => { if (suspended === selection) resume(); });
     }
     function render(point, version, filterValues) {
         const group = point.count>1;
@@ -25,10 +25,10 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
         const marker = L.marker([point.latitude,point.longitude],{icon,title}).addTo(layer);
         marker.recordKey = group ? Object.values(point.bounds).join(',') : point.id;
         marker.bindTooltip(group ? text('span',title) : personInfo(point));
-        const popup = group ? text('div',title,'person-popup') : personInfo(point);
+        const popup = group ? text('div',title,'person-popup') : (describe || personInfo)(point);
         if (group) {
             const bounds = point.bounds;
-            if (map.getZoom()<map.getMaxZoom()) popup.append(button('Acercar',()=>{
+            if (map.getZoom()<map.getMaxZoom() && (!actions || bounds.south!==bounds.north || bounds.west!==bounds.east)) popup.append(button('Acercar',()=>{
                 const area = L.latLngBounds([bounds.south,bounds.west],[bounds.north,bounds.east]);
                 map.setView(area.getCenter(),Math.min(19,Math.max(map.getZoom()+1,map.getBoundsZoom(area))),{animate:false});
             }));
@@ -43,9 +43,15 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
                     marker.peopleOffset = offset;
                     people.replaceChildren();
                     response.data.points.forEach(person => {
-                        const item = button('',()=>showPerson(person.id,marker));
-                        item.append(personInfo(person));
-                        people.append(item);
+                        if (actions) {
+                            const item = (describe || personInfo)(person);
+                            actions(item,person,action=>perform(action,marker));
+                            people.append(item);
+                        } else {
+                            const item = button('',()=>perform(()=>select(person.id),marker));
+                            item.append(personInfo(person));
+                            people.append(item);
+                        }
                     });
                     if (offset) people.append(button('Anterior',()=>load(offset-25)));
                     if (response.data.has_more) people.append(button('Siguiente',()=>load(offset+25)));
@@ -54,8 +60,11 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
             }
             marker.loadPeople = load;
             popup.append(button('Ver personas',()=>load(0)),people);
-        } else popup.append(button('Abrir ficha',()=>showPerson(point.id,marker)));
-        marker.bindPopup(popup,{maxWidth:240,minWidth:120,maxHeight:200,autoPanPadding:[12,12]});
+        } else if (actions) actions(popup,point,action=>perform(action,marker));
+        else popup.append(button('Abrir ficha',()=>perform(()=>select(point.id),marker)));
+        const maxWidth = Math.max(120,Math.min(240,canvas.clientWidth-52));
+        const padding = actions ? [12,80] : [12,12];
+        marker.bindPopup(popup,{maxWidth,minWidth:120,maxHeight:200,autoPanPaddingTopLeft:padding,autoPanPaddingBottomRight:[12,12]});
         marker.on('popupopen',()=>marker.closeTooltip());
         marker.on('tooltipopen',()=>{ if (marker.isPopupOpen()) marker.closeTooltip(); });
         return marker;
@@ -65,7 +74,7 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
         if (suspended) { needsRefresh = true; return; }
         clearTimeout(timer);
         const version = ++generation;
-        request?.abort();
+        request?.abort?.();
         const selected = previousMarker || (keepPopup ? layer.getLayers().find(marker=>marker.isPopupOpen()) : null);
         fittingPopup = false;
         if (!selected) layer.clearLayers();
@@ -99,7 +108,7 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
                 if (version===generation) {
                     if (suspended) { needsRefresh = true; return; }
                     layer.clearLayers();
-                    status(error.responseJSON?.message || 'No fue posible cargar las ubicaciones.');
+                    status(error.responseJSON?.message || error.message || 'No fue posible cargar las ubicaciones.');
                 }
             }
         },180);
@@ -127,7 +136,10 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
             map.on('dragstart zoomstart',()=>{fittingPopup=false;});
             refresh();
         } catch (error) {
-            if (version===generation) status(error.responseJSON?.message || 'No fue posible cargar el mapa.');
+            if (version===generation) {
+                active = false;
+                status(error.responseJSON?.message || error.message || 'No fue posible cargar el mapa.');
+            }
         }
     }
     function resume() {
@@ -141,7 +153,7 @@ window.SicratPointsMap = ({canvas, status: notice, filters, query, select}) => {
         active = false;
         generation++;
         clearTimeout(timer);
-        request?.abort();
+        request?.abort?.();
         fittingPopup = needsRefresh = false;
         suspended = null;
         map?.remove();

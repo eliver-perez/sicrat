@@ -33,7 +33,14 @@ final class Exports
 	{
 		if (!in_array($type,self::TYPES,true)) return [];
 		$clean=[];
-		if ($type==='transporte' && ($filters['structure'] ?? '')!=='') $clean['structure']=Values::uuidText(Values::binary($filters['structure']));
+		if ($type==='transporte') {
+			if (($filters['structure'] ?? '')!=='') $clean['structure']=Values::uuidText(Values::binary($filters['structure']));
+			if (($filters['section_number'] ?? '')!=='') $clean['section_number']=TransportService::sectionNumber($filters['section_number']);
+			if (($filters['coordination'] ?? '')!=='') $clean['coordination']=Catalog::choice($filters['coordination'],['pendiente','coordinada']);
+			if (($filters['coordinator'] ?? '')!=='') {
+				$clean['coordinator']=$filters['coordinator']==='none' ? 'none' : Values::uuidText(Values::binary($filters['coordinator']));
+			}
+		}
 		if ($type==='encuestas_resultados') $clean['survey']=Values::uuidText(Values::binary($filters['survey'] ?? null));
 		foreach (['from','to'] as $date) if (($filters[$date] ?? '')!=='') $clean[$date]=Values::date($filters[$date]);
 		if (($filters['state'] ?? '')!=='') $clean['state']=Values::text($filters['state'],24);
@@ -66,7 +73,7 @@ final class Exports
 		}
 		if ($type==='transporte') {
 			[$where,$scopeParams]=(new TransportService($repository))->criteria([...$filters,'process'=>$process],$actor); [$export,$exportParams]=self::personScope($repository,$process,$extra,$actor);
-			$sql="SELECT pp.id source_id,p.codigo_persona,CONCAT_WS(' ',p.nombre,p.paterno,p.materno) persona,pp.necesidad_transporte necesidad,CONCAT_WS(' ',co.nombre,co.paterno,co.materno) coordinador,COALESCE(t.proveedor_externo,CONCAT_WS(' ',provider.nombre,provider.paterno,provider.materno)) proveedor,t.observaciones_logisticas FROM personas_procesos pp JOIN personas p ON p.id=pp.persona LEFT JOIN transporte t ON t.persona_proceso=pp.id LEFT JOIN personas co ON co.id=t.coordinador LEFT JOIN personas provider ON provider.id=t.proveedor WHERE ($where) AND ($export)";
+			$sql="SELECT pp.id source_id,p.codigo_persona,CONCAT_WS(' ',p.nombre,p.paterno,p.materno) persona,pp.necesidad_transporte necesidad,CONCAT_WS(' ',co.nombre,co.paterno,co.materno) coordinador,COALESCE(NULLIF(t.proveedor_externo,''),CONCAT_WS(' ',provider.nombre,provider.paterno,provider.materno)) proveedor,t.observaciones_logisticas FROM personas_procesos pp JOIN personas p ON p.id=pp.persona LEFT JOIN transporte t ON t.persona_proceso=pp.id LEFT JOIN personas co ON co.id=t.coordinador LEFT JOIN personas provider ON provider.id=t.proveedor WHERE ($where) AND ($export)";
 			$params=[...$scopeParams,...$exportParams]; $source='pp.id';
 		} else {
 			[$where,$params]=$guard->predicate($entity,$process,$business,$actor); [$extraScope,$extraParams]=$guard->predicate($entity,$process,$extra,$actor); $where.=" AND ($extraScope)"; $params=[...$params,...$extraParams];

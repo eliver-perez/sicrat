@@ -42,7 +42,7 @@
 #person-consult section.ux-full { grid-column:1/-1 }
 #person-consult .person-location-preview { height:clamp(160px,32dvh,220px) }
 .person-view-switch { position:relative; flex-shrink:0; margin-inline-start:auto }
-#persons-view-menu {
+.person-view-menu {
     position:absolute;
     inset-inline-end:0;
     top:calc(100% + .35rem);
@@ -54,8 +54,8 @@
     background:var(--color-card,var(--color-default-50));
     box-shadow:0 .35rem 1.25rem #0002;
 }
-#persons-view-menu button { width:100%; justify-content:flex-start; gap:.45rem }
-#persons-view-menu button:is(:hover,[aria-checked=true]) { background:var(--color-default-100) }
+.person-view-menu button { width:100%; justify-content:flex-start; gap:.45rem }
+.person-view-menu button:is(:hover,[aria-checked=true]) { background:var(--color-default-100) }
 .person-view-check { margin-inline-start:auto; visibility:hidden; color:var(--color-primary) }
 [aria-checked=true] > .person-view-check { visibility:visible }
 .person-overview-canvas { height:clamp(240px,52dvh,560px); width:100%; isolation:isolate; border-radius:.5rem }
