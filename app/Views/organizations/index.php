@@ -18,8 +18,8 @@
                                 <div class="min-w-full inline-block align-middle">
                                     <div class="overflow-y-auto min-h-[480px] max-h-[480px]">
                                         <table id="table-organizations" class="min-w-full divide-y divide-default-200 dark:divide-white/14">
-                                            <thead class="bg-default-150">
-                                                <tr class="text-default-600">
+                                            <thead>
+                                                <tr>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Organización</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Representante</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Activo</th>
@@ -95,8 +95,8 @@
                                 <div class="min-w-full inline-block align-middle">
                                     <div class="overflow-y-auto min-h-[480px] max-h-[480px]">
                                         <p class="p-3 ux-help">Selecciona «Ver elecciones» en una organización para consultar sus procesos.</p><table id="table-electoral-process" class="min-w-full divide-y divide-default-200 dark:divide-white/14">
-                                            <thead class="bg-default-150">
-                                                <tr class="text-default-600">
+                                            <thead>
+                                                <tr>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Proceso</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Tipo</th>
                                                     <th scope="col" class="px-3.5 py-3 text-start text-sm font-medium">Carácter</th>

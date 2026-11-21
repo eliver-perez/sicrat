@@ -158,8 +158,8 @@ function InitializeValues(url) {
         const category = row => visual.label(catalog.get(row.permission).module || row.permission.split('.')[0]);
         const rows = configured.filter(row => catalog.has(row.permission) && title(row.permission).toLocaleLowerCase().includes(search) && (value === '' || String(row.value) === value));
         if (!rows.length) { target.append(ui.text('p','Sin permisos configurados que coincidan con la búsqueda.','ux-help')); return; }
-        const table = document.createElement('table'); const head = document.createElement('tr');
-        ['Permiso','Estado','Alcance','Origen'].forEach(label => head.append(ui.text('th',label))); table.append(head);
+        const table = document.createElement('table'); const head = table.createTHead().insertRow();
+        ['Permiso','Estado','Alcance','Origen'].forEach(label => head.append(ui.text('th',label)));
         let group, section;
         rows.sort((a,b)=>category(a).localeCompare(category(b),'es')).forEach(row => {
             if (group!==category(row)) {

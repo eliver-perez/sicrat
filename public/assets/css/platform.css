@@ -62,7 +62,8 @@ main label > .form-input, dialog label > .form-input { margin-top: .35rem; }
 main h6, dialog h6 { font-size: 1.05rem; font-weight: 600; }
 main table { width: 100%; border-collapse: collapse; }
 main th, main td { padding: .75rem 1rem; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--color-default-200, #e2e8f0); }
-main th { background: var(--color-default-100, #f1f5f9); font-weight: 600; white-space: nowrap; }
+main th { font-weight: 600; white-space: nowrap; }
+main tbody th { background: var(--color-default-100, #f1f5f9); }
 main td { font-size: .875rem; }
 main tbody tr:hover { background: var(--color-default-50, #f8fafc); }
 main .card-header { gap: 1rem; flex-wrap: wrap; }
@@ -77,9 +78,9 @@ main .max-h-\[480px\] { max-height: 28rem; }
 .ux-breadcrumb, .ux-footer-detail { display: flex; }
 @media (max-width: 767px) { .ux-breadcrumb, .ux-footer-detail { display: none; } }
 .ux-tabs { display: flex; flex-wrap: wrap; gap: .25rem; border-bottom: 1px solid var(--color-default-200, #e2e8f0); margin-bottom: 1.25rem; padding-bottom: .25rem; }
-.ux-tabs [role="tab"] { padding: .45rem .7rem; border-bottom: 2px solid transparent; font-weight: 500; border-radius: .375rem .375rem 0 0; }
-.ux-tabs [role="tab"]:hover { background: var(--color-default-100, #f1f5f9); }
-.ux-tabs [role="tab"].active { border-color: var(--color-primary, #2563eb); color: var(--color-primary, #2563eb); background: var(--color-primary-50, #eff6ff); }
+.ux-tabs :is([role="tab"],a) { padding: .45rem .7rem; border-bottom: 2px solid transparent; font-weight: 500; border-radius: .375rem .375rem 0 0; }
+.ux-tabs :is([role="tab"],a):hover { background: var(--color-default-100, #f1f5f9); }
+.ux-tabs :is([role="tab"].active,a[aria-current="page"]) { border-color: var(--color-primary, #2563eb); color: var(--color-primary, #2563eb); background: var(--color-primary-50, #eff6ff); }
 .ux-form-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
 .ux-form-grid .ux-actions, .ux-form-grid .ux-full { grid-column: 1 / -1; }
 .ux-actions { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-top: .75rem; }
@@ -125,7 +126,7 @@ main .max-h-\[480px\] { max-height: 28rem; }
     main form .grid > [class*="col-span"] { grid-column: 1 / -1; }
     #person-edit-fields, #person-import-columns { grid-template-columns: minmax(0, 1fr); }
     main .flex.gap-3:not(.ux-tabs) { flex-wrap: wrap; }
-    .ux-tabs [role="tab"] { padding: .6rem .65rem; font-size: .875rem; }
+    .ux-tabs :is([role="tab"],a) { padding: .6rem .65rem; font-size: .875rem; }
     .ux-description { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -214,7 +215,7 @@ dialog form.ux-modal-form > label:has(textarea) { grid-column:1 / -1; }
 /* One compact, touch/keyboard-selectable grid for shared record pickers. */
 .ux-selection-scroll{overflow:auto;max-height:min(24rem,50dvh);margin:.75rem 0;border:1px solid var(--color-default-200,#e2e8f0);border-radius:.5rem;display:block}
 .ux-selection-table{width:100%;table-layout:fixed;border-collapse:collapse}
-.ux-selection-table th{position:sticky;top:0;z-index:1;background:var(--color-default-100,#f1f5f9)}
+.ux-selection-table th{position:sticky;top:0;z-index:1}
 .ux-selection-table :is(th,td){padding:.7rem!important;text-align:left;overflow-wrap:anywhere;white-space:normal;min-width:0!important}
 .ux-selection-table .ux-selection-mark{width:3rem;text-align:center}
 .ux-selection-table .ux-selection-actions{width:7rem}

@@ -1,14 +1,8 @@
-/* El azul marino del logotipo se reserva para encabezados, selección y navegación. */
 :root {
-    --operation-navy:#022249;
-    --operation-slate:#263b52;
-    --operation-heading:var(--operation-navy);
-    --operation-on-heading:#f6f9fc;
-    --operation-accent:var(--operation-navy);
+    --operation-accent:var(--sicrat-brand-dark);
     --operation-selection:#eaf0f6;
 }
 [data-theme="dark"] {
-    --operation-heading:var(--operation-slate);
     --operation-accent:#bfd5e7;
     --operation-selection:#253649;
 }
@@ -55,16 +49,6 @@ h4:has(> .operation-title-icon) {
 .operation-filters label, .transport-picker > span { font-size:.875rem; font-weight:600 }
 .operation-filter-actions { display:flex; flex-wrap:wrap; gap:.5rem }
 .operation-toolbar :is(.operation-filter-actions .btn,.person-view-switch > .btn,.transport-picker-controls > .btn) { min-height:2.45rem }
-#operations-root > .ux-tabs .btn[aria-current="page"] {
-    background:var(--operation-heading);
-    border-color:var(--operation-heading);
-    color:var(--operation-on-heading);
-}
-#operation-detail-tabs [role="tab"].active {
-    background:var(--operation-selection);
-    border-color:var(--operation-accent);
-    color:var(--operation-accent);
-}
 #operations-root .op-table-scroll {
     position:relative;
     border:1px solid var(--color-default-200);
@@ -72,9 +56,6 @@ h4:has(> .operation-title-icon) {
 }
 #operations-root .op-table-scroll thead th,
 main:has(#operations-root) .ux-entity-selector .ux-selection-table thead th {
-    background:var(--operation-heading);
-    border-bottom-color:var(--operation-heading);
-    color:var(--operation-on-heading);
     font-size:.8125rem;
 }
 #operations-root .op-table-scroll tbody tr:hover { background:var(--color-default-100) }

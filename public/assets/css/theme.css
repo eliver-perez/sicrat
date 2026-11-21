@@ -1,5 +1,12 @@
 /* Shared palette: existing Tailwick variables also drive the custom modules. */
+/* Los encabezados de columna comparten la misma superficie en tablas estáticas y dinámicas. */
+:root {
+    --sicrat-brand-dark:#022249;
+    --sicrat-table-heading-bg:var(--sicrat-brand-dark);
+    --sicrat-table-heading-text:#f6f9fc;
+}
 html[data-theme="dark"] {
+    --sicrat-table-heading-bg:#263b52;
     color-scheme:dark;
     --color-card:#182433;--color-default-50:#111c2a;--color-default-100:#1e2c3d;--color-default-150:#253448;
     --color-default-200:#334155;--color-default-300:#475569;--color-default-400:#94a3b8;
@@ -15,13 +22,19 @@ html[data-theme="dark"] :is(input,textarea)::placeholder{color:#94a3b8;opacity:1
 html[data-theme="dark"] option{background:#182433;color:#e2e8f0}
 html[data-theme="dark"] :is(main,dialog) :is(.bg-white,.bg-gray-50,.bg-slate-50){background-color:var(--color-card)}
 html[data-theme="dark"] :is(main,dialog) :is(th,td){border-color:#334155}
-html[data-theme="dark"] :is(main,dialog) th{background:#1e2c3d;color:#e2e8f0}
+html[data-theme="dark"] :is(main,dialog) tbody th{background:var(--color-default-100);color:var(--color-default-800)}
+:is(main,dialog) table > thead,
+:is(main,dialog) table > thead > tr > th {
+    background-color:var(--sicrat-table-heading-bg);
+    color:var(--sicrat-table-heading-text);
+}
+:is(main,dialog) table > thead > tr > th { font-weight:600 }
 html[data-theme="dark"] :is(main,dialog) tbody tr:hover{background:#253448}
 html[data-theme="dark"] .ux-badge-success{background:#12392d;color:#a7f3d0}
 html[data-theme="dark"] .ux-badge-danger{background:#481e2b;color:#fecdd3}
 html[data-theme="dark"] :is(.btn:not(.bg-primary):not(.bg-danger),.ux-chat-icon){background-color:#253448;color:#e2e8f0;border-color:#475569}
 html[data-theme="dark"] :is(.btn:not(.bg-primary):not(.bg-danger)):hover{background:#334155}
-html[data-theme="dark"] :is(.ux-tabs [role=tab].active,.ux-choice:has(input:checked)){background:#16374b;color:#7dd3fc}
+html[data-theme="dark"] :is(.ux-tabs :is([role=tab].active,a[aria-current=page]),.ux-choice:has(input:checked)){background:#16374b;color:#7dd3fc}
 html[data-theme="dark"] .swal2-validation-message{background:#253448;color:#fecdd3}
 html[data-theme="dark"] .swal2-close{color:#cbd5e1}
 html[data-theme="dark"] .swal2-input,html[data-theme="dark"] .swal2-textarea{background:#111c2a;color:#e2e8f0;border-color:#475569}

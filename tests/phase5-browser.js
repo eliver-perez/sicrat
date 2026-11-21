@@ -80,5 +80,6 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) 
     await navigate('/persons/');await waitFor('document.getElementById("person-detail")!==null');
     await evaluate(`openPerson(${JSON.stringify(fixtures.people[0])})`);await waitFor('document.getElementById("person-detail").open && document.getElementById("person-operational-activity").textContent.includes("Actividad cronológica") && document.querySelectorAll("#person-operational-activity table tr").length>1');checks++;
     verify(await evaluate('document.getElementById("person-operational-activity").textContent.includes("Logística de la participación")'),'Ficha de Personas incorpora logística sin sustituir identidad');await capture('person-timeline-desktop');
+    checks+=await require('./table-headings-browser.js')({call,evaluate,waitFor,navigate,directory,fixtures});
     console.log('Fase 5 Chrome: '+checks+' comprobaciones correctas.');return checks;
 };

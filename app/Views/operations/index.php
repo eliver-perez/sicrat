@@ -11,7 +11,7 @@
 <div id="operations-root" data-entity="<?= escape_html($operationEntity); ?>">
 	<?php if ($related) { ?><nav class="ux-tabs" aria-label="Módulos relacionados">
 	<?php foreach ($related as $entity) { if (!$session->verifyUserRights([$entity.'.ver'])) continue; ?>
-		<a class="btn" href="<?= escape_html(base_url('/operations/?module='.$entity)); ?>" <?= $entity===$operationEntity ? 'aria-current="page"' : ''; ?>><i data-lucide="<?= escape_html($icons[$entity]); ?>" class="size-4" aria-hidden="true"></i><?= escape_html(\App\Services\Operations\Catalog::entity($entity)['title']); ?></a>
+		<a class="inline-flex items-center gap-2" href="<?= escape_html(base_url('/operations/?module='.$entity)); ?>" <?= $entity===$operationEntity ? 'aria-current="page"' : ''; ?>><i data-lucide="<?= escape_html($icons[$entity]); ?>" class="size-4" aria-hidden="true"></i><?= escape_html(\App\Services\Operations\Catalog::entity($entity)['title']); ?></a>
 	<?php } ?></nav><?php } ?>
 	<p id="operations-message" class="mb-4 text-primary" role="status" aria-live="polite"></p>
 	<?php if (!\App\Core\Auth::processId()) { ?><div class="card p-5"><p>Selecciona una elección de trabajo en el encabezado para consultar este módulo.</p></div><?php } else { ?>

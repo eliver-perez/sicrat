@@ -63,8 +63,6 @@ window.SicratJornadaUI = {
     form(app, target, title, builder, submit, label = 'Guardar', icon = 'save') {
         const form = app.form(target, title, builder, submit, label);
         form.classList.add('jornada-form');
-        const heading = form.querySelector(':scope > h6');
-        if (!title) heading.remove();
         const button = form.querySelector(':scope > button[type="submit"]');
         this.decorate(button, icon);
         const footer = app.text('div', '', 'ux-modal-footer jornada-form-actions');

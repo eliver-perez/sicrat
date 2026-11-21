@@ -14,6 +14,8 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
     async function size(width,height){await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<500});await pause(200);}
     async function bounds(label){verify(await evaluate('document.documentElement.scrollWidth<=innerWidth+2'),label+': sin desbordamiento horizontal');}
     await login('administrador',' nueva contraseña ');
+    await evaluate('document.getElementById("jornada-tab-dashboard").click()');
+    checks+=await require('./table-headings-browser.js').review({call,evaluate,waitFor,directory},'jornada','#jornada-candidate-table table');
     for(const [width,height,name] of [[1600,1000,'desktop'],[820,1024,'tablet'],[390,844,'mobile']]) {
         await size(width,height);await evaluate('document.getElementById("jornada-summary-filter").elements.modo.value="validado";document.getElementById("jornada-tab-dashboard").click()');await waitFor('document.getElementById("jornada-summary-legend").textContent.startsWith("Validado interno") && document.querySelector("#jornada-candidate-chart svg")');
         verify(await evaluate('document.getElementById("jornada-summary-legend").textContent.includes("Validado interno")'),'Concentrado validado identificado');await bounds(name+' dashboard');await screenshot('dashboard-'+name);
@@ -21,6 +23,7 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
         await evaluate('document.getElementById("jornada-tab-configuration").click()');await waitFor('document.getElementById("jornada-acta-preview")');
         verify(await evaluate('document.getElementById("jornada-acta-preview").textContent.indexOf("PAN")<document.getElementById("jornada-acta-preview").textContent.indexOf("PRI")'),'Vista previa respeta orden del acta');
         verify(await evaluate('!document.getElementById("jornada-config-form")'),'Configuración capturada se presenta protegida, sin formulario inutilizable');
+        await waitFor('document.querySelector("#jornada-assign-form .jornada-selection-summary")');
         verify(await evaluate('document.getElementById("jornada-assign-form")?.querySelectorAll("select[multiple]").length===2'),'Selección múltiple de capturistas y casillas');await bounds(name+' configuración');await screenshot('configuration-'+name);
         verify(await evaluate(`!!document.querySelector('#jornada-booth-territories select[aria-label="Capturista asignado"]')`),'Casillas permite filtrar por capturista autorizado');
         await evaluate(`SicratJornada.open(${JSON.stringify(fixtures.booths[0])})`);await waitFor('document.getElementById("jornada-booth-dialog").open');

@@ -11,7 +11,29 @@ window.InitializePersonOperations = async function (uuid,base) {
 		const section=node('section','');section.className='ux-section';section.append(node('h6','Actividad cronológica de la elección actual'));root.append(section);
 		const list=node('div','');const controls=node('div','');controls.className='ux-pagination';let offset=0,hasMore=false;section.append(list,controls);
 		const previous=node('button','Anterior');previous.type='button';previous.className='btn';const next=node('button','Siguiente');next.type='button';next.className='btn';controls.append(previous,next);
-		async function load(){const result=await api('persons/'+uuid+'/activity?limit=25&offset='+offset);if(sequence!==window.InitializePersonOperations.sequence)return;list.replaceChildren();if(!result.rows.length)list.append(node('p','Sin actividad autorizada en esta elección.'));else{const wrapper=node('div','');wrapper.className='op-table-scroll';const table=node('table','');const header=node('tr','');['Fecha','Actividad','Detalle'].forEach(label=>header.append(node('th',label)));table.append(header);result.rows.forEach(row=>{const line=node('tr','');line.append(node('td',row.fecha),node('td',window.SicratUI.label(row.tipo)),node('td',row.titulo));table.append(line);});wrapper.append(table);list.append(wrapper);}hasMore=!!result.pagination.has_more;previous.disabled=offset===0;next.disabled=!hasMore;}
+		async function load() {
+			const result = await api('persons/'+uuid+'/activity?limit=25&offset='+offset);
+			if (sequence !== window.InitializePersonOperations.sequence) return;
+			list.replaceChildren();
+			if (result.rows.length) {
+				const wrapper=node('div','');
+				wrapper.className='op-table-scroll';
+				const table=node('table','');
+				const header=table.createTHead().insertRow();
+				for (const label of ['Fecha','Actividad','Detalle']) header.append(node('th',label));
+				const body=table.createTBody();
+				for (const row of result.rows) {
+					body.insertRow().append(node('td',row.fecha),node('td',window.SicratUI.label(row.tipo)),node('td',row.titulo));
+				}
+				wrapper.append(table);
+				list.append(wrapper);
+			} else {
+				list.append(node('p','Sin actividad autorizada en esta elección.'));
+			}
+			hasMore=!!result.pagination.has_more;
+			previous.disabled=offset===0;
+			next.disabled=!hasMore;
+		}
 		function run(work){return event=>{event.preventDefault();work().catch(error=>section.append(node('p',error.message)));};}previous.addEventListener('click',run(async()=>{offset=Math.max(0,offset-25);await load();}));next.addEventListener('click',run(async()=>{if(hasMore)offset+=25;await load();}));await load();
 		const capabilities=await api('operations/capabilities');if(sequence!==window.InitializePersonOperations.sequence)return;
 		if(capabilities.modules.some(module=>module.code==='transporte' && module.enabled) && (me.is_superadmin || me.rights.includes('transporte.ver'))){

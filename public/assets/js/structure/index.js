@@ -427,9 +427,9 @@ function InitializeValues(url) {
         const target = element('structure-list-content');
         let body = target.querySelector('tbody');
         if (!body && response.data.length) {
-            const table = document.createElement('table'); const header = document.createElement('tr');
+            const table = document.createElement('table'); const header = table.createTHead().insertRow();
             ['Fecha','Actividad','Estado','Motivo','Acciones'].forEach(label => header.append(ui.text('th',label)));
-            body = document.createElement('tbody'); table.append(header,body); target.append(table);
+            body = table.createTBody(); target.append(table);
         }
         if (!response.data.length && reset) target.append(ui.text('p','No hay movimientos registrados.','ux-help'));
         response.data.forEach(row => {

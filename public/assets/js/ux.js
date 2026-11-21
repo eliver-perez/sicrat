@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (heading) { if (!heading.id) heading.id = dialog.id + '-title'; dialog.setAttribute('aria-labelledby', heading.id); }
             else dialog.setAttribute('aria-label', 'Detalles y acciones');
         });
-        root.querySelectorAll('table th').forEach(header => header.setAttribute('scope', 'col'));
+        root.querySelectorAll('thead th:not([scope])').forEach(header => header.setAttribute('scope', 'col'));
         root.querySelectorAll('table .btn').forEach(button=>{
             const title=button.textContent.trim();const icon=/^editar$/i.test(title) ? 'pencil' : /^eliminar$/i.test(title) ? 'trash-2' : /^(ver detalle|abrir|ver \/ comparar|consultar)$/i.test(title) ? 'eye' : null;
             if(icon)window.SicratUI.action(button,title,icon);

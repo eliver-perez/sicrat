@@ -109,5 +109,5 @@ $phase3Tokens['phase5-capture']=login('phase5-capture','captura-a',' legacy secr
 phase5Api('tareas','GET',null,'phase5-capture',403);
 verify(request('admin','POST','/api/operations/interacciones',['person'=>$phase5People[0],'result'=>'Sin CSRF'])['status']===403,'CSRF protege los módulos nuevos.');
 require __DIR__.'/phase5-coverage.php';
-file_put_contents($temporaryDirectory.'/phase5-fixtures.json',json_encode(['election'=>$phase5ElectionUuid,'process'=>$phase5Process,'people'=>$phase5People,'accounts'=>$phase5Accounts,'task'=>$phase5Task,'survey'=>$phase5Survey,'event'=>$phase5Event,'petition'=>$phase5Petition,'conversation'=>$phase5Conversation,'transportSection'=>$transportPaddedSection],JSON_PRETTY_PRINT));
+file_put_contents($temporaryDirectory.'/phase5-fixtures.json',json_encode(['election'=>$phase5ElectionUuid,'process'=>$phase5Process,'people'=>$phase5People,'accounts'=>$phase5Accounts,'task'=>$phase5Task,'survey'=>$phase5Survey,'event'=>$phase5Event,'petition'=>$phase5Petition,'conversation'=>$phase5Conversation,'transportSection'=>$transportPaddedSection,'structure'=>$opStructure,'rootMember'=>$opMembers[0]],JSON_PRETTY_PRINT));
 echo 'Fase 5: '.($checks-$phase5Start)." comprobaciones adicionales correctas.\n";
