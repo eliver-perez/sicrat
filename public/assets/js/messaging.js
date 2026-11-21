@@ -11,11 +11,23 @@ window.SicratMessaging={
         const card=app.node('operation-filter').closest('.card');card.before(layout);
         const head=app.text('div','','ux-chat-sidebar-head'),title=app.text('h6','','card-title'),tools=app.text('div','','ux-actions');
         title.append(window.SicratUI.icon('messages-square'),document.createTextNode('Conversaciones'));
-        const newMenu=app.text('details','','ux-chat-menu'),newToggle=app.text('summary');newToggle.append(this.action(app.node('operation-new'),'Nueva conversación','plus'));const choices=app.text('div','','card ux-chat-menu-content');
-        const choose=(kind,label)=>{const button=app.button(label,()=>{newMenu.open=false;app.chatCreateKind=kind;return app.create();});button.id='chat-new-'+kind;choices.append(button);};
-        if(app.can('mensajes.enviar'))choose('direct','Nueva conversación');
-        if(app.can('mensajes.crear_grupos') || app.can('mensajes.crear_grupos_estructura')){choose('group','Nuevo grupo');if(app.can('mensajes.administrar_grupos'))choose('announcement','Nuevo anuncio');}
-        newMenu.append(newToggle,choices);newMenu.hidden=choices.children.length===0;tools.append(newMenu);app.chatNewMenu=newMenu;
+        const newMenu=app.text('details','','ux-chat-menu');
+        const newToggle=this.action(app.text('summary'),'Nueva conversación','plus');
+        app.node('operation-new').remove();
+        newToggle.id='operation-new';
+        const choices=app.text('div','','card ux-chat-menu-content');
+        const choose=(kind,label,icon)=>{
+            const button=app.button(label,()=>{newMenu.open=false;app.chatCreateKind=kind;return app.create();});
+            button.id='chat-new-'+kind;
+            button.className='ux-chat-menu-item';
+            choices.append(window.SicratUI.labeledAction(button,label,icon));
+        };
+        if(app.can('mensajes.enviar'))choose('direct','Nueva conversación','message-square-plus');
+        if(app.can('mensajes.crear_grupos') || app.can('mensajes.crear_grupos_estructura')){
+            choose('group','Nuevo grupo','users');
+            if(app.can('mensajes.administrar_grupos')) choose('announcement','Nuevo anuncio','megaphone');
+        }
+        newMenu.append(newToggle,choices);newMenu.hidden=choices.children.length===0;tools.append(newMenu);
         const menu=app.text('details','','ux-chat-menu'),toggle=app.text('summary','','btn ux-chat-icon');toggle.title='Opciones de mensajería';toggle.setAttribute('aria-label',toggle.title);toggle.append(window.SicratUI.icon('ellipsis'));
         const entries=app.text('div','','card ux-chat-menu-content');entries.append(app.node('operation-settings'),app.node('operation-refresh'),app.node('operation-export'));menu.append(toggle,entries);tools.append(menu);head.append(title,tools);
         const filter=app.node('operation-filter');filter.className='ux-chat-search';const input=filter.elements.search;input.placeholder='Buscar conversación…';input.setAttribute('aria-label','Buscar conversación');input.closest('label').replaceChildren(input);filter.prepend(window.SicratUI.icon('search'));

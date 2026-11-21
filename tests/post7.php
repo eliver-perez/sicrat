@@ -20,7 +20,16 @@ $revisionSection=revisionApi('/api/sections','POST',['section'=>7201,'state'=>1,
 verify(count(revisionApi('/api/sections')['sections'])===1,'Consulta de sección propia.');
 verify(revisionApi('/api/sections/'.$revisionSection,'PUT',['section'=>7202])['seccion']===7202,'Edición real de sección por administrador electoral.');
 $revisionBooth=revisionApi('/api/polling-booths','POST',['section'=>$revisionSection,'name'=>'Básica revisión','type'=>'BASICA','location'=>'Escuela de prueba'])['uuid'];
-verify(revisionApi('/api/polling-booths/'.$revisionBooth,'PUT',['name'=>'Básica editada'])['casilla']==='Básica editada','Edición real de casilla.');
+$updatedBooth=revisionApi('/api/polling-booths/'.$revisionBooth,'PUT',['name'=>'Básica editada']);
+verify($updatedBooth['casilla']==='Básica editada' && $updatedBooth['ubicacion']==='Escuela de prueba','La edición conserva la ubicación histórica.');
+revisionApi('/api/polling-booths/'.$revisionBooth,'PUT',['latitude'=>'25.5'],'revision-admin',422);
+revisionApi('/api/polling-booths/'.$revisionBooth,'PUT',['latitude'=>'91','longitude'=>'-100'],'revision-admin',422);
+$updatedBooth=revisionApi('/api/polling-booths/'.$revisionBooth,'PUT',['latitude'=>'25.5','longitude'=>'-100.25']);
+verify($updatedBooth['ubicacion']==='25.5000000, -100.2500000','Las coordenadas válidas se guardan con precisión estable.');
+phase3Grant($revisionUser,'notificaciones.administrar',$revisionElection,'eleccion',1);
+revisionApi('/api/notification-deliveries');
+revisionApi('/api/notification-config','GET',null,'revision-admin',403);
+revisionApi('/api/notification-config','PUT',['email'=>1,'whatsapp'=>1],'revision-admin',403);
 verify(count(revisionApi('/api/polling-booths?limit=1')['rows'])===1,'Casillas con paginación.');
 $revisionPerson=revisionApi('/api/persons','POST',['organization'=>$organizationIds[0],'name'=>'Persona revisión','section'=>$revisionSection])['id'];revisionApi('/api/persons/'.$revisionPerson.'/participations','POST',['processes'=>[$revisionElection]]);
 phase3Ok('/api/auth/election','POST',['process'=>$revisionOther]);

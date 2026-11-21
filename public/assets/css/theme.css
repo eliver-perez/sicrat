@@ -2,39 +2,58 @@
 /* Los encabezados de columna comparten la misma superficie en tablas estáticas y dinámicas. */
 :root {
     --sicrat-brand-dark:#022249;
-    --sicrat-table-heading-bg:var(--sicrat-brand-dark);
-    --sicrat-table-heading-text:#f6f9fc;
+    --sicrat-brand-light:#728899;
+    --sicrat-primary:var(--sicrat-brand-dark);
+    --sicrat-on-primary:#f6f9fc;
+    --sicrat-table-heading-bg:var(--sicrat-primary);
+    --sicrat-table-heading-text:var(--sicrat-on-primary);
+    --color-primary:var(--sicrat-primary);
+    --color-primary-hbr:color-mix(in srgb,var(--sicrat-primary) 86%,var(--sicrat-on-primary));
+    --color-primary-50:color-mix(in srgb,var(--sicrat-primary) 6%,var(--color-card));
+    --color-primary-100:color-mix(in srgb,var(--sicrat-primary) 14%,var(--color-card));
 }
 html[data-theme="dark"] {
-    --sicrat-table-heading-bg:#263b52;
+    --sicrat-primary:color-mix(in srgb,var(--sicrat-brand-light) 70%,white);
+    --sicrat-on-primary:var(--sicrat-brand-dark);
+    --sicrat-table-heading-bg:var(--sicrat-primary);
     color-scheme:dark;
     --color-card:#182433;--color-default-50:#111c2a;--color-default-100:#1e2c3d;--color-default-150:#253448;
     --color-default-200:#334155;--color-default-300:#475569;--color-default-400:#94a3b8;
     --color-default-500:#a8b8ca;--color-default-600:#b8c5d5;--color-default-700:#cbd5e1;--color-default-800:#e2e8f0;--color-default-900:#f1f5f9;
-    --color-primary-50:#16374b;--color-primary-100:#174663;
     --color-purple-50:#312044;--color-purple-600:#d8b4fe;--color-green-50:#12392d;--color-green-600:#86efac;
     --color-amber-50:#3a2b19;--color-amber-700:#fcd34d;
 }
 html[data-theme="dark"] body{background:#111c2a;color:#e2e8f0}
 html[data-theme="dark"] :is(.card,.app-header,dialog,.hs-dropdown-menu,.swal2-popup){background-color:var(--color-card);color:var(--color-default-800);border-color:var(--color-default-200)}
+html[data-theme="dark"] .ux-metric { border-top-color:var(--metric-accent,var(--sicrat-primary)); }
 html[data-theme="dark"] :is(main,dialog,.app-header,body:has(#form-authenticate)) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background-color:#111c2a;color:#e2e8f0;border-color:#475569}
 html[data-theme="dark"] :is(input,textarea)::placeholder{color:#94a3b8;opacity:1}
 html[data-theme="dark"] option{background:#182433;color:#e2e8f0}
 html[data-theme="dark"] :is(main,dialog) :is(.bg-white,.bg-gray-50,.bg-slate-50){background-color:var(--color-card)}
 html[data-theme="dark"] :is(main,dialog) :is(th,td){border-color:#334155}
 html[data-theme="dark"] :is(main,dialog) tbody th{background:var(--color-default-100);color:var(--color-default-800)}
-:is(main,dialog) table > thead,
-:is(main,dialog) table > thead > tr > th {
+table > thead,
+table > thead > tr > th {
     background-color:var(--sicrat-table-heading-bg);
     color:var(--sicrat-table-heading-text);
 }
-:is(main,dialog) table > thead > tr > th { font-weight:600 }
+table > thead > tr > th { font-weight:600 }
+:is(main,dialog) .btn.bg-primary { color:var(--sicrat-on-primary); }
+:is(main,dialog) .btn.bg-primary:hover { background-color:var(--color-primary-hbr); }
+html[data-theme] .btn.ux-icon-action.ux-accent-action {
+    background:var(--color-primary-50);
+    border-color:var(--color-primary-100);
+    color:var(--sicrat-primary);
+}
+html[data-theme] .btn.ux-icon-action.ux-accent-action:hover { background:var(--color-primary-100); }
 html[data-theme="dark"] :is(main,dialog) tbody tr:hover{background:#253448}
 html[data-theme="dark"] .ux-badge-success{background:#12392d;color:#a7f3d0}
 html[data-theme="dark"] .ux-badge-danger{background:#481e2b;color:#fecdd3}
 html[data-theme="dark"] :is(.btn:not(.bg-primary):not(.bg-danger),.ux-chat-icon){background-color:#253448;color:#e2e8f0;border-color:#475569}
 html[data-theme="dark"] :is(.btn:not(.bg-primary):not(.bg-danger)):hover{background:#334155}
-html[data-theme="dark"] :is(.ux-tabs :is([role=tab].active,a[aria-current=page]),.ux-choice:has(input:checked)){background:#16374b;color:#7dd3fc}
+html[data-theme] .ux-chat-menu .ux-chat-menu-content > .ux-chat-menu-item { color:var(--sicrat-primary); border-color:transparent; background:transparent; }
+html[data-theme] .ux-chat-menu .ux-chat-menu-content > .ux-chat-menu-item:hover { background:var(--color-primary-100); }
+html[data-theme="dark"] :is(.ux-tabs :is([role=tab].active,a[aria-current=page]),.ux-choice:has(input:checked)){background:var(--color-primary-50);color:var(--sicrat-primary)}
 html[data-theme="dark"] .swal2-validation-message{background:#253448;color:#fecdd3}
 html[data-theme="dark"] .swal2-close{color:#cbd5e1}
 html[data-theme="dark"] .swal2-input,html[data-theme="dark"] .swal2-textarea{background:#111c2a;color:#e2e8f0;border-color:#475569}
@@ -53,7 +72,16 @@ html[data-theme="dark"] #app-menu .logo-light{display:block}
 html[data-sidenav-color="dark"] #app-menu .sicrat-brand img{filter:brightness(0) invert(1)}
 html[data-theme="dark"] #app-menu{background:#182433;color:#e2e8f0}
 html[data-theme="dark"] #app-menu .menu-link{color:#cbd5e1}
-html[data-theme="dark"] #app-menu .menu-link:is(:hover,.active){background:#253448;color:#7dd3fc}
+html[data-theme] #app-menu .menu-link:is(:hover,.active),
+html[data-theme] #app-menu .menu-item.active > .menu-link {
+    background:var(--color-primary-50);
+    color:var(--sicrat-primary);
+}
+html[data-theme="light"][data-sidenav-color="dark"] #app-menu .menu-link:is(:hover,.active),
+html[data-theme="light"][data-sidenav-color="dark"] #app-menu .menu-item.active > .menu-link {
+    background:color-mix(in srgb,var(--sicrat-brand-light) 32%,var(--sicrat-brand-dark));
+    color:#f6f9fc;
+}
 .sicrat-session-message{padding:12px;margin:20px 0 0;border:1px solid #fbbf24;border-radius:8px;background:#fffbeb;color:#92400e;text-align:left;font-size:14px;line-height:1.6}
 html[data-theme="dark"] .sicrat-session-message{background:#3a2b19;color:#fde68a;border-color:#92400e}
 html[data-theme="dark"] img.sicrat-brand-icon{filter:brightness(0) invert(1)}

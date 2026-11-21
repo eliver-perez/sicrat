@@ -46,17 +46,22 @@
         return () => { version++; button.disabled = false; };
     }
 
-    function mount(parent, {organization, fields, point, id}) {
+    function mount(parent, {organization, fields, point, id, markerTitle='Ubicación de la persona', controls}) {
         const details = node(fields ? 'details' : 'div','',fields ? 'ux-full ux-section person-map-section' : 'person-map-section');
         const canvas = node('div','','person-location-map');
         canvas.id = id;
         canvas.setAttribute('aria-label',fields ? 'Mapa para seleccionar ubicación' : 'Ubicación registrada');
-        const help = node('p', fields ? 'Toca el mapa o arrastra el marcador para ajustar el punto.' : 'Ubicación registrada.','ux-help');
+        const instructions = fields ? 'Toca el mapa o arrastra el marcador para ajustar el punto.' : 'Ubicación registrada.';
+        const help = node('p',instructions,'ux-help');
         help.setAttribute('role','status');
-        if (fields) details.append(node('summary','Ubicación en mapa (opcional)'));
+        if (fields) {
+            SicratUI.accordion(details,'Ubicación en mapa (opcional)','pin');
+            if (controls) details.append(controls);
+        }
         else canvas.classList.add('person-location-preview');
         const actions = node('div','','person-map-actions');
         const button = node('button','Usar mi ubicación actual','btn');
+        SicratUI.labeledAction(button,button.textContent,'locate-fixed');
         button.type = 'button';
         if (fields && navigator.geolocation) { actions.append(button); details.append(actions); }
         details.append(help,canvas);
@@ -67,10 +72,13 @@
             if (!map) return;
             if (!position) { marker?.remove(); marker = null; return; }
             if (!marker) {
-                marker = L.marker(position,{icon:icon(),draggable:!!fields,autoPan:true,title:'Ubicación de la persona'}).addTo(map);
+                marker = L.marker(position,{icon:icon(),draggable:!!fields,autoPan:true,title:markerTitle}).addTo(map);
                 marker.on('dragend', () => { cancelLocate(); const p=marker.getLatLng().wrap(); place([p.lat,p.lng],true); });
             } else marker.setLatLng(position);
-            if (write) fields.forEach((field,i) => { field.value = position[i].toFixed(7); field.dispatchEvent(new Event('input',{bubbles:true})); });
+            if (write) {
+                help.textContent = instructions;
+                fields.forEach((field,i) => { field.value = position[i].toFixed(7); field.dispatchEvent(new Event('input',{bubbles:true})); });
+            }
         }
         const cancelLocate = locate(button,help,() => !disposed && !!map, position => {
             map.setView(position,16,{animate:false}); place(position,true);
@@ -78,6 +86,7 @@
         });
         function manual() {
             cancelLocate();
+            help.textContent = instructions;
             const position = selected();
             place(position);
             if (position && map) map.setView(position,Math.max(14,map.getZoom()),{animate:false});
@@ -96,7 +105,13 @@
                 const position = selected();
                 map = create(canvas,position || [defaults.latitude,defaults.longitude],position ? 14 : defaults.zoom);
                 place(position);
-                if (fields) map.on('click', e => { cancelLocate(); const p=e.latlng.wrap(); place([p.lat,p.lng],true); });
+                if (fields) {
+                    map.on('click', e => { cancelLocate(); const p=e.latlng.wrap(); place([p.lat,p.lng],true); });
+                    map.on('resize', () => {
+                        const position = marker?.getLatLng();
+                        if (position && canvas.clientWidth && !map.getBounds().contains(position)) map.panTo(position,{animate:false});
+                    });
+                }
                 button.disabled = false;
             } catch { help.textContent = 'No fue posible cargar el mapa.'; }
             finally { loading = false; }
@@ -110,7 +125,22 @@
             fields?.forEach(field => field.removeEventListener('change',manual));
         };
     }
-    window.SicratPersonMap = {ready:()=>import(library), create, mount, icon, coordinates};
+    function mountBooth(parent,location,id) {
+        const parts=String(location || '').split(',');
+        const position=parts.length===2 ? coordinates(parts[0],parts[1]) : null;
+        const controls=node('div','','ux-form-grid');
+        const fields=[['latitude','Latitud',90],['longitude','Longitud',180]].map(([name,label,bound],index)=>{
+            const wrapper=node('label',label);
+            const input=node('input','','form-input');
+            Object.assign(input,{name,type:'number',step:'any',min:String(-bound),max:String(bound),value:position?.[index] ?? ''});
+            wrapper.append(input);
+            controls.append(wrapper);
+            return input;
+        });
+        if (location && !position) controls.append(node('p','Ubicación registrada anteriormente: '+location,'ux-full ux-help'));
+        return mount(parent,{fields,controls,id,markerTitle:'Ubicación de la casilla'});
+    }
+    window.SicratPersonMap = {ready:()=>import(library), create, mount, mountBooth, icon, coordinates};
 
     document.addEventListener('DOMContentLoaded', () => {
         const dialog = document.getElementById('person-map-settings');

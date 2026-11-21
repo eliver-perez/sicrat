@@ -59,8 +59,16 @@ label.services-channel {
     padding:.65rem; border-radius:.5rem; background:var(--color-default-50);
 }
 .services-channel svg { color:var(--color-default-600) }
-#file-form .services-file-person { position:relative }
-#file-form .services-file-person > label { max-width:34rem }
+.services-file-person { position:relative; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.65rem; padding:.65rem; background:var(--color-default-50); border:1px solid var(--color-default-200); border-radius:.5rem; }
+#file-person-summary { overflow-wrap:anywhere; }
+.services-file-input { position:relative; display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; min-width:0; cursor:pointer; }
+.services-file-input > .btn { background:var(--color-primary-50); color:var(--sicrat-primary); }
+.services-file-input:hover > .btn { background:var(--color-primary-100); }
+.services-file-input:focus-within > .btn { outline:2px solid var(--sicrat-primary); outline-offset:2px; }
+#file-name { flex:1 1 8rem; min-width:0; overflow-wrap:anywhere; }
+#file-types { flex-basis:100%; margin:0; }
+#notification-channel-controls { min-width:0; margin-top:.6rem; }
+#notification-channel-controls:disabled .services-channel { opacity:.65; cursor:default; }
 #file-form select.ux-sr-only { width:1px; min-height:0; padding:0; margin:0 }
 #file-result img { max-width:min(100%,320px); border-radius:.5rem; margin:.6rem 0 }
 #audit-filter .ux-search-row { align-items:center; flex-wrap:wrap; margin-top:.35rem }
@@ -69,7 +77,6 @@ label.services-channel {
     #services-tabs { flex-wrap:nowrap; overflow-x:auto; padding:.25rem }
     #services-tabs [role=tab] { white-space:nowrap; flex-shrink:0 }
     .services-notification { grid-template-columns:minmax(0,1fr) }
-    .services-file-person { flex-direction:column; align-items:flex-start }
-    .services-file-person > label { width:100% }
+    .services-file-person { grid-template-columns:minmax(0,1fr); justify-items:start; }
     .services-notification .services-actions { justify-content:flex-start }
 }

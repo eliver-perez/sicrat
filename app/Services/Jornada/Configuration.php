@@ -183,8 +183,9 @@ class Configuration
                 $section=$this->repository->one('SELECT id FROM secciones_electorales WHERE uuid=? FOR UPDATE',[Values::binary($data['seccion'] ?? null)]) ?? throw new HttpError('Sección no disponible.',404);
                 (new \App\Services\GeographyService($this->repository))->assertSection((int)$section['id']);
                 $name=Values::text($data['nombre'] ?? null,60);$type=(new \App\Services\GeographyService($this->repository))->boothType($data['tipo'] ?? null);
+                $location=\App\Services\GeographyService::boothLocation($data,$data['ubicacion'] ?? '');
                 $physical=$this->repository->one('SELECT id FROM casillas WHERE seccion=? AND casilla=? AND tipo=? FOR UPDATE',[$section['id'],$name,$type]);
-                $id=$physical ? (int)$physical['id'] : $this->repository->insert('INSERT INTO casillas(uuid,seccion,tipo,casilla,ubicacion,domicilio,registro,f_registro) VALUES(?,?,?,?,?,?,?,NOW())',[random_bytes(16),$section['id'],$type,$name,Values::text($data['ubicacion'] ?? '',255,true),Values::text($data['domicilio'] ?? '',255,true),$ctx->actor]);
+                $id=$physical ? (int)$physical['id'] : $this->repository->insert('INSERT INTO casillas(uuid,seccion,tipo,casilla,ubicacion,domicilio,registro,f_registro) VALUES(?,?,?,?,?,?,?,NOW())',[random_bytes(16),$section['id'],$type,$name,$location,Values::text($data['domicilio'] ?? '',255,true),$ctx->actor]);
             }
             $physicalSection=(int)$this->repository->one('SELECT seccion FROM casillas WHERE id=?',[$id])['seccion'];(new \App\Services\GeographyService($this->repository))->attachBooth($id,$physicalSection,$ctx->process);
             $existing=$this->repository->one('SELECT id,uuid FROM jornada_casillas WHERE proceso=? AND casilla=?',[$ctx->process,$id]);

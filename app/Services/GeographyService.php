@@ -97,6 +97,22 @@ final class GeographyService
         if(!Auth::isSuperAdmin() && !$this->repository->one('SELECT casilla FROM casillas_procesos WHERE casilla=? AND proceso=?',[$row['id'],$this->process()]))throw new HttpError('Casilla no disponible en esta elección.',404);
         $row['history_locked']=(bool)$this->repository->one('SELECT jc.id FROM jornada_casillas jc JOIN jornada_resultados r ON r.casilla=jc.id JOIN jornada_versiones v ON v.resultado=r.id WHERE jc.casilla=? LIMIT 1',[$row['id']]);$row['uuid']=$uuid;$row['section_uuid']=Values::uuidText($row['section_uuid']);$row['shared']=(bool)$this->repository->one('SELECT proceso FROM casillas_procesos WHERE casilla=? AND proceso<>? LIMIT 1',[$row['id'],Auth::processId() ?? 0]);return $row;
     }
+    public static function boothLocation(array $data,mixed $legacy): string
+    {
+        if (!array_key_exists('latitude',$data) && !array_key_exists('longitude',$data)) {
+            return Values::text($legacy,255,true);
+        }
+        $latitude=$data['latitude'] ?? '';
+        $longitude=$data['longitude'] ?? '';
+        if ($latitude==='' && $longitude==='') return Values::text($legacy,255,true);
+        if (!is_numeric($latitude) || !is_numeric($longitude)
+            || !is_finite((float)$latitude) || !is_finite((float)$longitude)
+            || abs((float)$latitude)>90 || abs((float)$longitude)>180) {
+            throw new \InvalidArgumentException('Indica latitud y longitud válidas para la casilla.');
+        }
+        return sprintf('%.7F, %.7F',(float)$latitude,(float)$longitude);
+    }
+
     public function saveBooth(?string $uuid,array $data): array
     {
         $this->authorize('casillas',true);
@@ -106,7 +122,7 @@ final class GeographyService
             if($before){$this->repository->one('SELECT id FROM casillas WHERE id=? FOR UPDATE',[$before['id']]);if(!Auth::isSuperAdmin() && $this->repository->one('SELECT proceso FROM casillas_procesos WHERE casilla=? AND proceso<>? LIMIT 1',[$before['id'],$this->process()]))throw new HttpError('La casilla es compartida. Los datos físicos requieren administración global.',409);}
             $section=isset($data['section']) ? $this->repository->one('SELECT id FROM secciones_electorales WHERE uuid=?',[Values::binary($data['section'])]) : ['id'=>$before['seccion'] ?? null];
             if(!$section || !$section['id'])throw new \InvalidArgumentException('Selecciona una sección.');$this->assertSection((int)$section['id']);
-            $values=['seccion'=>(int)$section['id'],'casilla'=>Values::text($data['name'] ?? $before['casilla'] ?? null,60),'tipo'=>isset($data['type']) || !$before ? $this->boothType($data['type'] ?? null) : $before['tipo'],'ubicacion'=>Values::text($data['location'] ?? $before['ubicacion'] ?? '',255,true),'domicilio'=>Values::text($data['address'] ?? $before['domicilio'] ?? '',255,true)];
+            $values=['seccion'=>(int)$section['id'],'casilla'=>Values::text($data['name'] ?? $before['casilla'] ?? null,60),'tipo'=>isset($data['type']) || !$before ? $this->boothType($data['type'] ?? null) : $before['tipo'],'ubicacion'=>self::boothLocation($data,$data['location'] ?? $before['ubicacion'] ?? ''),'domicilio'=>Values::text($data['address'] ?? $before['domicilio'] ?? '',255,true)];
             if($before && $this->repository->one('SELECT id FROM casillas WHERE seccion=? AND casilla=? AND tipo=? AND id<>?',[$values['seccion'],$values['casilla'],$values['tipo'],$before['id']]))throw new HttpError('Ya existe una casilla con esos datos en la sección.',409);
             if($before){if($this->repository->one('SELECT v.id FROM jornada_versiones v JOIN jornada_resultados r ON r.id=v.resultado JOIN jornada_casillas jc ON jc.id=r.casilla WHERE jc.casilla=? LIMIT 1',[$before['id']]))throw new HttpError('La casilla tiene actas; se conserva su configuración histórica.',409);$this->repository->execute('UPDATE casillas SET seccion=?,casilla=?,tipo=?,ubicacion=?,domicilio=? WHERE id=?',[...array_values($values),$before['id']]);$id=(int)$before['id'];}
             else{$this->repository->one('SELECT id FROM secciones_electorales WHERE id=? FOR UPDATE',[$section['id']]);$existing=$this->repository->one('SELECT id,uuid FROM casillas WHERE seccion=? AND casilla=? AND tipo=?',[$values['seccion'],$values['casilla'],$values['tipo']]);if($existing){$id=(int)$existing['id'];$uuid=Values::uuidText($existing['uuid']);}else{$uuid=Values::uuid();$id=$this->repository->insert('INSERT INTO casillas(uuid,seccion,casilla,tipo,ubicacion,domicilio,registro,f_registro) VALUES(?,?,?,?,?,?,?,NOW())',[Values::binary($uuid),...array_values($values),Auth::id()]);}}

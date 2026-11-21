@@ -121,9 +121,10 @@ function escapeHTML(value) {
 }
 
 // Cada listado mantiene su propio desplazamiento y conserva sus filtros al cambiar de página.
-function createPagination(tableSelector, onChange) {
+function createPagination(tableSelector, onChange, {hideSinglePage = false} = {}) {
 	const container = document.createElement('div');
 	container.className = 'flex items-center justify-end gap-3 p-3 text-sm';
+	container.hidden = hideSinglePage;
 	const previous = document.createElement('button');
 	const next = document.createElement('button');
 	const label = document.createElement('span');
@@ -146,6 +147,7 @@ function createPagination(tableSelector, onChange) {
 			if (Number.isInteger(metadata.offset)) this.offset = metadata.offset;
 			previous.disabled = this.offset === 0;
 			next.disabled = !metadata.has_more;
+			container.hidden = hideSinglePage && this.offset === 0 && !metadata.has_more;
 			label.textContent = `Página ${Math.floor(this.offset / this.limit) + 1}`;
 		}
 	};

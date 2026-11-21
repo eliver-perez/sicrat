@@ -178,7 +178,11 @@ function InitializeValues(url) {
 		if (canListFiles()) { if (states.files) states.files.offset = 0; await refresh('files'); }
 	}));
 	node('approval-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); if(event.submitter.value==='0' && !await window.SicratFeedback.confirm('¿Rechazar esta solicitud?',{confirm:'Rechazar solicitud'}))return; await api.request('/api/approvals/' + data.uuid, 'PUT', { reason: data.reason, approved: event.submitter.value }); node('approval-dialog').close(); await refresh('approvals'); }));
-	node('notification-config-form').addEventListener('submit', guarded(async event => { await api.request('/api/notification-config', 'PUT', { email: Number(event.target.elements.email.checked), whatsapp: Number(event.target.elements.whatsapp.checked) }); notice('Canales actualizados.'); }));
+	node('notification-config-form').addEventListener('submit', guarded(async event => {
+		if (node('notification-channel-controls').disabled) return;
+		await api.request('/api/notification-config', 'PUT', { email: Number(event.target.elements.email.checked), whatsapp: Number(event.target.elements.whatsapp.checked) });
+		notice('Canales actualizados.');
+	}));
 	node('backup-form').addEventListener('submit', guarded(async event => { await api.request('/api/backups', 'POST', fields(event.target)); notice('Respaldo en cola.'); await refresh('backups'); }));
 	node('backup-policy-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); data.database_daily = Number(event.target.elements.database_daily.checked); data.incremental_daily = Number(event.target.elements.incremental_daily.checked); await api.request('/api/backup-policy', 'PUT', data); notice('Política guardada.'); }));
 	node('restore-form').addEventListener('submit', guarded(async event => { const data = fields(event.target); if (!await window.SicratFeedback.confirm('¿Programar la restauración en el destino revisado? Revisa la confirmación escrita antes de continuar.',{confirm:'Programar restauración'})) return; await api.request('/api/backups/' + data.uuid + '/restore', 'POST', data); node('restore-dialog').close(); notice('Restauración confirmada y puesta en cola. Puedes continuar trabajando.'); await refresh('backups'); }));
@@ -220,10 +224,12 @@ function InitializeValues(url) {
 	node('audit-filter').elements.context.addEventListener('change',guarded(async () => { optionOffsets.user=0; await auditOptions('user'); }));
 	node('export-form').elements.type.addEventListener('change',() => { node('export-form').elements.format.disabled = node('export-form').elements.type.value === 'paquete'; });
     const filePerson = node('file-form').elements.record;
-    const fileSummary = text('span','Selecciona una persona');fileSummary.className='ux-selected-person';
-    filePerson.classList.add('ux-sr-only');filePerson.tabIndex=-1;filePerson.after(fileSummary);
-    node('file-person-search').hidden=true;node('file-person-more').hidden=true;
-    node('file-person-find').textContent='Seleccionar persona';
+    const uploadFile = node('file-form').elements.file;
+    uploadFile.addEventListener('change',()=>{
+        node('file-name').textContent = uploadFile.files[0]?.name || 'Ningún archivo seleccionado';
+    });
+    const fileSummary = node('file-person-summary');
+    visual.labeledAction(node('file-person-find'),'Seleccionar persona','contact-round');
     async function filePeople() {
         filePerson.replaceChildren();const empty=text('option','Selecciona una persona');empty.value='';filePerson.append(empty);
     }
@@ -250,11 +256,35 @@ function InitializeValues(url) {
 				await refresh(name);
 			} else empty(node('files-list'),'files');
 		} else if (name === 'deliveries') {
-			const config = await api.request('/api/notification-config');
-			channels[0].checked = !!Number(config.email_habilitado);
-			channels[1].checked = !!Number(config.whatsapp_habilitado);
-			channels.forEach(updateChannel);
-			await refresh(name);
+			const scopes = context.scopes?.['notificaciones.administrar'] || [];
+			const canConfigure = context.is_superadmin || scopes.includes('organizacion');
+			let canReadHistory = canConfigure || (context.process_id && scopes.includes('eleccion'));
+			if (canReadHistory) {
+				try {
+					await refresh(name);
+				} catch (error) {
+					if (error.status !== 403) throw error;
+					canReadHistory = false;
+				}
+			}
+			if (!canReadHistory) {
+				document.querySelector('[data-refresh="deliveries"]').disabled = true;
+				const explanation = text('p','Selecciona una elección para la que tengas acceso al historial de envíos.');
+				explanation.className = 'ux-help';
+				node('deliveries-list').replaceChildren(explanation);
+			}
+			if (canConfigure) {
+				try {
+					const config = await api.request('/api/notification-config');
+					channels[0].checked = !!Number(config.email_habilitado);
+					channels[1].checked = !!Number(config.whatsapp_habilitado);
+					channels.forEach(updateChannel);
+					node('notification-channel-controls').disabled = false;
+				} catch (error) {
+					if (error.status !== 403) throw error;
+				}
+			}
+			node('notification-channel-help').hidden = !node('notification-channel-controls').disabled;
 		} else if (name === 'backups') {
 			const policy = await api.request('/api/backup-policy'); const form = node('backup-policy-form'); form.elements.database_daily.checked = !!Number(policy.bd_diaria); form.elements.incremental_daily.checked = !!Number(policy.archivos_incremental); form.elements.full_weekday.value = policy.archivos_full_dia; form.elements.retention_days.value = policy.retencion_dias; await refresh(name);
 		} else {

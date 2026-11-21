@@ -7,7 +7,9 @@ window.SicratOperationForms = {
 		const person=await app.personPicker(app.section(target,'Persona'),'Persona','crear',false,[],true);
 		const dataFields=app.section(target,'Datos de la interacción');
 		app.field(dataFields,'type','Tipo de interacción','select','VISITA',true,{VISITA:'Visita',LLAMADA:'Llamada',WHATSAPP:'WhatsApp',MENSAJE:'Correo o mensaje',EVENTO:'Reunión',OTRO:'Otro'});
-		app.field(dataFields,'date','Cuándo se realizó','datetime-local',this.now(),true); app.field(dataFields,'result','Resultado','text','',true);app.field(dataFields,'notes','Notas y contexto','textarea');
+		app.field(dataFields,'date','Fecha y hora','datetime-local',this.now(),true);
+		app.field(dataFields,'result','Resultado','text','',true).closest('label').classList.add('ux-full');
+		app.field(dataFields,'notes','Notas y contexto','textarea').closest('label').classList.add('ux-full');
 		const capabilities=await app.api('operations/capabilities');
 		const elections=await app.picker(app.section(target,'Elecciones relacionadas'),'Elecciones relacionadas','operations/interaction-elections',true,capabilities.election ? [{uuid:capabilities.election.uuid,label:capabilities.election.nombre}] : [],false,'choices');
 		let task=null,item=null,complete=null;
@@ -90,10 +92,18 @@ window.SicratOperationForms = {
 		return form=>({...app.values(form),type:type.values(),responsibles:responsibles.values(),external:external.checked && !external.disabled ? 1 : 0,qr:qr.checked && !qr.disabled ? 1 : 0});
 	},
 	async caseRecord(app,target) {
-		const person=await app.personPicker(target,app.entity==='peticiones' ? 'Persona solicitante' : 'Persona relacionada','crear');let external=null,name=null,contact=null;
-		if (app.entity==='peticiones') { external=app.check(target,'external','El solicitante es externo a SICRAT');name=app.field(target,'external_name','Nombre del solicitante externo','text');contact=app.field(target,'external_contact','Contacto del solicitante','text');const toggle=()=>{person.box.hidden=external.checked;person.select.disabled=external.checked;name.closest('label').hidden=contact.closest('label').hidden=!external.checked;name.required=external.checked;name.disabled=contact.disabled=!external.checked;};external.addEventListener('change',toggle);toggle(); }
-		const category=await app.picker(target,'Categoría','operations/case-categories/'+app.entity+'?active=1',false,[],true);app.field(target,'description',app.entity==='peticiones' ? 'Solicitud' : 'Problema reportado','textarea','',true);app.field(target,'priority','Prioridad','select','NORMAL',true,{BAJA:'Baja',NORMAL:'Normal',ALTA:'Alta',URGENTE:'Urgente'});const responsible=await app.personPicker(target,'Responsable','crear');const validation=app.check(target,'validation','El cierre requiere validación superior');app.check(target,'allow_pdf','Permitir documentos PDF como evidencia');
-		const approver=await app.picker(target,'Persona que autoriza el cierre (opcional)','operations/'+app.entity+'/approvers?action=crear');
+		const parties=app.section(target,app.entity==='peticiones' ? 'Solicitante' : 'Persona relacionada');
+		const person=await app.personPicker(parties,app.entity==='peticiones' ? 'Persona solicitante' : 'Persona relacionada','crear');let external=null,name=null,contact=null;
+		if (app.entity==='peticiones') { external=app.check(parties,'external','El solicitante es externo a SICRAT');name=app.field(parties,'external_name','Nombre del solicitante externo','text');contact=app.field(parties,'external_contact','Contacto del solicitante','text');const toggle=()=>{person.box.hidden=external.checked;person.select.disabled=external.checked;name.closest('label').hidden=contact.closest('label').hidden=!external.checked;name.required=external.checked;name.disabled=contact.disabled=!external.checked;};external.addEventListener('change',toggle);toggle(); }
+		const detail=app.section(target,app.entity==='peticiones' ? 'Datos de la petición' : 'Datos de la incidencia');
+		const category=await app.picker(detail,'Categoría','operations/case-categories/'+app.entity+'?active=1',false,[],true);
+		app.field(detail,'description',app.entity==='peticiones' ? 'Solicitud' : 'Problema reportado','textarea','',true).closest('label').classList.add('ux-full');
+		app.field(detail,'priority','Prioridad','select','NORMAL',true,{BAJA:'Baja',NORMAL:'Normal',ALTA:'Alta',URGENTE:'Urgente'});
+		app.check(detail,'allow_pdf','Permitir documentos PDF como evidencia');
+		const followUp=app.section(target,'Responsable y validación');
+		const responsible=await app.personPicker(followUp,'Responsable','crear');
+		const validation=app.check(followUp,'validation','El cierre requiere validación superior');
+		const approver=await app.picker(followUp,'Persona que autoriza el cierre (opcional)','operations/'+app.entity+'/approvers?action=crear');
 		let event=null;if(app.entity==='incidencias' && app.can('eventos.ver') && app.moduleEnabled('eventos')) event=await app.picker(target,'Evento relacionado opcional','operations/eventos');
 		return form=>({...app.values(form),category_id:category.values(),person:external?.checked ? '' : person.values(),responsible:responsible.values(),approver:approver.values(),validation:validation.checked ? 1 : 0,allow_pdf:form.elements.allow_pdf.checked ? 1 : 0,event:event?.values() || ''});
 	},

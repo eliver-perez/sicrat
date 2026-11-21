@@ -32,23 +32,30 @@ require __DIR__.'/../layout/title.php';
 <section class="card p-5 mb-5 services-panel" id="services-files" role="tabpanel" aria-labelledby="services-tab-files" hidden>
     <header class="services-toolbar"><h6>Archivos por persona</h6><button type="button" class="btn" data-refresh="files" hidden>Actualizar</button></header>
     <form id="file-form" class="ux-form-grid services-form" hidden>
-        <label hidden>Buscar persona<input id="file-person-search" type="search" class="form-input" placeholder="Código o nombre"></label>
-        <div class="ux-search-row ux-full services-file-person">
-            <label>Persona<select name="record" class="form-input" required></select></label>
+        <div class="services-file-person ux-full">
+            <span class="font-semibold" id="file-person-label">Persona</span>
+            <select name="record" class="ux-sr-only" tabindex="-1" aria-labelledby="file-person-label" required></select>
+            <span id="file-person-summary" role="status">Selecciona una persona</span>
             <button id="file-person-find" type="button" class="btn">Seleccionar persona</button>
-            <button id="file-person-more" type="button" class="btn" hidden>Mostrar más personas</button>
         </div>
-        <label>Imagen de evidencia o PDF<input name="file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required class="form-input"></label>
-        <button class="btn bg-primary text-white"><i data-lucide="paperclip" class="size-4" aria-hidden="true"></i>Subir archivo</button>
+        <label class="services-file-input">
+            <span class="btn ux-labeled-action"><i data-lucide="paperclip" aria-hidden="true"></i>Elegir archivo</span>
+            <input name="file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required class="ux-sr-only" aria-label="Elegir archivo" aria-describedby="file-types">
+            <span id="file-name" role="status">Ningún archivo seleccionado</span>
+            <small id="file-types" class="ux-help">JPEG, PNG, WebP o PDF</small>
+        </label>
+        <button class="btn bg-primary text-white ux-labeled-action"><i data-lucide="paperclip" class="size-4" aria-hidden="true"></i>Subir archivo</button>
     </form>
     <div id="file-result"></div>
     <div id="files-list"></div><div class="ux-pagination" data-pager="files" hidden></div>
 </section>
-<section class="card p-5 mb-5 services-panel" id="services-exports" role="tabpanel" aria-labelledby="services-tab-exports" hidden><header class="services-toolbar"><h6>Exportaciones propias</h6><button type="button" class="btn" data-refresh="exports">Actualizar</button></header><form id="export-form" class="ux-form-grid services-form"><label>Datos<select name="type" class="form-input"><option value="personas">Personas</option><option value="participaciones">Participaciones</option><option value="estructura">Estructura</option><option value="usuarios_accesos">Usuarios y accesos</option><option value="paquete">Paquete de datos del cliente</option></select></label><label>Formato<select name="format" class="form-input"><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="pdf">PDF</option></select></label><label>Código o nombre<input name="search" maxlength="150" class="form-input"></label><button class="btn bg-primary text-white">Solicitar exportación</button></form><div id="exports-list" class="my-3"></div><div class="ux-pagination" data-pager="exports" hidden></div></section>
+<section class="card p-5 mb-5 services-panel" id="services-exports" role="tabpanel" aria-labelledby="services-tab-exports" hidden><header class="services-toolbar"><h6>Exportaciones propias</h6><button type="button" class="btn" data-refresh="exports">Actualizar</button></header><form id="export-form" class="ux-form-grid services-form"><label>Datos<select name="type" class="form-input"><option value="personas">Personas</option><option value="participaciones">Participaciones</option><option value="estructura">Estructura</option><option value="usuarios_accesos">Usuarios y accesos</option><option value="paquete">Paquete de datos del cliente</option></select></label><label>Formato<select name="format" class="form-input"><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="pdf">PDF</option></select></label><label>Código o nombre<input name="search" maxlength="150" class="form-input"></label><button class="btn bg-primary text-white ux-labeled-action"><i data-lucide="download" aria-hidden="true"></i>Solicitar exportación</button></form><div id="exports-list" class="my-3"></div><div class="ux-pagination" data-pager="exports" hidden></div></section>
 <section class="card p-5 mb-5 services-panel" id="services-jobs" role="tabpanel" aria-labelledby="services-tab-jobs" hidden><h6>Trabajos en segundo plano</h6><p id="jobs-summary" class="my-3"></p><form id="jobs-filter" class="services-toolbar services-jobs-filter"><select name="state" class="form-input" aria-label="Estado del trabajo"><option value="">Todos los estados</option><option value="pendiente">Pendiente</option><option value="ejecutando">Ejecutando</option><option value="reintento">Reintento</option><option value="fallido">Fallido</option><option value="completado">Completado</option></select><button class="btn" id="jobs-refresh">Actualizar</button></form><div id="jobs-list" class="my-3"></div><div class="ux-pagination" data-pager="jobs" hidden></div></section>
 <section class="card p-5 mb-5 services-panel" id="services-deliveries" role="tabpanel" aria-labelledby="services-tab-deliveries" hidden>
     <h6>Canales de envío</h6>
+    <p id="notification-channel-help" class="ux-help" hidden>Necesitas alcance de organización para modificar estos canales.</p>
     <form id="notification-config-form" class="services-form">
+        <fieldset id="notification-channel-controls" disabled aria-label="Configuración de canales">
         <div class="services-channels">
             <?php foreach (['email'=>['Correo','mail'],'whatsapp'=>['WhatsApp','message-circle']] as $name => [$label,$icon]): ?>
             <label class="ux-module-card services-channel">
@@ -58,7 +65,8 @@ require __DIR__.'/../layout/title.php';
             </label>
             <?php endforeach; ?>
         </div>
-        <button class="btn bg-primary text-white"><i data-lucide="save" class="size-4" aria-hidden="true"></i>Guardar canales</button>
+        <button class="btn bg-primary text-white ux-labeled-action"><i data-lucide="save" class="size-4" aria-hidden="true"></i>Guardar canales</button>
+        </fieldset>
     </form>
     <div class="ux-section">
         <header class="services-toolbar"><h6>Historial de envíos</h6><button type="button" class="btn" data-refresh="deliveries">Actualizar</button></header>

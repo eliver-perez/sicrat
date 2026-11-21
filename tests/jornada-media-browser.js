@@ -31,12 +31,12 @@ module.exports = async function ({ directory, call, evaluate, waitFor, navigate 
     check(await evaluate('document.getElementById("jornada-physical-associate").open && !document.getElementById("jornada-physical-create").open'), 'Asociar abierto y Registrar cerrado por defecto');
     check(await evaluate(`document.querySelector('#jornada-physical-associate > p').textContent === 'Busca una casilla del catálogo y asígnala a esta elección.'`), 'Descripción de asociación');
     await click('#jornada-physical-create > summary');
-    await waitFor('document.getElementById("jornada-physical-create").open && !document.getElementById("jornada-physical-associate").open');
+    await waitFor('document.getElementById("jornada-physical-create").open && !document.getElementById("jornada-physical-associate").open && document.querySelector("#jornada-booth-location-map.leaflet-container")');
     checks++;
     check(await evaluate(`document.querySelector('#jornada-physical-create > p').textContent === 'Registra una casilla que todavía no existe en el catálogo y asígnala a esta elección.'`), 'Descripción de registro');
     check(await evaluate(`(() => {
         const form=document.getElementById('jornada-physical-create-form');
-        return ['nombre','tipo','ubicacion','domicilio'].every(name=>form.elements[name]) && form.elements.tipo.tagName==='SELECT'
+        return ['nombre','tipo','latitude','longitude','domicilio'].every(name=>form.elements[name]) && form.elements.tipo.tagName==='SELECT'
             && form.querySelector('.op-picker input[type=search]') && form.querySelector('button[type=submit] svg');
     })()`), 'Registro mantiene campos, catálogo, buscador y botón Lucide');
     await evaluate(`(() => {

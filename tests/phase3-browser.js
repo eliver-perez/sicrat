@@ -32,7 +32,21 @@ async function main() {
         if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
         return result.result.value;
     }
-    async function waitFor(expression) { for (let attempt=0; attempt<120; attempt++) { if (await evaluate('Boolean('+expression+')')) return; await pause(100); } const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});throw new Error('La interfaz no completó: ' + expression); }
+    async function waitFor(expression) {
+        for (let attempt=0; attempt<120; attempt++) {
+            try {
+                if (await evaluate('Boolean('+expression+')')) return;
+            } catch (error) {
+                if (!/Inspected target navigated or closed|Execution context was destroyed|Cannot find context with specified id/.test(error.message)) throw error;
+            }
+            await pause(100);
+        }
+        const diagnostic=await evaluate('({url:location.href,text:document.body.innerText.slice(-2400),request:window.__lastFailure,errors:window.__revisionErrors})');
+        console.error('Diagnóstico Chrome:',JSON.stringify(diagnostic));
+        const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+        fs.writeFileSync(path.join(directory,'browser-failure.png'),Buffer.from(screenshot.data,'base64'),{mode:0o600});
+        throw new Error('La interfaz no completó: ' + expression);
+    }
     async function navigate(route) { await call('Page.navigate',{url:base+route}); await waitFor('document.readyState === "complete"'); }
     if (process.argv.includes('--only-dashboard')) { checks += await require('./dashboard-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause}); if(process.argv.includes('--uiux')) checks += await require('./uiux-browser.js')({base,directory,call,evaluate,waitFor,navigate,pause}); assert.deepEqual(failures,[]); console.log(`Dashboard: ${checks} comprobaciones Chrome sin excepciones.`); return; }
     if (process.argv.includes('--only-pwa')) {
@@ -105,6 +119,7 @@ async function main() {
         await evaluate('document.querySelector(".ux-entity-selector tbody tr").click()');await waitFor('!document.querySelector(".ux-entity-selector[open]") && document.getElementById("file-form").elements.record.value');
         const documentNode=await call('DOM.getDocument'); const fileInput=await call('DOM.querySelector',{nodeId:documentNode.root.nodeId,selector:'#file-form input[type=file]'});
         await call('DOM.setFileInputFiles',{nodeId:fileInput.nodeId,files:[path.join(directory,'test-image.png')]});
+        await waitFor('document.getElementById("file-name").textContent==="test-image.png"'); checks++;
         await evaluate('document.getElementById("file-form").requestSubmit()');
         await waitFor('document.querySelector("#file-result img")?.complete && document.querySelector("#file-result img")?.naturalWidth > 0'); checks++;
         assert.equal(await evaluate('document.querySelector("#file-result img").naturalWidth'),320); checks++;

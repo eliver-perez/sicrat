@@ -1,10 +1,6 @@
-:root {
-    --operation-accent:var(--sicrat-brand-dark);
-    --operation-selection:#eaf0f6;
-}
-[data-theme="dark"] {
-    --operation-accent:#bfd5e7;
-    --operation-selection:#253649;
+#operations-root, h4:has(> .operation-title-icon) {
+    --operation-accent:var(--sicrat-primary);
+    --operation-selection:var(--color-primary-100);
 }
 h4:has(> .operation-title-icon) {
     display:flex;
@@ -111,9 +107,13 @@ main:has(#operations-root) .ux-entity-selector-compact { width:min(32rem,calc(10
 .ux-entity-selector-compact .ux-search-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:stretch }
 .ux-entity-selector-compact .ux-selection-table :is(td,th) { padding-block:.45rem }
 [data-theme="dark"] .ux-entity-selector-compact { color-scheme:dark }
-.transport-confirm { padding:.65rem .8rem }
-.transport-confirm > summary { cursor:pointer; font-weight:600 }
-.transport-confirm > form.ux-section { border:0; padding:.65rem 0 0; margin:0 }
+.transport-confirm textarea { resize:vertical }
+.transport-confirm form > button { grid-column:1 / -1; justify-self:start }
+.operation-record-form #operation-create-fields { align-items:start; gap:.75rem }
+.operation-record-form fieldset { margin:0; min-width:0 }
+.operation-record-form fieldset > legend { color:var(--sicrat-primary); font-weight:600; padding:0 .3rem }
+.operation-record-form fieldset .op-picker { border:0; padding:0 }
+.operation-record-form .ux-selection-scroll { max-height:min(12rem,34dvh) }
 #operation-detail-dialog .transport-edit { gap:.7rem; padding:.8rem }
 .transport-edit textarea { min-height:4.25rem; resize:vertical }
 .transport-edit .ux-modal-footer { position:static; margin:0; padding-block-start:.65rem }

@@ -9,7 +9,7 @@ window.InitializePersonOperations = async function (uuid,base) {
 		const me=await api('auth/me');if(sequence!==window.InitializePersonOperations.sequence)return;
 		if(!me.process_id){root.append(node('p','Selecciona una elección para consultar la actividad operativa.'));return;}
 		const section=node('section','');section.className='ux-section';section.append(node('h6','Actividad cronológica de la elección actual'));root.append(section);
-		const list=node('div','');const controls=node('div','');controls.className='ux-pagination';let offset=0,hasMore=false;section.append(list,controls);
+		const list=node('div','');const controls=node('div','');controls.className='ux-pagination';controls.hidden=true;let offset=0,hasMore=false;section.append(list,controls);
 		const previous=node('button','Anterior');previous.type='button';previous.className='btn';const next=node('button','Siguiente');next.type='button';next.className='btn';controls.append(previous,next);
 		async function load() {
 			const result = await api('persons/'+uuid+'/activity?limit=25&offset='+offset);
@@ -20,7 +20,11 @@ window.InitializePersonOperations = async function (uuid,base) {
 				wrapper.className='op-table-scroll';
 				const table=node('table','');
 				const header=table.createTHead().insertRow();
-				for (const label of ['Fecha','Actividad','Detalle']) header.append(node('th',label));
+				for (const label of ['Fecha','Actividad','Detalle']) {
+					const heading=node('th',label);
+					heading.scope='col';
+					header.append(heading);
+				}
 				const body=table.createTBody();
 				for (const row of result.rows) {
 					body.insertRow().append(node('td',row.fecha),node('td',window.SicratUI.label(row.tipo)),node('td',row.titulo));
@@ -31,6 +35,7 @@ window.InitializePersonOperations = async function (uuid,base) {
 				list.append(node('p','Sin actividad autorizada en esta elección.'));
 			}
 			hasMore=!!result.pagination.has_more;
+			controls.hidden=offset===0 && !hasMore;
 			previous.disabled=offset===0;
 			next.disabled=!hasMore;
 		}
@@ -40,8 +45,41 @@ window.InitializePersonOperations = async function (uuid,base) {
 			const logistics=node('section','');logistics.className='ux-section';logistics.append(node('h6','Logística de la participación electoral actual'));root.append(logistics);
 			let current;try{current=await api('operations/transporte/'+uuid);}catch(error){logistics.append(node('p',error.message));return;}
 			const description=node('p',({'no_definido':'No definido','requiere':'Requiere transporte','propio':'Se trasladará por cuenta propia'})[current.necesidad]);logistics.append(description);
-			if(me.is_superadmin || me.rights.includes('transporte.editar')){const form=node('form','');form.className='ux-inline-form';const label=node('label','Necesidad de transporte');const select=node('select','');select.className='form-input';Object.entries({no_definido:'No definido',requiere:'Requiere transporte',propio:'Se trasladará por cuenta propia'}).forEach(([value,text])=>{const option=node('option',text);option.value=value;select.append(option);});select.value=current.necesidad;label.append(select);const save=node('button','Guardar necesidad');save.className='btn bg-primary text-white';form.append(label,save);form.addEventListener('submit',run(async()=>{save.disabled=true;try{await api('operations/transporte/'+uuid,'PUT',{need:select.value,version:current.version});await window.InitializePersonOperations(uuid,base);}finally{save.disabled=false;}}));const edit=node('details','');edit.append(node('summary','Cambiar necesidad de transporte'),form);logistics.append(edit);}
-			const link=node('a','Abrir tablero de coordinación');link.className='btn';link.href=base.replace(/\/$/,'')+'/operations/?module=transporte';logistics.append(link);
+			const visual=window.SicratUI;
+			if(me.is_superadmin || me.rights.includes('transporte.editar')) {
+				const edit=visual.accordion(node('details',''),'Cambiar necesidad de transporte','bus');
+				const form=node('form','');
+				form.className='ux-inline-form';
+				const label=node('label','Necesidad de transporte');
+				const select=node('select','');
+				select.className='form-input';
+				for (const [value,text] of Object.entries({no_definido:'No definido',requiere:'Requiere transporte',propio:'Se trasladará por cuenta propia'})) {
+					const option=node('option',text);
+					option.value=value;
+					select.append(option);
+				}
+				select.value=current.necesidad;
+				label.append(select);
+				const save=node('button','');
+				save.className='btn bg-primary text-white';
+				visual.labeledAction(save,'Guardar necesidad','save');
+				form.append(label,save);
+				form.addEventListener('submit',run(async()=>{
+					save.disabled=true;
+					try {
+						await api('operations/transporte/'+uuid,'PUT',{need:select.value,version:current.version});
+						await window.InitializePersonOperations(uuid,base);
+					} finally {
+						save.disabled=false;
+					}
+				}));
+				edit.append(form);
+				logistics.append(edit);
+			}
+			const link=node('a','');
+			link.className='btn';
+			link.href=base.replace(/\/$/,'')+'/operations/?module=transporte';
+			logistics.append(visual.labeledAction(link,'Abrir tablero de coordinación','bus'));
 		}
 	}catch(error){if(sequence===window.InitializePersonOperations.sequence)root.append(node('p',error.message));}
 };

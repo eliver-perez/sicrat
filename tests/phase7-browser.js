@@ -15,6 +15,10 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
     async function bounds(label){verify(await evaluate('document.documentElement.scrollWidth<=innerWidth+2'),label+': sin desbordamiento horizontal');}
     await login('administrador',' nueva contraseña ');
     await evaluate('document.getElementById("jornada-tab-dashboard").click()');
+    await waitFor('document.querySelectorAll("#jornada-progress .ux-metric").length===9');
+    verify(await evaluate(`[...document.querySelectorAll('#jornada-progress .ux-metric-value')].map(card=>parseFloat(card.textContent)).join()===
+        ['esperadas','capturadas','pendientes','preliminares','validadas','pendientes_iniciales','casillas_con_propuestas','porcentaje_captura','porcentaje_validacion'].map(key=>SicratJornada.summary.progreso[key]).join()`),'Los nueve indicadores muestran los valores del concentrado');
+    checks+=await require('./interface-consolidation-browser.js').captureLayouts({call,evaluate,directory},'jornada','#jornada-progress');
     checks+=await require('./table-headings-browser.js').review({call,evaluate,waitFor,directory},'jornada','#jornada-candidate-table table');
     for(const [width,height,name] of [[1600,1000,'desktop'],[820,1024,'tablet'],[390,844,'mobile']]) {
         await size(width,height);await evaluate('document.getElementById("jornada-summary-filter").elements.modo.value="validado";document.getElementById("jornada-tab-dashboard").click()');await waitFor('document.getElementById("jornada-summary-legend").textContent.startsWith("Validado interno") && document.querySelector("#jornada-candidate-chart svg")');

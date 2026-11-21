@@ -23,9 +23,11 @@ module.exports=async function({call,evaluate,waitFor,navigate,fixtures,bounds,ca
                 const header=document.querySelector('#operation-list th');
                 const light=header && getComputedStyle(header).backgroundColor;
                 document.documentElement.dataset.theme='dark';
-                return {light,dark:header && getComputedStyle(header).backgroundColor,title:!!document.querySelector('.operation-title-icon')};
+                const dark=header && getComputedStyle(header).backgroundColor;
+                const ink=header && getComputedStyle(header).color;
+                return {light,dark,ink,title:!!document.querySelector('.operation-title-icon')};
             })()`);
-            verify(theme.title && (!theme.light || theme.light==='rgb(2, 34, 73)' && theme.dark==='rgb(38, 59, 82)'),entity+' '+width+': icono de módulo y acento de marca en ambos temas');
+            verify(theme.title && (!theme.light || theme.light==='rgb(2, 34, 73)' && theme.dark!==theme.light && theme.ink===theme.light),entity+' '+width+': icono de módulo y acento de marca en ambos temas');
             await bounds(entity+' '+width+' oscuro');
             if(entity==='conversaciones') {
                 await click('#operation-list [data-open-chat]');

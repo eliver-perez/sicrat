@@ -67,6 +67,7 @@ window.SicratOperations = {
             ui.selectionTable(rowsBox,{rows,selected:new Set(chosen.keys()),multiple,label,choose:row=>{if(!multiple)chosen.clear();if(multiple&&chosen.has(row.value))chosen.delete(row.value);else chosen.set(row.value,row.label);sync();select.dispatchEvent(new Event('change'));if(multiple)rowsBox.querySelectorAll('tr[data-value]').forEach(line=>{if(line.dataset.value===String(row.value))line.focus();});else selectedCard.querySelector('button')?.focus();}});
             if(focused)rowsBox.querySelectorAll('tr[data-value]').forEach(line=>{if(line.dataset.value===focused)line.focus();});
             previous.disabled=offset===0;next.disabled=!hasMore;
+            pager.hidden=!offset && !hasMore;
         };
         const load=async()=>{
             const request=++nonce;const result=await this.api(path+(path.includes('?')?'&':'?')+new URLSearchParams({search:search.value.trim(),limit:25,offset}));if(request!==nonce)return;
@@ -77,7 +78,7 @@ window.SicratOperations = {
         };
         select.addEventListener('change',()=>{chosen.clear();[...select.selectedOptions].filter(option=>option.value).forEach(option=>chosen.set(option.value,option.textContent));redraw();});
         select.addEventListener('invalid',event=>{event.preventDefault();search.focus();this.notice('Selecciona '+label.toLowerCase()+'.','error');});
-        searchRow.append(this.button('Buscar',()=>{clearTimeout(timer);offset=0;return load();}));
+        searchRow.append(ui.labeledAction(this.button('Buscar',()=>{clearTimeout(timer);offset=0;return load();}),'Buscar','search'));
         search.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();event.stopPropagation();clearTimeout(timer);offset=0;this.guard(load)();}});
         search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>{if(!box.isConnected)return;offset=0;this.guard(load)();},300);});
         box.append(selectedCard,searchRow,select,rowsBox,chips,pager);this.place(target,box);await load();

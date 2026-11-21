@@ -8,6 +8,7 @@ function InitializeValues(url) {
     app.notice=(message,type='success')=>feedback.toast(message,type);
     const can=permission=>app.me.rights?.includes(permission);
     let releasePhotoPreview = () => {};
+    let releaseBoothMap;
     app.node('jornada-booth-dialog').addEventListener('close', () => releasePhotoPreview());
     const optionType=value=>({partido:'Partido',coalicion:'Coalición',combinacion:'Combinación exacta',independiente:'Independiente',nulos:'Nulos',no_registrados:'No registrados',otro:'Otro'})[value] || value;
     const label=state=>({preparacion:'En preparación',abierta:'Abierta',cerrada:'Cerrada',pendiente:'Pendiente de validación',preliminar:'Preliminar interno',validada:'Validada',rechazada:'Rechazada',sustituida:'Sustituida',sin_captura:'Sin captura'})[state] || state;
@@ -52,10 +53,29 @@ function InitializeValues(url) {
         app.summary=result;app.summaryFilters=filters;
         app.node('jornada-summary-legend').textContent=result.leyenda;
         const progress=app.node('jornada-progress');progress.replaceChildren();
-        for(const [key,title] of [['esperadas','Casillas esperadas'],['capturadas','Con captura'],['pendientes','Sin captura'],['preliminares','Vigentes preliminares'],['validadas','Vigentes validadas'],['pendientes_iniciales','Sin versión vigente'],['casillas_con_propuestas','Con propuestas pendientes'],['porcentaje_captura','Avance de captura (%)'],['porcentaje_validacion','Avance validado (%)']]) {
-            const card=app.text('div','','card p-4');card.append(app.text('p',title,'ux-help'),app.text('strong',String(result.progreso[key])));progress.append(card);
+        const cards=[
+            ['esperadas','Casillas esperadas','vote'],
+            ['capturadas','Con captura','clipboard-check','green'],
+            ['pendientes','Sin captura','inbox','amber'],
+            ['preliminares','Vigentes preliminares','file-text'],
+            ['validadas','Vigentes validadas','circle-check','green'],
+            ['pendientes_iniciales','Sin versión vigente','history','amber'],
+            ['casillas_con_propuestas','Con propuestas pendientes','list-todo','amber'],
+            ['porcentaje_captura','Avance de captura','clipboard-check'],
+            ['porcentaje_validacion','Avance validado','check-check','green']
+        ];
+        for (const [key,title,icon,tone] of cards) {
+            const card=app.text('div','','card ux-metric');
+            if (tone) card.style.setProperty('--metric-accent',tone==='green' ? 'var(--color-green-600)' : 'var(--color-amber-700,#a16207)');
+            const heading=app.text('p',title,'ux-metric-heading');
+            const badge=app.text('span','','ux-metric-icon');
+            badge.append(window.SicratUI.icon(icon));
+            heading.append(badge);
+            const value=result.progreso[key]+(key.startsWith('porcentaje_') ? '%' : '');
+            card.append(heading,app.text('strong',value,'ux-metric-value'));
+            progress.append(card);
         }
-        progress.append(app.text('p','Última captura UTC: '+(result.progreso.ultima_actualizacion || 'Sin capturas'),'ux-help'));
+        progress.append(app.text('p','Última captura UTC: '+(result.progreso.ultima_actualizacion || 'Sin capturas'),'ux-help ux-full'));
         app.table(app.node('jornada-candidate-table'),[['Candidatura','nombre'],['Cargo','cargo'],['Votos derivados','votos'],['Porcentaje','porcentaje']],result.candidaturas);
         app.table(app.node('jornada-option-table'),[['Opción exacta','nombre'],['Tipo',row=>optionType(row.tipo)],['Votos crudos','votos'],['Porcentaje','porcentaje']],result.opciones);
         app.node('jornada-denominator').textContent='Casillas contabilizadas: '+result.casillas_contribuyentes+'. Denominador: '+result.denominador+' ('+({total_acta:'Todas las filas del acta',candidaturas:'Filas que suman a candidaturas',seleccionadas:'Filas seleccionadas explícitamente'})[result.criterio_denominador]+'). Total de acta: '+result.total_acta+'. Nulos: '+result.clasificaciones.nulo+'. Otros: '+result.clasificaciones.otro+'. Los totales por candidatura son derivados; no se suman otra vez al total crudo.';
@@ -69,6 +89,8 @@ function InitializeValues(url) {
         const result = await app.api('jornada/configuration');
         app.catalogs = result.catalogs;
         const target = app.node('jornada-config-content');
+        releaseBoothMap?.();
+        releaseBoothMap = null;
         target.replaceChildren();
         target.className = 'jornada-settings-grid';
         const presentation = window.SicratJornadaUI;
@@ -368,14 +390,12 @@ function InitializeValues(url) {
         ));
         const panels = app.text('div', '', 'jornada-booth-accordion');
         section.content.append(panels);
-        const panel = (key, title, description, open = false) => {
-            const item = app.text('details', '', 'jornada-subsection');
+        const panel = (key, title, description, icon, open = false) => {
+            const item = window.SicratUI.accordion(app.text('details'),title,icon);
             item.id = 'jornada-physical-' + key;
             item.name = 'jornada-physical-booths';
             item.open = open;
-            const heading = app.text('summary');
-            heading.append(app.text('span', title), presentation.icon('chevron-down'));
-            item.append(heading, app.text('p', description, 'ux-help'));
+            item.append(app.text('p', description, 'ux-help'));
             item.addEventListener('toggle', () => {
                 if (item.open) for (const other of panels.children) if (other !== item) other.open = false;
             });
@@ -386,7 +406,7 @@ function InitializeValues(url) {
         let electoralSection;
         const types = Object.fromEntries((await app.api('polling-booth-types')).map(type => [type.codigo, type.nombre]));
         const associate = panel('associate', 'Asociar casilla existente',
-            'Busca una casilla del catálogo y asígnala a esta elección.', true);
+            'Busca una casilla del catálogo y asígnala a esta elección.', 'link', true);
         const existing = presentation.form(app, associate, '', fields => {
             fields.id = 'jornada-physical-associate-form';
         }, async () => {
@@ -398,12 +418,11 @@ function InitializeValues(url) {
         physical = presentation.picker(await app.picker(existing, 'Casilla física por sección', 'jornada/physical-booths', false, [], true));
 
         const create = panel('create', 'Registrar nueva casilla',
-            'Registra una casilla que todavía no existe en el catálogo y asígnala a esta elección.');
+            'Registra una casilla que todavía no existe en el catálogo y asígnala a esta elección.', 'plus');
         const form = presentation.form(app, create, '', fields => {
             fields.id = 'jornada-physical-create-form';
             app.field(fields, 'nombre', 'Nombre de casilla', 'text', '', true);
             app.field(fields, 'tipo', 'Tipo de casilla', 'select', '', true, types);
-            app.field(fields, 'ubicacion', 'Ubicación', 'text');
             app.field(fields, 'domicilio', 'Domicilio', 'text');
         }, async data => {
             if (!await confirmAdditionalBooth()) return;
@@ -411,6 +430,12 @@ function InitializeValues(url) {
             await refreshBooths();
             app.notice('Casilla asociada correctamente.');
         }, 'Guardar casilla');
+        create.addEventListener('toggle', () => {
+            if (!create.open || !create.isConnected || releaseBoothMap) return;
+            const map = app.text('div','','ux-full');
+            app.place(form,map);
+            releaseBoothMap = window.SicratPersonMap.mountBooth(map,null,'jornada-booth-location-map');
+        });
         electoralSection = presentation.picker(await app.picker(form, 'Sección electoral', 'jornada/territories?type=seccion&catalogue=1', false, [], true));
 
     }

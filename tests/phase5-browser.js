@@ -5,6 +5,8 @@ const path=require('node:path');
 module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) {
     let checks=0;const fixtures=JSON.parse(fs.readFileSync(path.join(directory,'phase5-fixtures.json'),'utf8'));
     const verify=(condition,message)=>{assert.ok(condition,message);checks++;};
+    const {captureLayouts}=require('./interface-consolidation-browser.js');
+    const browser={call,evaluate,waitFor,directory};
     await navigate('/');
     const login=await evaluate(`(async()=>{const token=document.querySelector('meta[name="csrf-token"]').content;return (await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({username:'administrador',password:' nueva contraseña '})})).status;})()`);
     verify(login===200,'Cuenta de revisión Fase 5');await navigate('/');
@@ -48,6 +50,13 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) 
         }
     }
     await require('./transport-browser.js')({call,evaluate,waitFor,navigate,fixtures,bounds,capture,verify});
+    await navigate('/operations/?module=transporte');
+    await waitFor('!!SicratOperations.transport && document.querySelector("#operation-list tbody tr")');
+    await evaluate(`SicratOperations.openDetail(${JSON.stringify(fixtures.people[0])},'actions')`);
+    await waitFor('document.querySelector("#operation-detail-dialog[open] .transport-confirm > summary")');
+    await evaluate('document.querySelector(".transport-confirm > summary").click()');
+    verify(await evaluate('document.querySelector(".transport-confirm").open && document.querySelector(".transport-confirm textarea").rows===2'),'Confirmación voluntaria usa acordeón y textarea compacto');
+    checks+=await captureLayouts(browser,'transporte','.transport-confirm');
     await call('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});
     await navigate('/operations/?module=interacciones');await waitFor('!!window.SicratOperations.list && window.SicratOperations.entity==="interacciones"');
     await evaluate('document.getElementById("operation-new").click()');await waitFor('!!window.SicratOperations.createDTO');
@@ -80,6 +89,49 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) 
     await navigate('/persons/');await waitFor('document.getElementById("person-detail")!==null');
     await evaluate(`openPerson(${JSON.stringify(fixtures.people[0])})`);await waitFor('document.getElementById("person-detail").open && document.getElementById("person-operational-activity").textContent.includes("Actividad cronológica") && document.querySelectorAll("#person-operational-activity table tr").length>1');checks++;
     verify(await evaluate('document.getElementById("person-operational-activity").textContent.includes("Logística de la participación")'),'Ficha de Personas incorpora logística sin sustituir identidad');await capture('person-timeline-desktop');
+    await waitFor('document.querySelector("#person-operational-activity .ux-accordion summary")');
+    const activity = await evaluate(`SicratPhase3.request('persons/${fixtures.people[0]}/activity?limit=25')`);
+    verify(await evaluate('document.querySelector("#person-operational-activity .ux-pagination").hidden')===!activity.data.pagination.has_more,'La paginación corresponde al total de actividad');
+    await evaluate(`openPerson(${JSON.stringify(fixtures.people[1])})`);
+    await waitFor('document.getElementById("person-detail-title").textContent.includes("Bruno") && document.querySelector("#person-operational-activity .ux-accordion summary")');
+    verify(await evaluate('document.querySelector("#person-operational-activity .ux-pagination").hidden'),'Actividad de una página oculta la paginación');
+    await evaluate('document.querySelector("#person-operational-activity .ux-accordion summary").focus()');
+    await call('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',windowsVirtualKeyCode:13});
+    await call('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+    await waitFor('document.querySelector("#person-operational-activity .ux-accordion").open');
+    verify(await evaluate('document.querySelector("#person-participation-options summary .ux-accordion-chevron")'),'Participación utiliza el mismo acordeón');
+    checks+=await captureLayouts(browser,'ficha-persona','#person-operational-activity .ux-accordion');
+    for(const entity of ['peticiones','interacciones']) {
+        await navigate('/operations/?module='+entity);
+        await waitFor('!document.getElementById("operation-new").hidden && !!SicratOperations.list');
+        await evaluate('document.getElementById("operation-new").click()');
+        await waitFor('!!SicratOperations.createDTO && document.querySelector("#operation-create-fields .ux-selection-table th")');
+        const review = require('./table-headings-browser.js').review;
+        checks+=await review(browser,entity+'-selector','#operation-create-fields .ux-selection-table');
+        checks+=await captureLayouts(browser,entity,'#operation-create-fields .ux-selection-table');
+        if(entity==='peticiones') {
+            await evaluate(`(()=>{
+                const form=document.getElementById('operation-create-form');
+                form.querySelector('table[aria-label="Persona solicitante"] tbody tr').click();
+                form.querySelector('table[aria-label="Categoría"] tbody tr').click();
+                form.elements.description.value='Petición de revisión visual';
+                form.requestSubmit();
+            })()`);
+            await waitFor('document.getElementById("operation-detail-dialog").open && document.getElementById("operation-panel-summary").textContent.includes("Petición de revisión visual")');
+            checks++;
+        } else await evaluate('document.getElementById("operation-create-dialog").close()');
+    }
+    await navigate('/operations/?module=conversaciones');
+    await waitFor('document.querySelector("#chat-new-announcement svg")');
+    await evaluate('document.getElementById("operation-new").click()');
+    const menuOptions=await evaluate(`[...document.querySelectorAll('.ux-chat-menu-item')].map(item=>({
+        left:item.querySelector('svg').getBoundingClientRect().left,
+        textAlign:getComputedStyle(item).textAlign,
+        display:getComputedStyle(item).display
+    }))`);
+    verify(menuOptions.length===3 && Math.max(...menuOptions.map(item=>item.left))-Math.min(...menuOptions.map(item=>item.left))<1 &&
+        menuOptions.every(item=>['start','left'].includes(item.textAlign)),'Menú de Mensajería alinea los iconos y el texto por la izquierda '+JSON.stringify(menuOptions));
+    checks+=await captureLayouts(browser,'mensajeria','.ux-chat-menu[open] .ux-chat-menu-content');
     checks+=await require('./table-headings-browser.js')({call,evaluate,waitFor,navigate,directory,fixtures});
     console.log('Fase 5 Chrome: '+checks+' comprobaciones correctas.');return checks;
 };

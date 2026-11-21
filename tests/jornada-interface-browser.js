@@ -160,7 +160,8 @@ module.exports = async function ({ directory, call, evaluate, waitFor, navigate 
 
     await click('#jornada-physical-create > summary');
     await select('#jornada-physical-create-form .op-picker select', [fixture.section]);
-    await fill('#jornada-physical-create-form', { nombre: 'Casilla interfaz nueva', tipo: 'BASICA', ubicacion: 'Ubicación interfaz', domicilio: 'Domicilio interfaz' });
+    await waitFor('document.querySelector("#jornada-booth-location-map.leaflet-container")');
+    await fill('#jornada-physical-create-form', { nombre: 'Casilla interfaz nueva', tipo: 'BASICA', latitude: '25.68', longitude: '-100.31', domicilio: 'Domicilio interfaz' });
     await submit('#jornada-physical-create-form', 'Casilla asociada correctamente.');
     await fill('#jornada-physical-associate-form', {});
     await select('#jornada-physical-associate-form .op-picker select', [fixture.physical]);

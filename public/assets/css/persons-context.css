@@ -5,6 +5,8 @@
 .person-structure-data dd{font-weight:500;overflow-wrap:anywhere}
 .person-map-section{min-width:0}
 .person-location-map{height:280px;max-height:45vh;width:100%;border-radius:.5rem;margin-top:.75rem;isolation:isolate}
+.person-map-section.ux-accordion .person-location-map{width:auto}
+.person-map-section.ux-accordion .person-map-actions{margin:.75rem}
 .person-map-pin{display:grid;place-items:center;background:var(--color-primary,#3b82f6);color:white;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px #0005}
 @media(max-width:600px){.person-structure-data{grid-template-columns:minmax(0,1fr)}}
 .person-map-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.5rem 0}

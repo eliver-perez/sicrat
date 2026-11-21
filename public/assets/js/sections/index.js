@@ -10,7 +10,7 @@ var defaultSelectedMunicipality = 1960;
 
 function InitializeValues(home) {
 	homeURL = home;
-	sectionsPagination = createPagination('#table-sections', () => GetSections());
+	sectionsPagination = createPagination('#table-sections', () => GetSections(), {hideSinglePage:true});
 	$('#btn-sections-new').on('click', NewSection);
 	$('#btn-sections-cancel').on('click', CancelSection);
 	$('#select-sections-state').on('change', GetMunicipalities);
@@ -135,11 +135,12 @@ function GetSections() {
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.section)}</td>
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.state)}</td>
 								<td class="px-3.5 py-2.5 whitespace-nowrap text-sm">${escapeHTML(v.municipality)}</td>
-                                <td><button type="button" class="btn" data-section-open="${escapeHTML(v.id)}" aria-label="Ver sección" title="Ver sección">Ver</button></td>
+                                <td><button type="button" class="btn ux-accent-action" data-section-open="${escapeHTML(v.id)}"></button></td>
 							</tr>`;
 			});
 			if (!rows) rows = '<tr><td colspan="4" class="p-4">No hay registros que coincidan con la consulta.</td></tr>';
 			$('#table-sections tbody').append(rows);
+			document.querySelectorAll('[data-section-open]').forEach(button => window.SicratUI.action(button,'Ver sección','eye'));
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) { 
 			try {
@@ -154,7 +155,7 @@ function GetSections() {
 
 function RegisterSection() {
 	if(!registering_section) {
-		registering_section = true;$('#btn-sections-register').prop('disabled',true).text('Guardando…');
+		registering_section = true;$('#btn-sections-register').prop('disabled',true).find('span').text('Guardando…');
 		$.ajax({
 				url: `${homeURL}/api/sections${selectedSection ? '/'+selectedSection : ''}`,
 				type: selectedSection ? 'put' : 'post',
@@ -165,7 +166,7 @@ function RegisterSection() {
 				},
 				dataType: "json",
 				success: function(response) {
-					registering_section = false;$('#btn-sections-register').prop('disabled',false).text('Guardar');
+					registering_section = false;$('#btn-sections-register').prop('disabled',false).find('span').text('Guardar');
 
 					if(response.success) {
 						CancelSection();
@@ -176,7 +177,7 @@ function RegisterSection() {
 					}
 				},
 				error: function(XMLHttpRequest, textStatus, errorThrown) { 
-					registering_section = false;$('#btn-sections-register').prop('disabled',false).text('Guardar');
+					registering_section = false;$('#btn-sections-register').prop('disabled',false).find('span').text('Guardar');
 					try {
 						var response = JSON.parse(XMLHttpRequest.responseText);
 						ShowToastMessage(response.message, 'error');
@@ -193,7 +194,7 @@ function OpenSection(uuid) {
   const row=response.data;selectedSection=uuid;new_section=false;modify_section=true;
   $('#field-sections-section').val(row.seccion);defaultSelectedMunicipality=Number(row.municipio);$('#select-sections-state').val(row.estado).trigger('change');
   const readOnly=!sectionHasElection || !sectionWritable || (!sectionSuper && row.shared) || row.history_locked;
-  $('#btn-sections-new').addClass('hidden');$('#btn-sections-cancel').removeClass('hidden');$('#btn-sections-register').toggleClass('hidden',readOnly).text('Guardar');EnableSectionFields(readOnly);
+  $('#btn-sections-new').addClass('hidden');$('#btn-sections-cancel').removeClass('hidden');$('#btn-sections-register').toggleClass('hidden',readOnly).find('span').text('Guardar');EnableSectionFields(readOnly);
   $('#sections-detail-message').text(!sectionHasElection ? 'Selecciona una elección de trabajo para editar.' : row.history_locked ? 'Se conservan los datos históricos de las actas existentes.' : row.shared ? 'Sección física compartida entre elecciones. Su modificación requiere administración global.' : '');
  }).fail(function(xhr){ShowToastMessage(xhr.responseJSON?.message || 'No fue posible consultar la sección.','error');});
 }

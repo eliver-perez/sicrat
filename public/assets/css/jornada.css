@@ -205,30 +205,7 @@
     margin-top: .75rem;
 }
 
-#jornada-app .jornada-booth-accordion summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    cursor: pointer;
-    list-style: none;
-    font-size: .9375rem;
-    font-weight: 600;
-}
-
-#jornada-app .jornada-booth-accordion summary::-webkit-details-marker {
-    display: none;
-}
-
-#jornada-app .jornada-booth-accordion summary svg {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-}
-
-#jornada-app .jornada-booth-accordion details[open] > summary svg {
-    transform: rotate(180deg);
-}
+#jornada-app .jornada-booth-accordion > details { margin:0 }
 
 #jornada-booth-dialog .jornada-photo-preview:not([hidden]) {
     display: flex;

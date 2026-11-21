@@ -15,10 +15,10 @@
     <section id="jornada-dashboard" role="tabpanel" aria-labelledby="jornada-tab-dashboard" class="card p-5" hidden>
         <form id="jornada-summary-filter" class="ux-form-grid">
             <label>Concentrado<select name="modo" class="form-input"><option value="validado">Validado interno</option><option value="preliminar">Preliminar interno</option></select></label>
-            <button class="btn bg-primary text-white">Actualizar concentrado</button>
+            <button class="btn bg-primary text-white ux-labeled-action"><i data-lucide="refresh-cw" aria-hidden="true"></i>Actualizar concentrado</button>
             <details class="ux-full"><summary class="btn">Filtros territoriales</summary><div id="jornada-summary-territories" class="ux-form-grid mt-3"><label>Distrito local<input name="distrito_local" type="number" min="1" step="1" class="form-input"></label><label>Distrito federal<input name="distrito_federal" type="number" min="1" step="1" class="form-input"></label></div></details>
         </form>
-        <p id="jornada-summary-legend" class="ux-help my-4"></p><div id="jornada-progress" class="grid grid-cols-2 lg:grid-cols-3 gap-3"></div><div id="jornada-charts" class="ux-form-grid my-4"><div id="jornada-candidate-chart" class="ux-full" aria-label="Gráfica de votos por candidatura"></div><div id="jornada-progress-chart" class="ux-full" aria-label="Gráfica del avance de captura y validación"></div></div>
+        <p id="jornada-summary-legend" class="ux-help my-4"></p><div id="jornada-progress" class="ux-metric-grid"></div><div id="jornada-charts" class="ux-form-grid my-4"><div id="jornada-candidate-chart" class="ux-full" aria-label="Gráfica de votos por candidatura"></div><div id="jornada-progress-chart" class="ux-full" aria-label="Gráfica del avance de captura y validación"></div></div>
         <h6>Totales derivados por candidatura</h6><div id="jornada-candidate-table"></div><h6 class="mt-5">Votos crudos por opción exacta del acta</h6><div id="jornada-option-table"></div><p id="jornada-denominator" class="ux-help my-3"></p>
         <div class="ux-actions"><button id="jornada-show-pending" type="button" class="btn">Ver casillas sin captura</button><button id="jornada-show-proposals" type="button" class="btn">Ver casillas con propuestas pendientes</button></div>
     </section>
@@ -44,6 +44,7 @@
 <script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/operations/core.js')); ?>"></script>
 <link rel="stylesheet" href="<?= escape_html(asset('css/jornada.css')); ?>">
+<?php require_once __DIR__.'/../persons/map-assets.php'; ?>
 <script src="<?= escape_html(asset('js/jornada/presentation.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/jornada/index.js')); ?>"></script>
 <script>var currentLink=<?= json_script(base_url('/jornada')); ?>;</script>

@@ -57,8 +57,8 @@
 			</section>
 		<?php } ?>
 	</div>
-	<dialog id="operation-create-dialog" class="card p-5 w-full max-w-3xl" aria-labelledby="operation-create-title">
-		<h6 id="operation-create-title" class="mb-4"></h6><form id="operation-create-form" class="ux-form-grid"><div id="operation-create-fields" class="op-form-fields ux-full"></div><div class="ux-actions ux-full"><button class="btn bg-primary text-white"><i data-lucide="save" class="size-4" aria-hidden="true"></i>Guardar</button><button type="button" class="btn" data-close>Cerrar</button></div></form>
+	<dialog id="operation-create-dialog" class="card p-5 w-full max-w-3xl<?= in_array($operationEntity, ['interacciones','peticiones','incidencias'], true) ? ' operation-record-form' : ''; ?>" aria-labelledby="operation-create-title">
+		<header class="ux-modal-header"><h6 id="operation-create-title"></h6><button type="button" class="btn" data-close>Cerrar</button></header><form id="operation-create-form" class="ux-form-grid"><div id="operation-create-fields" class="op-form-fields ux-full"></div><div class="ux-modal-footer"><button class="btn bg-primary text-white ux-labeled-action"><i data-lucide="save" class="size-4" aria-hidden="true"></i>Guardar</button></div></form>
 	</dialog>
 	<dialog id="operation-detail-dialog" class="card p-5 w-full max-w-3xl<?= $isTransport ? ' transport-detail-dialog' : ''; ?>" aria-labelledby="operation-detail-title">
 		<div class="ux-actions mb-4"><h6 id="operation-detail-title"></h6><button type="button" class="btn" data-close>Cerrar</button></div>

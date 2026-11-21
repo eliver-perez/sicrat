@@ -16,7 +16,7 @@ $personCapabilities ??= [
         <div id="person-edit-fields" class="ux-full"></div>
         <div class="ux-modal-footer ux-actions">
             <button class="btn" id="person-edit-cancel" type="button">Cancelar</button>
-            <button class="btn bg-primary text-white" type="submit">Guardar</button>
+            <button class="btn bg-primary text-white ux-labeled-action" type="submit"><i data-lucide="save" aria-hidden="true"></i>Guardar</button>
         </div>
     </form>
     <section id="person-context" class="ux-section"><h6 class="card-title">Participación y estructura</h6>
@@ -24,8 +24,8 @@ $personCapabilities ??= [
     <div id="person-structure" class="ux-section" aria-live="polite"></div>
     <div id="person-operational-activity" class="mb-4"></div>
     <?php if ($personCapabilities['participate']): ?>
-    <details id="person-participation-options"><summary>Administrar participación electoral</summary><label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
-    <button type="button" id="person-participate" class="btn bg-primary text-white mt-3">Incorporar</button></details>
+    <details id="person-participation-options" data-accordion-icon="vote"><summary>Administrar participación electoral</summary><label>Incorporar a una o varias elecciones <select id="person-election-select" class="form-input" multiple size="6"></select></label>
+    <button type="button" id="person-participate" class="btn bg-primary text-white ux-labeled-action"><i data-lucide="plus" aria-hidden="true"></i>Incorporar</button></details>
     <?php endif; ?></section>
     <form id="person-detail-close-form" method="dialog" hidden></form>
 </dialog>

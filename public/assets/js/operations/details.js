@@ -82,17 +82,19 @@
 		app.description(summary,{'Persona':row.persona_nombre,'Necesidad':app.label(row.necesidad),'Coordinador':row.coordinador_nombre,'Proveedor':row.proveedor_nombre || row.proveedor_externo,'Observaciones logísticas':row.observaciones_logisticas,'Confirmación voluntaria':row.confirmado_en || 'Sin registro voluntario'});
 		if(Number(row.actions.can_coordinate)) window.SicratTransport.edit(app,row,actions);
 		if(Number(row.actions.can_confirm) && row.logistics_uuid) {
-			const confirmation=app.text('details','','ux-section transport-confirm');
-			confirmation.append(app.text('summary','Confirmación voluntaria'));
+			const confirmation=window.SicratUI.accordion(app.text('details','','transport-confirm'),'Confirmación voluntaria','circle-check');
 			actions.append(confirmation);
-			app.form(confirmation,'',fields=>{
+			const form=app.form(confirmation,'',fields=>{
 				app.check(fields,'confirmed','Confirmo que el traslado ocurrió');
 				app.field(fields,'date','Fecha y hora','datetime-local',forms.now(),true);
-				app.field(fields,'notes','Observación','textarea').maxLength=500;
+				const notes=app.field(fields,'notes','Observación','textarea');
+				notes.maxLength=500;
+				notes.rows=2;
 			},async(data,form)=>{
 				await app.api('operations/transporte/'+row.uuid+'/confirm','POST',{...data,confirmed:form.elements.confirmed.checked ? 1 : 0,version:row.version});
 				await Promise.all([app.openDetail(row.uuid,'actions'),app.transport.refresh()]);
 			},'Registrar confirmación voluntaria');
+			window.SicratUI.labeledAction(form.querySelector('button[type=submit]'),'Registrar confirmación voluntaria','check');
 		}
 	};
 	definitions.encuestas.detail=async(app,row,summary,actions)=>{

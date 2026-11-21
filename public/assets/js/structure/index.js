@@ -66,8 +66,10 @@ function InitializeValues(url) {
     [
         ['structure-create','plus','Nueva estructura'],['structure-clone','copy','Crear copia independiente'],
         ['structure-associate','link','Asociar elección'],['structure-add','plus','Agregar integrante'],
-        ['structure-requests','arrow-right-left','Solicitudes de transferencia'],['structure-history','history','Historial de la estructura']
-    ].forEach(([id,icon,title]) => {const button=element(id);button.classList.add('structure-labeled-action');button.prepend(visual.icon(icon));button.title=title;button.setAttribute('aria-label',title);});
+        ['structure-requests','arrow-right-left','Solicitudes de transferencia'],['structure-history','history','Historial de la estructura'],
+        ['structure-mine','users','Mi equipo'],['structure-roots','network','Inicio de la estructura'],
+        ['structure-preview-enter','network','Entrar a este nivel']
+    ].forEach(([id,icon,title]) => {const button=element(id);visual.labeledAction(button,title,icon);button.title=title;button.setAttribute('aria-label',title);});
     function summary(member) {
         const target=element('structure-summary');target.replaceChildren();target.hidden=!member;
         if (!member) return;
@@ -102,6 +104,7 @@ function InitializeValues(url) {
         if (!structureState.id && rows.some(row=>row.own)) select.value=rows.find(row=>row.own).id;
         if (structureState.id && rows.some(row => row.id === structureState.id)) select.value = structureState.id;
         structureState.id = select.value || null; structureState.offset = 0;
+        element('structure-member-pages').hidden = true;
         element('structure-add').disabled=!structureState.id;
         if (structureMap) structureMap.launch.disabled = !structureState.id;
         ['structure-hierarchy','structure-mine','structure-roots','structure-all','structure-previous','structure-next','structure-history','structure-requests'].forEach(id=>element(id).disabled=!structureState.id);
@@ -128,14 +131,15 @@ function InitializeValues(url) {
             renderBreadcrumb();
             navigation.append(personText(ui.text('h6',structureState.parent === '' ? 'Todos los integrantes' : 'Inicio de la estructura','card-title'),focus));
             if (focus) {
-                const open = ui.text('button','Abrir ficha del responsable','btn text-primary');open.type='button';open.onclick=()=>ui.run(()=>openMember(focus.id));if(focus.can_open!==false)navigation.append(open);
-                if (focus.responsible_visible) { const back=ui.text('button','Subir al responsable','btn');back.type='button';back.onclick=()=>ui.run(()=>{if(!structureState.trail.some(item=>item.id===focus.responsible))structureState.trail=[];return browse(focus.responsible);});navigation.append(back); }
+                const open = visual.labeledAction(ui.text('button','','btn text-primary'),'Abrir ficha del responsable','contact-round');open.id='structure-open-responsible';open.type='button';open.onclick=()=>ui.run(()=>openMember(focus.id));if(focus.can_open!==false)navigation.append(open);
+                if (focus.responsible_visible) { const back=visual.labeledAction(ui.text('button','','btn'),'Subir al responsable','chevron-left');back.type='button';back.onclick=()=>ui.run(()=>{if(!structureState.trail.some(item=>item.id===focus.responsible))structureState.trail=[];return browse(focus.responsible);});navigation.append(back); }
             } else if (!data.own) navigation.append(ui.text('p','Tu usuario no se encuentra registrado como integrante de esta estructura. Se muestran los registros de la estructura seleccionada.','ux-help'));
             element('structure-mine').hidden = !data.own;
             structureState.members = data.members; structureState.elections = data.elections;
             element('structure-elections').textContent = `Elecciones: ${data.elections.map(election => election.name).join(' · ')}`;
             renderMembers(element('structure-members'),data.members,focus);
             element('structure-previous').disabled = structureState.offset === 0; element('structure-next').disabled = !response.pagination.has_more;
+            element('structure-member-pages').hidden = !structureState.offset && !response.pagination.has_more;
             structureState.levels = {};
             for (const election of data.elections) {
                 try {const levels=(await ui.request(`structure-levels?election=${election.id}`)).data;if(version!==structureState.loadVersion)return;structureState.levels[election.id]=levels;}
@@ -255,9 +259,9 @@ function InitializeValues(url) {
             card.dataset.personPrefix = 'Abrir equipo de ';
             card.dataset.personLabel = '';
             const actions = ui.text('div','','structure-team-actions');
-            actions.append(memberAction('Ver ficha','eye',()=>openMember(person.id)));
-            addPersonEdit(actions,person);
             const navigate=async()=>{element('structure-member-dialog').close();await browse(person.id);};
+            actions.append(memberAction('Ver ficha','eye',()=>openMember(person.id)),memberAction('Ver equipo','users',navigate));
+            addPersonEdit(actions,person);
             card.onclick=event=>{if(!event.target.closest('button'))ui.run(navigate);};card.onkeydown=event=>{if(event.target===card && ['Enter',' '].includes(event.key)){event.preventDefault();if(!event.repeat)ui.run(navigate);}};
             card.append(initials,content,actions);team.append(card);
         }

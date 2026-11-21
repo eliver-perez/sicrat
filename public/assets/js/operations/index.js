@@ -23,7 +23,7 @@ function InitializeValues(url) {
 		if(result.uuid) await app.open(result.uuid);
 		if(app.entity!=='conversaciones') app.notice(app.editingSurvey ? 'Borrador guardado.' : 'Registro guardado.');
 	}));
-	app.node('operation-new').addEventListener('click',app.guard(()=>{if(app.entity==='conversaciones'){app.chatNewMenu.open=!app.chatNewMenu.open;return;}return app.create();}));
+	if(app.entity!=='conversaciones') app.node('operation-new').addEventListener('click',app.guard(()=>app.create()));
 	app.node('operation-filter').addEventListener('submit',app.guard(async event=>{
 		app.filters=app.values(event.currentTarget);
 		if(app.transport) {

@@ -69,9 +69,9 @@
 
                                         <div class="lg:col-span-3 col-span-1">
                                             <div class="flex justify-end gap-2">
-                                                <button id="btn-sections-cancel" type="button" class="btn btn-sm hidden">Cancelar</button>
-                                                <button id="btn-sections-new" type="button" class="hidden btn bg-primary text-white btn-sm hover:bg-primary-hbr">Nueva Sección</button>
-                                                <button id="btn-sections-register" type="submit" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr hidden">Registrar</button>
+                                                <button id="btn-sections-cancel" type="button" class="btn btn-sm hidden ux-labeled-action"><i data-lucide="x" aria-hidden="true"></i>Cancelar</button>
+                                                <button id="btn-sections-new" type="button" class="hidden btn bg-primary text-white btn-sm hover:bg-primary-hbr ux-labeled-action"><i data-lucide="plus" aria-hidden="true"></i>Nueva Sección</button>
+                                                <button id="btn-sections-register" type="submit" class="btn bg-primary text-white btn-sm hover:bg-primary-hbr hidden ux-labeled-action"><i data-lucide="save" aria-hidden="true"></i><span>Registrar</span></button>
                                             </div>
                                         </div>
                                     </div>

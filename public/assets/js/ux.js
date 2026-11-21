@@ -67,10 +67,21 @@ Object.assign(window.SicratUI, {
         const label=document.createElement('span');label.className='ux-sr-only';label.textContent=title;button.replaceChildren(this.icon(icon),label);return button;
     },
     labeledAction(button,title,icon) {
+        button.classList.add('ux-labeled-action');
         const label=document.createElement('span');
         label.textContent=title;
         button.replaceChildren(this.icon(icon),label);
         return button;
+    },
+    accordion(details,title,icon) {
+        details.classList.add('ux-accordion');
+        const header=details.querySelector(':scope > summary') || document.createElement('summary');
+        if (!header.parentElement) details.prepend(header);
+        this.labeledAction(header,title,icon);
+        const chevron=this.icon('chevron-down');
+        chevron.classList.add('ux-accordion-chevron');
+        header.append(chevron);
+        return details;
     },
     viewMenu(button,menu,changed) {
         const toggle=this.action(button,'Cambiar vista','layout-grid');
@@ -206,6 +217,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else dialog.setAttribute('aria-label', 'Detalles y acciones');
         });
         root.querySelectorAll('thead th:not([scope])').forEach(header => header.setAttribute('scope', 'col'));
+        root.querySelectorAll('details[data-accordion-icon]').forEach(details => {
+            if (details.classList.contains('ux-accordion')) return;
+            window.SicratUI.accordion(details,details.querySelector('summary').textContent.trim(),details.dataset.accordionIcon);
+        });
         root.querySelectorAll('table .btn').forEach(button=>{
             const title=button.textContent.trim();const icon=/^editar$/i.test(title) ? 'pencil' : /^eliminar$/i.test(title) ? 'trash-2' : /^(ver detalle|abrir|ver \/ comparar|consultar)$/i.test(title) ? 'eye' : null;
             if(icon)window.SicratUI.action(button,title,icon);

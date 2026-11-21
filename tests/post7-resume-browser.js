@@ -3,13 +3,25 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pause,api,login,fixture,conversation}){
  let checks=0;const check=(value,message)=>{assert.ok(value,message);checks++;};
  const capture=async(name)=>{const data=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(directory,'resume-'+name+'.png'),Buffer.from(data.data,'base64'),{mode:0o600});};
- // Referencia original local, sólo en la página de pruebas: se resuelven assets definitivos.
- await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await navigate('/');
- const original=fs.readFileSync(path.join(__dirname,'../tailwick/apps-chat.html'),'utf8');const reference=original.replaceAll('/assets/',base+'/template/assets/');
- const frame=(await call('Page.getFrameTree')).frameTree.frame.id;await call('Page.setDocumentContent',{frameId:frame,html:reference});await pause(900);await capture('tailwick-reference');
+ // La referencia de Tailwick usa una pestaña aparte para mantener intacta la sesión bajo prueba.
+ await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+ const original=fs.readFileSync(path.join(__dirname,'../tailwick/apps-chat.html'),'utf8');
+ const reference=original.replaceAll('/assets/',base+'/template/assets/');
+ const {targetId}=await call('Target.createTarget',{url:'about:blank',background:true});
+ try {
+  const {sessionId}=await call('Target.attachToTarget',{targetId,flatten:true});
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false},sessionId);
+  const {frameTree}=await call('Page.getFrameTree',{},sessionId);
+  await call('Page.setDocumentContent',{frameId:frameTree.frame.id,html:reference},sessionId);
+  await pause(900);
+  const shot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false},sessionId);
+  fs.writeFileSync(path.join(directory,'resume-tailwick-reference.png'),Buffer.from(shot.data,'base64'),{mode:0o600});
+ } finally {
+  await call('Target.closeTarget',{targetId});
+ }
  await login('revision-admin','Revision local segura');await api('/api/operations/conversaciones/'+conversation.uuid+'/send','POST',{text:'Respuesta recibida desde otra cuenta SICRAT'});
  await login('administrador',' nueva contraseña ');await navigate('/operations/?module=conversaciones&record='+conversation.uuid);await waitFor('document.getElementById("operation-detail-dialog").open && document.querySelectorAll(".ux-chat-message").length>=2 && document.querySelector("#chat-composer textarea")');
- check(await evaluate('document.querySelector(".ux-chat-sidebar-head h6").textContent==="Chats" && document.querySelector(".ux-chat-search input").placeholder.includes("conversación")'),'Cabecera Chats y buscador integrados en la columna lateral');
+ check(await evaluate('document.querySelector(".ux-chat-sidebar-head h6").textContent==="Conversaciones" && document.querySelector(".ux-chat-search input").placeholder.includes("conversación")'),'Cabecera Conversaciones y buscador integrados en la columna lateral');
  check(await evaluate('document.getElementById("operation-settings").closest(".ux-chat-menu-content") && document.getElementById("operation-new").querySelector("svg")'),'Nueva conversación compacta y configuración contextual');
  check(await evaluate('document.querySelector("[data-open-chat].active")?.dataset.openChat===window.SicratOperations.selected'),'Conversación seleccionada resaltada');
  check(await evaluate('document.querySelector(".ux-chat-outgoing") && document.querySelector(".ux-chat-message:not(.ux-chat-outgoing)")'),'Mensajes enviados y recibidos diferenciados con datos reales');
@@ -33,7 +45,17 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
  await evaluate('document.getElementById("person-import-review").click()');await waitFor('!personImportBusy && document.querySelectorAll("#person-import-preview>div").length===3');check(await evaluate('!document.getElementById("person-import-preview").textContent.includes("Alta automática Chrome")'),'Revisión manual no repite las altas ya terminadas');await capture('person-import-manual-exceptions');
  await login('administrador',' nueva contraseña ');
  for(const permission of ['personas.crear','personas.editar','personas.participar'])await api('/api/users/'+fixture.user+'/permissions','PUT',{permission,election:fixture.election,scope:'organizacion',value:0});
- await login('revision-admin','Revision local segura');await navigate('/persons/');await pause(250);check(await evaluate('!document.getElementById("btn-persons-new")'),'Alta rápida ausente al revocar Crear personas');check(await evaluate('!document.querySelector("#import-mode option[value=automatic]")'),'Altas automáticas también se oculta cuando falta permiso de crear');await evaluate(`openPerson(${JSON.stringify(fixture.person)})`);await waitFor('document.getElementById("person-detail").open');check(await evaluate('!document.querySelector("#person-edit-form button[type=submit]") && Array.from(document.querySelectorAll("#person-edit-fields input,#person-edit-fields select,#person-edit-fields textarea")).every(field=>field.disabled)'),'Ficha de sólo consulta al revocar edición');check(await evaluate('document.getElementById("person-edit-fields").getBoundingClientRect().width>=document.getElementById("person-edit-form").getBoundingClientRect().width*.95'),'Ficha de sólo consulta aprovecha toda la anchura del formulario');check(await evaluate('!document.getElementById("person-participate") && document.getElementById("person-participations").textContent.includes("Sólo consulta")'),'Participaciones sin controles al revocar permiso');await capture('person-readonly');
+ await login('revision-admin','Revision local segura');
+ await navigate('/persons/');
+ check(await evaluate('!document.getElementById("btn-persons-new")'),'Alta rápida ausente al revocar Crear personas');
+ check(await evaluate('!document.querySelector("#import-mode option[value=automatic]")'),'Altas automáticas se oculta cuando falta permiso de crear');
+ await evaluate(`openPerson(${JSON.stringify(fixture.person)})`);
+ await waitFor('document.getElementById("person-detail").open');
+ check(await evaluate('!document.getElementById("person-edit") && document.getElementById("person-edit-form").hidden && !document.querySelector("#person-consult input,#person-consult select,#person-consult textarea")'),'Ficha de sólo consulta al revocar edición');
+ check(await evaluate('document.getElementById("person-consult").getBoundingClientRect().width>=document.getElementById("person-detail").clientWidth*.85'),'Ficha de sólo consulta aprovecha la anchura del diálogo');
+ check(await evaluate(`document.querySelector('#person-structure .person-structure-card') &&
+     !document.querySelector('#person-participation-options, #person-participations button, #person-structure .person-structure-card > .ux-actions button')`),'Participaciones sin controles al revocar permiso');
+ await capture('person-readonly');
  await login('administrador',' nueva contraseña ');for(const permission of ['personas.crear','personas.editar','personas.participar'])await api('/api/users/'+fixture.user+'/permissions','PUT',{permission,election:fixture.election,scope:'organizacion',value:1});
  console.log('Reanudación Chrome: '+checks+' comprobaciones correctas.');return checks;
 };

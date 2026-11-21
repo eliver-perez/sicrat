@@ -16,10 +16,17 @@ async function review({call,evaluate,waitFor,directory},name,selector) {
                 document.documentElement.dataset.theme=${JSON.stringify(theme)};
                 const table=${table}, head=table.tHead, row=table.tBodies[0].rows[0];
                 head.scrollIntoView({block:'center',inline:'start',behavior:'instant'});
+                if (table.classList.contains('ux-selection-table')) table.parentElement.scrollTop=0;
                 await new Promise(resolve=>setTimeout(resolve,250));
                 const cells=[...head.rows[0].cells].filter(cell=>cell.offsetWidth);
                 const color=node=>getComputedStyle(node).backgroundColor;
                 const colors=cells.map(cell=>[color(cell),getComputedStyle(cell).color]);
+                const sample=document.createElement('span');
+                sample.style.backgroundColor='var(--sicrat-table-heading-bg)';
+                sample.style.color='var(--sicrat-table-heading-text)';
+                document.body.append(sample);
+                const expected=[color(sample),getComputedStyle(sample).color];
+                sample.remove();
                 const body=[color(row),...Array.from(row.cells,color)];
                 const controls=[...table.tBodies[0].querySelectorAll('button,.ux-badge')].slice(0,12).map(color);
                 const rect=head.getBoundingClientRect();
@@ -37,12 +44,12 @@ async function review({call,evaluate,waitFor,directory},name,selector) {
                         parent.scrollTo({left:start,behavior:'instant'});
                     }
                 }
-                return {colors,body,controls,scrollable,pageWidth:document.documentElement.scrollWidth,
+                return {colors,expected,body,controls,scrollable,pageWidth:document.documentElement.scrollWidth,
                     clip:{x:left+scrollX,y:rect.top+scrollY,width:right-left,height:Math.min(rect.height+row.offsetHeight,160),scale:1}};
             })()`);
-            const background=theme==='light' ? 'rgb(2, 34, 73)' : 'rgb(38, 59, 82)';
+            const [background,foreground]=result.expected;
             const context=name+' '+width+' '+theme;
-            assert.ok(result.colors.length && result.colors.every(([bg,fg])=>bg===background && fg==='rgb(246, 249, 252)'),context+' encabezados');
+            assert.ok(result.colors.length && result.colors.every(([bg,fg])=>bg===background && fg===foreground),context+' encabezados');
             assert.ok(![...result.body,...result.controls].includes(background),context+' filas y acciones');
             assert.ok(result.scrollable,context+' desplazamiento de contenedores');
             assert.ok(result.pageWidth<=width+1,context+' ancho de página '+result.pageWidth);
@@ -95,6 +102,18 @@ module.exports=async function(browser) {
         checks++;
     }
     checks+=await review(browser,'equipo','#structure-preview-table');
+    const openResponsible='#structure-open-responsible';
+    await evaluate('document.getElementById("structure-preview-enter").click()');
+    await waitFor('document.querySelector('+JSON.stringify(openResponsible)+'+" svg")');
+    assert.ok(await evaluate(`['structure-mine','structure-roots'].every(id=>document.querySelector('#'+id+' svg'))`),'Mi equipo e Inicio de la estructura muestran iconos');
+    await evaluate('document.querySelector('+JSON.stringify(openResponsible)+').click()');
+    await waitFor('document.querySelector("#structure-member-dialog[open] .structure-team-actions button")');
+    assert.ok(await evaluate(`(()=>{
+        const actions=[...document.querySelectorAll('#structure-team .ux-icon-action')];
+        return actions.length>=2 && new Set(actions.map(action=>action.offsetWidth+'x'+action.offsetHeight)).size===1;
+    })()`),'Acciones compactas de integrante comparten dimensiones');
+    checks+=2;
+    checks+=await require('./interface-consolidation-browser.js').captureLayouts(browser,'estructura','#structure-team');
     for(const entity of ['transporte','interacciones','peticiones','incidencias']) {
         await navigate('/operations/?module='+entity);
         checks+=await review(browser,entity,'#operation-list table');
@@ -118,6 +137,9 @@ module.exports=async function(browser) {
     for(const tab of ['audit','approvals','files','exports','jobs','deliveries']) {
         await evaluate('document.getElementById('+JSON.stringify('services-tab-'+tab)+').click()');
         checks+=await review(browser,tab,'#'+tab+'-list table');
+        if(['files','exports','jobs'].includes(tab)) {
+            checks+=await require('./interface-consolidation-browser.js').captureLayouts(browser,tab,'#services-'+tab);
+        }
     }
     console.log('Encabezados de tablas: '+checks+' comprobaciones en Chrome.');
     return checks;
