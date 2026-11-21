@@ -4,7 +4,7 @@ window.SicratOperationForms = {
 	day() { const date=new Date();return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-'); },
 	now() { const date=new Date();return this.day()+'T'+String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0'); },
 	async interaction(app,target) {
-		const person=await app.personPicker(app.section(target,'Persona'),'Persona','crear',false,[],true);
+		const person=await app.personPicker(app.section(target,'Persona'),'Persona','crear',false,app.initialPerson || [],true);
 		const dataFields=app.section(target,'Datos de la interacción');
 		app.field(dataFields,'type','Tipo de interacción','select','VISITA',true,{VISITA:'Visita',LLAMADA:'Llamada',WHATSAPP:'WhatsApp',MENSAJE:'Correo o mensaje',EVENTO:'Reunión',OTRO:'Otro'});
 		app.field(dataFields,'date','Fecha y hora','datetime-local',this.now(),true);
@@ -61,7 +61,7 @@ window.SicratOperationForms = {
 		app.field(general,'title','Título de la tarea','text','',true);app.field(general,'description','Descripción','textarea');
 		const mode=app.field(general,'mode','Modalidad','select','individual',true,{individual:'Asignación individual a varias personas',colaborativa:'Tarea colaborativa con subtareas'});
 		app.field(general,'priority','Prioridad','select','NORMAL',true,{BAJA:'Baja',NORMAL:'Normal',ALTA:'Alta',URGENTE:'Urgente'});app.field(general,'start','Fecha de inicio','datetime-local',this.now(),true);app.field(general,'deadline','Fecha límite','datetime-local');
-		const assignments=await app.personPicker(assignment,'Personas asignadas','crear',true); const subtaskSection=app.section(assignment,'Subtareas','Cada subtarea conserva su propio estado.');const subtasks=[];
+		const assignments=await app.personPicker(assignment,'Personas asignadas','crear',true,app.initialPerson || []); const subtaskSection=app.section(assignment,'Subtareas','Cada subtarea conserva su propio estado.');const subtasks=[];
 		const add=async()=>{const box=app.text('div','','op-question op-form-fields ux-full');subtaskSection.append(box);const title=app.field(box,'subtask_title','Título de subtarea','text','',true);const person=await app.personPicker(box,'Responsable de subtarea','crear');subtasks.push({box,title,person});box.append(app.button('Quitar subtarea',()=>{box.remove();subtasks.splice(subtasks.findIndex(item=>item.box===box),1);}));};
 		subtaskSection.append(app.button('Agregar subtarea',async()=>{if(subtasks.length>=100)throw new Error('Máximo cien subtareas.');await add();}));
 		const toggle=()=>{assignments.box.hidden=mode.value!=='individual';assignments.select.disabled=mode.value!=='individual';subtaskSection.parentElement.hidden=mode.value!=='colaborativa';subtasks.forEach(item=>item.title.disabled=mode.value!=='colaborativa');};mode.addEventListener('change',app.guard(async()=>{if(mode.value==='colaborativa' && !subtasks.length)await add();toggle();}));toggle();
@@ -70,13 +70,22 @@ window.SicratOperationForms = {
 		const recurrence=app.section(target,'Recurrencia opcional','El sistema repetirá la tarea durante el periodo indicado.');const recurrent=app.check(recurrence,'recurrent','Repetir esta tarea');app.field(recurrence,'recurrence_frequency','Frecuencia','select','semanal',false,{diario:'Diaria',semanal:'Semanal',mensual:'Mensual'});const every=app.field(recurrence,'recurrence_every','Cada cuántos periodos','number','1');every.min='1';every.max='31';const until=app.field(recurrence,'recurrence_until','Repetir hasta','date');
 		recurrent.addEventListener('change',()=>until.required=recurrent.checked);
 		const entities={'':'Sin relación',personas:'Persona'};['eventos','peticiones','incidencias','interacciones'].forEach(entity=>{const module={eventos:'eventos',peticiones:'peticiones_incidencias',incidencias:'peticiones_incidencias',interacciones:'interacciones'}[entity];if(app.can(entity+'.ver') && app.moduleEnabled(module))entities[entity]=app.label(entity);});
-		const relationship=app.section(target,'Relación con otro registro (opcional)');const relatedType=app.field(relationship,'related_entity','Registro relacionado opcional','select','',false,entities);const relatedBox=app.text('div','','ux-full');relationship.append(relatedBox);let related=null;
-		relatedType.addEventListener('change',app.guard(async()=>{relatedBox.replaceChildren();related=null;if(!relatedType.value)return;related=relatedType.value==='personas' ? await app.personPicker(relatedBox,'Persona relacionada','crear') : await app.picker(relatedBox,'Registro relacionado','operations/'+relatedType.value);}));
+		const relationship=app.section(target,'Relación con otro registro (opcional)');const relatedType=app.field(relationship,'related_entity','Registro relacionado opcional','select',app.initialPerson?.length ? 'personas' : '',false,entities);const relatedBox=app.text('div','','ux-full');relationship.append(relatedBox);let related=null;
+		async function selectRelated(initial=[]) {
+			relatedBox.replaceChildren();
+			related=null;
+			if(!relatedType.value)return;
+			related=relatedType.value==='personas'
+				? await app.personPicker(relatedBox,'Persona relacionada','crear',false,initial)
+				: await app.picker(relatedBox,'Registro relacionado','operations/'+relatedType.value);
+		}
+		if (app.initialPerson?.length) await selectRelated(app.initialPerson);
+		relatedType.addEventListener('change',app.guard(()=>selectRelated()));
 		return form=>{const data=app.values(form);return {...data,validation:validation.checked ? 1 : 0,approver:approver.values(),allow_pdf:form.elements.allow_pdf.checked ? 1 : 0,related_entity:relatedType.value,related_record:related?.values() || '',assignees:mode.value==='individual' ? assignments.values() : [],subtasks:mode.value==='colaborativa' ? subtasks.map(item=>({title:item.title.value,person:item.person.values()})) : [],recurrence:recurrent.checked ? {frequency:data.recurrence_frequency,every:Number(data.recurrence_every),until:until.value} : null};};
 	},
 	async goal(app,target,row = null) {
 		app.field(target,'title','Nombre de la meta','text',row?.titulo || '',true);const origin=app.field(target,'origin','Origen del avance','select',row?.origen || 'manual',true,{manual:'Captura manual',automatica:'Datos reales del sistema'});app.field(target,'mode','Responsabilidad','select','individual',true,{individual:'Individual',equipo:'Equipo a cargo',general:'General con distribución'});
-		const responsible=await app.personPicker(target,'Responsable','crear');const quantity=app.field(target,'quantity','Objetivo','number','',true);quantity.min='1';
+		const responsible=await app.personPicker(target,'Responsable','crear',false,app.initialPerson || []);const quantity=app.field(target,'quantity','Objetivo','number','',true);quantity.min='1';
 		app.field(target,'start','Inicio del periodo','date',row?.fecha_inicio || this.day(),true);app.field(target,'end','Fin del periodo','date',row?.fecha_fin || '',true);
 		const manual=app.field(target,'manual_indicator','Unidad del indicador manual','text',row?.indicador || 'Gestiones',true);manual.maxLength=40;
 		const indicators=await app.api('operations/indicators');const automatic=app.field(target,'automatic_indicator','Indicador automático','select',row?.indicador || indicators[0]?.code || '',true,Object.fromEntries(indicators.map(item=>[item.code,item.label])));
@@ -93,7 +102,7 @@ window.SicratOperationForms = {
 	},
 	async caseRecord(app,target) {
 		const parties=app.section(target,app.entity==='peticiones' ? 'Solicitante' : 'Persona relacionada');
-		const person=await app.personPicker(parties,app.entity==='peticiones' ? 'Persona solicitante' : 'Persona relacionada','crear');let external=null,name=null,contact=null;
+		const person=await app.personPicker(parties,app.entity==='peticiones' ? 'Persona solicitante' : 'Persona relacionada','crear',false,app.initialPerson || []);let external=null,name=null,contact=null;
 		if (app.entity==='peticiones') { external=app.check(parties,'external','El solicitante es externo a SICRAT');name=app.field(parties,'external_name','Nombre del solicitante externo','text');contact=app.field(parties,'external_contact','Contacto del solicitante','text');const toggle=()=>{person.box.hidden=external.checked;person.select.disabled=external.checked;name.closest('label').hidden=contact.closest('label').hidden=!external.checked;name.required=external.checked;name.disabled=contact.disabled=!external.checked;};external.addEventListener('change',toggle);toggle(); }
 		const detail=app.section(target,app.entity==='peticiones' ? 'Datos de la petición' : 'Datos de la incidencia');
 		const category=await app.picker(detail,'Categoría','operations/case-categories/'+app.entity+'?active=1',false,[],true);

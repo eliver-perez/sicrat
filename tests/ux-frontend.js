@@ -41,12 +41,12 @@ async function main() {
     assert.equal(buttons[3].tabIndex,-1); checks++;
     await activate(buttons[1]); assert.equal(changes.length,1); checks++;
     await activate(buttons[2]); assert.equal(changes.length,1); checks++;
-    let prevented=false;
-    buttons[0].listeners.keydown({key:'ArrowRight',preventDefault(){prevented=true;}});
-    assert.ok(prevented && buttons[3].focused); checks++;
+    let prevented=false, stopped=false;
+    buttons[0].listeners.keydown({key:'ArrowRight',preventDefault(){prevented=true;},stopPropagation(){stopped=true;}});
+    assert.ok(prevented && stopped && buttons[3].focused); checks++;
     assert.equal(buttons[3].attributes['aria-selected'],'true'); checks++;
     assert.equal(panels.get('#one').hidden,true); checks++;
-    buttons[3].listeners.keydown({key:'Home',preventDefault(){}});
+    buttons[3].listeners.keydown({key:'Home',preventDefault(){},stopPropagation(){}});
     assert.equal(buttons[0].attributes['aria-selected'],'true'); checks++;
     console.log(`OK: ${checks} comprobaciones frontend de UX, teclado y texto seguro.`);
 }

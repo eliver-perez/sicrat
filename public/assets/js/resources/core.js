@@ -88,32 +88,31 @@ Object.assign(window.SicratResources,{
 		const dialog=this.node('resources-detail');
 		if(!dialog.open)dialog.showModal();
 		const tabs=this.node('resources-detail-tabs');
+		const target=this.node('resources-detail-content');
 		tabs.replaceChildren();
-		['detalle','acciones','historial','evidencias'].forEach((key,index)=>{const button=this.button(({detalle:'Detalle',acciones:'Acciones',historial:'Historial',evidencias:'Evidencias'})[key],()=>select(key));
-			button.setAttribute('role','tab');
-			button.setAttribute('aria-selected',String(index===0));
-			button.classList.toggle('active',index===0);
+		for(const [key,label] of Object.entries({detalle:'Detalle',acciones:'Acciones',historial:'Historial',evidencias:'Evidencias'})) {
+			const button=this.text('button',label);
+			button.type='button';
+			button.id='resources-detail-tab-'+key;
 			button.dataset.key=key;
+			button.setAttribute('role','tab');
+			button.setAttribute('aria-controls',target.id);
+			button.setAttribute('aria-selected','false');
+			button.tabIndex=-1;
 			tabs.append(button);
-			});
-		const select=async key=>{Array.from(tabs.children).forEach(button=>(button.setAttribute('aria-selected',String(button.dataset.key===key)),button.classList.toggle('active',button.dataset.key===key)));
-			const target=this.node('resources-detail-content');
+		}
+		const entity=this.entity;
+		const select=async key=>{
+			target.setAttribute('aria-labelledby','resources-detail-tab-'+key);
 			target.replaceChildren();
 			if(key==='detalle')await window.SicratResourceDetails.summary(this,row,target);
 			if(key==='acciones')await window.SicratResourceDetails.actions(this,row,target);
-			if(key==='historial'){await this.pager(target,'resources/'+this.entity+'/'+uuid+'/history',[['Fecha','fecha'],['Actividad',entry=>this.label(entry.accion)],['Responsable','actor'],['Motivo','motivo']]).load();
-				}if(key==='evidencias')await window.SicratResourceDetails.evidence(this,row,target);
-			};
-		this.detailSelect=select;
-		tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
-			event.preventDefault();
-			const buttons=Array.from(tabs.children);
-			let index=buttons.indexOf(document.activeElement);
-			index=event.key==='Home' ? 0 : event.key==='End' ? buttons.length-1 : (index+(event.key==='ArrowRight' ? 1 : -1)+buttons.length)%buttons.length;
-			buttons[index].focus();
-			buttons[index].click();
-			});
-		await select('detalle');
+			if(key==='historial')await this.pager(target,'resources/'+entity+'/'+uuid+'/history',[['Fecha','fecha'],['Actividad',entry=>this.label(entry.accion)],['Responsable','actor'],['Motivo','motivo']]).load();
+			if(key==='evidencias')await window.SicratResourceDetails.evidence(this,row,target);
+		};
+		const activate=window.SicratUI.tabs(tabs,button=>this.guard(()=>select(button.dataset.key))());
+		this.detailSelect=key=>activate(this.node('resources-detail-tab-'+key));
+		await this.detailSelect('detalle');
 	}
 });
 // El picker común utiliza este aviso al quitar una opción seleccionada.

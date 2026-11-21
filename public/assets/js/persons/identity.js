@@ -26,6 +26,7 @@ let personEditOrigin = null;
 // Cada módulo monta el mismo diálogo e inicializa su base de aplicación.
 function openPerson(uuid, {edit = false, origin = null} = {}) {
     const dialog = document.getElementById('person-detail');
+    document.getElementById('person-related-actions').hidden = true;
     personRequestFromOpenDialog = dialog.open;
     const version = ++personRequestVersion;
     return identityRequest(`persons/${encodeURIComponent(uuid)}`, 'get').done(function ({data:person}) {
@@ -58,6 +59,7 @@ function openPerson(uuid, {edit = false, origin = null} = {}) {
             editPerson();
             document.querySelector('#person-edit-fields [name=name]')?.focus({preventScroll:true});
         }
+        window.SicratPersonActions.show(uuid);
         if (!edit && typeof window.InitializePersonOperations==='function') window.InitializePersonOperations(uuid,homeURL);
     }).fail(identityError);
 }

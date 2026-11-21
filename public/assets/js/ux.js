@@ -2,7 +2,7 @@
 
 window.SicratUI = {
     tabs(root, changed = () => {}) {
-        const buttons = Array.from(root.querySelectorAll('[data-hs-tab]'));
+        const buttons = Array.from(root.querySelectorAll('[role="tab"]'));
         const activate = async button => {
             if (button.hidden || button.disabled) return;
             buttons.forEach(item => {
@@ -10,9 +10,11 @@ window.SicratUI = {
                 item.classList.toggle('active', selected);
                 item.setAttribute('aria-selected', String(selected));
                 item.tabIndex = selected ? 0 : -1;
-                const panel = document.querySelector(item.dataset.hsTab);
-                panel.hidden = !selected;
-                panel.classList.toggle('hidden', !selected);
+                if (item.dataset.hsTab) {
+                    const panel = document.querySelector(item.dataset.hsTab);
+                    panel.hidden = !selected;
+                    panel.classList.toggle('hidden', !selected);
+                }
             });
             await changed(button);
         };
@@ -23,6 +25,7 @@ window.SicratUI = {
                 let index = visible.indexOf(button);
                 if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
                 event.preventDefault();
+                event.stopPropagation();
                 if (event.key === 'Home') index = 0;
                 else if (event.key === 'End') index = visible.length - 1;
                 else index = (index + (event.key === 'ArrowRight' ? 1 : -1) + visible.length) % visible.length;
@@ -82,6 +85,24 @@ Object.assign(window.SicratUI, {
         chevron.classList.add('ux-accordion-chevron');
         header.append(chevron);
         return details;
+    },
+    metric(label, value, icon, tone) {
+        const card = document.createElement('div');
+        card.className = 'card ux-metric';
+        if (tone) card.dataset.tone = tone;
+        const heading = document.createElement('p');
+        heading.className = 'ux-metric-heading';
+        const title = document.createElement('span');
+        title.textContent = label;
+        const badge = document.createElement('span');
+        badge.className = 'ux-metric-icon';
+        badge.append(this.icon(icon));
+        heading.append(title, badge);
+        const number = document.createElement('strong');
+        number.className = 'ux-metric-value';
+        number.textContent = value;
+        card.append(heading, number);
+        return card;
     },
     viewMenu(button,menu,changed) {
         const toggle=this.action(button,'Cambiar vista','layout-grid');
@@ -217,6 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
             else dialog.setAttribute('aria-label', 'Detalles y acciones');
         });
         root.querySelectorAll('thead th:not([scope])').forEach(header => header.setAttribute('scope', 'col'));
+        root.querySelectorAll('table > thead > tr > th:last-child').forEach(header => {
+            if (/^Acci[oó]n(?:es)?$/i.test(header.textContent.trim())) header.classList.add('ux-table-actions');
+        });
         root.querySelectorAll('details[data-accordion-icon]').forEach(details => {
             if (details.classList.contains('ux-accordion')) return;
             window.SicratUI.accordion(details,details.querySelector('summary').textContent.trim(),details.dataset.accordionIcon);

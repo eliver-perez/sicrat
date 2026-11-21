@@ -33,6 +33,11 @@ dialog.card.max-w-2xl, dialog.card.max-w-3xl, #restore-dialog { max-width: 48rem
 .page-content, main, main .card, main .grid > *, main .flex > * { min-width: 0; }
 main { padding: 1rem 1.5rem 1.5rem; }
 .op-form-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.operation-record-form form > .op-form-fields { align-items:start; gap:.75rem }
+.operation-record-form fieldset { margin:0; min-width:0 }
+.operation-record-form fieldset > legend { color:var(--sicrat-primary); font-weight:600; padding:0 .3rem }
+.operation-record-form fieldset .op-picker { border:0; padding:0 }
+.operation-record-form .ux-selection-scroll { max-height:min(12rem,34dvh) }
 .op-table-scroll { max-height: 28rem; overflow: auto; }
 .op-picker { border: 1px solid var(--color-default-200,#e2e8f0); border-radius: .375rem; padding: .75rem; min-width: 0; }
 .op-picker select { margin-top: .5rem; }
@@ -81,6 +86,7 @@ main .max-h-\[480px\] { max-height: 28rem; }
 .ux-tabs :is([role="tab"],a) { padding: .45rem .7rem; border-bottom: 2px solid transparent; font-weight: 500; border-radius: .375rem .375rem 0 0; }
 .ux-tabs :is([role="tab"],a):hover { background: var(--color-default-100, #f1f5f9); }
 .ux-tabs :is([role="tab"].active,a[aria-current="page"]) { border-color: var(--color-primary, #2563eb); color: var(--color-primary, #2563eb); background: var(--color-primary-50, #eff6ff); }
+.ux-tabs :is([role="tab"],a):focus-visible { outline:2px solid var(--sicrat-primary); outline-offset:2px; }
 .ux-form-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
 .ux-form-grid .ux-actions, .ux-form-grid .ux-full { grid-column: 1 / -1; }
 .ux-actions { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-top: .75rem; }
@@ -171,9 +177,21 @@ main .btn.ux-icon-action, dialog .btn.ux-icon-action {
 @media (max-width:420px) { .ux-metric-grid { grid-template-columns:minmax(0,1fr); } }
 .ux-metric-grid > .ux-full { grid-column:1 / -1; }
 .ux-metric { display:grid; align-content:start; gap:.65rem; padding:.9rem; margin:0; min-width:0; border:1px solid var(--color-default-200); border-top:3px solid var(--metric-accent,var(--sicrat-primary)); border-radius:.65rem; }
+.ux-metric[data-tone="green"] { --metric-accent:var(--color-green-600); }
+.ux-metric[data-tone="amber"] { --metric-accent:var(--color-amber-700,#a16207); }
 .ux-metric-heading { display:flex; align-items:center; justify-content:space-between; gap:.5rem; font-weight:600; font-size:.875rem; }
 .ux-metric-icon { display:grid; place-items:center; padding:.4rem; border-radius:.45rem; flex:none; color:var(--metric-accent,var(--sicrat-primary)); background:color-mix(in srgb,currentColor 12%,var(--color-card)); }
-.ux-metric-value { font-size:clamp(1.4rem,2vw,2rem); line-height:1; font-weight:750; font-variant-numeric:tabular-nums; }
+.ux-metric-value { font-size:clamp(1.4rem,2vw,2rem); line-height:1.15; font-weight:750; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+table > thead > tr > th.ux-table-actions,
+table:has(> thead > tr > th.ux-table-actions) > tbody > tr > td:last-child:not([colspan]) {
+    width:1%; min-width:0; text-align:end; vertical-align:middle; white-space:nowrap;
+}
+table:has(> thead > tr > th.ux-table-actions) > tbody > tr > td:last-child > :is(.ux-actions,.services-actions) {
+    display:inline-flex; justify-content:flex-end; align-items:center; gap:.35rem; margin:0; flex-wrap:nowrap;
+}
+table:has(> thead > tr > th.ux-table-actions) > tbody > tr > td:last-child > .ux-icon-action + .ux-icon-action {
+    margin-inline-start:.35rem;
+}
 .ux-chat-menu-content > .ux-chat-menu-item {
     display:grid; grid-template-columns:1rem minmax(0,1fr); justify-items:start; align-items:center;
     min-height:2.75rem; width:100%; text-align:start; padding:.5rem .7rem;
@@ -216,7 +234,7 @@ dialog form.ux-modal-form > label:has(textarea) { grid-column:1 / -1; }
 .ux-notification-item:hover { background:var(--color-default-100,#f1f5f9); }
 .ux-notification-item p { font-size:.8rem; margin-top:.25rem; color:var(--color-default-600,#475569); overflow-wrap:anywhere; }
 @media(max-width:639px){.ux-election-context { width:min(42vw,16rem); }.app-header > div > div { gap:.25rem; }}
-.ux-selector-results{display:grid;gap:.4rem;max-height:26rem;overflow:auto;margin:.8rem 0}.ux-selector-row{justify-content:flex-start;text-align:left}.ux-search-row>.form-input{min-width:0;flex:1}.ux-entity-selector{max-width:46rem}.ux-section>legend,.ux-section>summary{font-weight:600;margin-bottom:.6rem}.ux-summary-card{display:flex;gap:.8rem;align-items:flex-start}.ux-summary-card p{font-size:1.4rem;margin-top:.35rem}.ux-summary-card .ux-lucide{color:var(--color-primary);width:1.25rem;height:1.25rem}
+.ux-selector-results{display:grid;gap:.4rem;max-height:26rem;overflow:auto;margin:.8rem 0}.ux-selector-row{justify-content:flex-start;text-align:left}.ux-search-row>.form-input{min-width:0;flex:1}.ux-entity-selector{max-width:46rem}.ux-section>legend,.ux-section>summary{font-weight:600;margin-bottom:.6rem}
 
 /* Estructura del chat de Tailwick; datos y acciones reales de SICRAT. */
 .ux-chat-layout{display:grid;grid-template-columns:20rem minmax(0,1fr);height:calc(100dvh - 13rem);min-height:34rem;overflow:hidden;border:1px solid var(--color-default-200,#e2e8f0)}

@@ -5,24 +5,23 @@ function InitializeValues(url) {
 	window.SicratPhase3.base=(url || '').replace(/\/$/,''); const app=window.SicratOperations;app.entity=app.node('operations-root').dataset.entity;app.definition=app.handlers[app.entity];app.filters={};
 	window.SicratPhase3.closeButtons();document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>dialog.querySelector('[data-operation-message]')?.remove()));
 	if(!app.node('operation-filter'))return;
-	app.create=async parent=> {
-		const target=app.node('operation-create-fields');target.replaceChildren();app.node('operation-create-form').reset();app.node('operation-create-title').textContent=app.entity==='conversaciones' ? ({direct:'Nueva conversación',group:'Nuevo grupo',announcement:'Nuevo anuncio'}[app.chatCreateKind || 'direct']) : parent ? 'Distribuir meta' : app.definition.newLabel;app.createDTO=null;
-		const dialog=app.node('operation-create-dialog');if(!dialog.open)dialog.showModal();
-		if(app.entity==='conversaciones')window.SicratUI.labeledAction(app.node('operation-create-form').querySelector('button:not([type]),button[type=submit]'),app.chatCreateKind==='direct' ? 'Abrir conversación' : app.chatCreateKind==='announcement' ? 'Crear anuncio' : 'Crear grupo',app.chatCreateKind==='direct' ? 'message-circle' : 'plus');
-		app.createDTO=await window.SicratOperationForms[app.definition.create](app,target,parent || null);app.editingSurvey=null;
-	};
-	app.editSurvey=async row=> {
-		const target=app.node('operation-create-fields');target.replaceChildren();app.node('operation-create-title').textContent='Editar borrador de encuesta';app.node('operation-create-dialog').showModal();app.createDTO=await window.SicratOperationForms.survey(app,target,row);app.editingSurvey=row;
-	};
-	app.node('operation-create-form').addEventListener('submit',app.guard(async event=>{
-		if(!app.createDTO)throw new Error('Espera a que termine de cargar el formulario.');const data=app.createDTO(event.currentTarget);let result;
-		if(app.editingSurvey){await app.api('operations/encuestas/'+app.editingSurvey.uuid,'PUT',{...data,version:app.editingSurvey.version});result={uuid:app.editingSurvey.uuid};}
-		else result=await app.api('operations/'+app.entity,'POST',data);
-		app.node('operation-create-dialog').close();
+	window.SicratOperationCreate(app,async (result,entity,editing)=>{
 		await app.list.reset();
-		if(result.uuid) await app.open(result.uuid);
-		if(app.entity!=='conversaciones') app.notice(app.editingSurvey ? 'Borrador guardado.' : 'Registro guardado.');
-	}));
+		if (result.uuid) await app.open(result.uuid);
+		if (entity!=='conversaciones') app.notice(editing ? 'Borrador guardado.' : 'Registro guardado.');
+	});
+	app.editSurvey=async row=> {
+		const target=app.node('operation-create-fields'), form=app.node('operation-create-form');
+		const submit=form.querySelector('[type=submit]');
+		target.replaceChildren();
+		app.createDTO=null;
+		submit.disabled=true;
+		app.node('operation-create-title').textContent='Editar borrador de encuesta';
+		app.node('operation-create-dialog').showModal();
+		app.createDTO=await window.SicratOperationForms.survey(app,target,row);
+		app.editingSurvey=row;
+		submit.disabled=false;
+	};
 	if(app.entity!=='conversaciones') app.node('operation-new').addEventListener('click',app.guard(()=>app.create()));
 	app.node('operation-filter').addEventListener('submit',app.guard(async event=>{
 		app.filters=app.values(event.currentTarget);

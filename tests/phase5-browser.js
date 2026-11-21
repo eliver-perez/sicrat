@@ -132,6 +132,53 @@ module.exports=async function({directory,call,evaluate,waitFor,navigate,pause}) 
     verify(menuOptions.length===3 && Math.max(...menuOptions.map(item=>item.left))-Math.min(...menuOptions.map(item=>item.left))<1 &&
         menuOptions.every(item=>['start','left'].includes(item.textAlign)),'Menú de Mensajería alinea los iconos y el texto por la izquierda '+JSON.stringify(menuOptions));
     checks+=await captureLayouts(browser,'mensajeria','.ux-chat-menu[open] .ux-chat-menu-content');
+    await navigate('/persons/');
+    await waitFor('typeof selectedPerson!=="undefined" && document.getElementById("table-persons").tBodies[0].rows.length>0');
+    const quickPerson=JSON.stringify(fixtures.people[0]);
+    await evaluate(`openPerson(${quickPerson},{edit:true});void 0`);
+    await waitFor('!document.getElementById("person-related-actions").hidden && document.querySelector("#person-edit-fields input[name=name]")');
+    await evaluate('document.querySelector("#person-related-actions > summary").click();document.querySelector("#person-edit-fields input[name=name]").value="Edición local sin guardar"');
+    verify(await evaluate('document.querySelectorAll("#person-related-buttons button svg").length===6'),'La ficha editable ofrece los seis accesos autorizados');
+    checks+=await captureLayouts(browser,'persona-acciones','#person-related-actions');
+    for(const [entity,label] of [
+        ['interacciones','Persona'],['peticiones','Persona solicitante'],['incidencias','Persona relacionada'],
+        ['tareas','Personas asignadas'],['metas','Responsable']
+    ]) {
+        const button='#person-related-buttons [data-person-operation="'+entity+'"]';
+        const select='#person-operation-create-fields select[aria-label="'+label+'"]';
+        await evaluate('document.querySelector('+JSON.stringify(button)+').click()');
+        await waitFor('document.querySelector('+JSON.stringify(select)+')?.value==='+quickPerson+' && !document.querySelector("#person-operation-create-form [type=submit]").disabled');
+        if(entity==='interacciones') {
+            checks+=await captureLayouts(browser,'persona-interaccion','#person-operation-create-dialog');
+            const timelineSequence=await evaluate('InitializePersonOperations.sequence ?? 0');
+            await evaluate(`(()=>{const form=document.getElementById('person-operation-create-form');form.elements.result.value='Interacción rápida desde ficha';form.requestSubmit()})()`);
+            await waitFor('!document.getElementById("person-operation-create-dialog").open && InitializePersonOperations.sequence>'+timelineSequence+' && document.querySelector("#person-operational-activity tbody tr")');
+            verify(await evaluate(`(async()=>{
+                const {data}=await SicratPhase3.request('persons/'+${quickPerson}+'/activity?limit=100');
+                return data.rows.some(row=>row.titulo==='Interacción rápida desde ficha');
+            })()`),'La interacción se guarda y la ficha actualiza su actividad paginada');
+        } else {
+            await evaluate('document.querySelector("#person-operation-create-dialog [data-close]").click()');
+            await waitFor('!document.getElementById("person-operation-create-dialog").open');
+        }
+        verify(await evaluate(`document.getElementById('person-detail').open && document.querySelector('#person-edit-fields input[name=name]').value==='Edición local sin guardar'`),entity+' retorna a la ficha y conserva la edición');
+    }
+    await evaluate('document.querySelector("[data-person-operation=encuestas]").click()');
+    await waitFor('document.querySelector(".ux-entity-selector[open] tbody tr[data-value]")');
+    await evaluate('document.querySelector(".ux-entity-selector[open] tbody tr[data-value]").click()');
+    const surveyPerson='#person-operation-settings-dialog[open] select[aria-label="Persona encuestada"]';
+    await waitFor('document.querySelector('+JSON.stringify(surveyPerson)+')?.value==='+quickPerson);
+    await evaluate('document.querySelector("#person-operation-settings-dialog [data-close]").click()');
+    verify(await evaluate('document.getElementById("person-detail").open && !document.getElementById("person-operation-settings-dialog").open'),'Aplicar encuesta usa el formulario existente y vuelve a la ficha');
+    const modulePath=JSON.stringify('organizations/'+fixtures.organization+'/modules/interacciones');
+    try {
+        await evaluate(`SicratPhase3.request(${modulePath},'PUT',{selected:0})`);
+        await evaluate(`openPerson(${quickPerson});void 0`);
+        await waitFor('!document.getElementById("person-related-actions").hidden && document.querySelectorAll("#person-related-buttons button").length===5');
+        verify(await evaluate('!document.querySelector("[data-person-operation=interacciones]")'),'La ficha omite el botón del módulo deshabilitado');
+    } finally {
+        await evaluate(`SicratPhase3.request(${modulePath},'PUT',{selected:1})`);
+    }
     checks+=await require('./table-headings-browser.js')({call,evaluate,waitFor,navigate,directory,fixtures});
     console.log('Fase 5 Chrome: '+checks+' comprobaciones correctas.');return checks;
 };

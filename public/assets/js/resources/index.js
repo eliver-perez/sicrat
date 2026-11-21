@@ -31,23 +31,44 @@ function InitializeValues(url) {
 		categorias_inventario:{title:'Categorías de artículos',read:'inventario.administrar',write:'inventario.administrar',columns:[['Categoría','nombre'],['Estado',row=>Number(row.activo) ? 'Activa' : 'Inactiva']]}
 	};
 	const configuration=['categorias','cuentas','metodos','politicas','transferencias','categorias_inventario','origenes'];
+	const metricIcons={
+		'Presupuestado':['coins'],
+		'Comprometido':['clipboard-check'],
+		'Pagado':['circle-check','green'],
+		'Disponible en presupuestos':['layers'],
+		'Ingresos recibidos':['download','green'],
+		'Anticipos por comprobar':['history','amber'],
+		'Reembolsos pendientes':['list-todo','amber'],
+		'Artículos':['package'],
+		'Almacenes':['archive'],
+		'Movimientos registrados':['arrow-right-left'],
+		'Existencias bajo mínimo':['inbox','amber'],
+		'Pérdidas y daños pendientes':['list-todo','amber']
+	};
+	let navigationVersion=0;
+
 	const navigate=async entity=>{
+		const version=++navigationVersion;
 		app.entity=entity;
 		app.definition=definitions[entity];
 		app.filters={};
+		app.filterDto=null;
 		app.selected=null;
 		app.list=null;
 		app.node('resources-content').replaceChildren();
 		app.node('resources-title').textContent=app.definition.title;
 		document.querySelectorAll('#resources-tabs button,#resources-config-tabs button').forEach(button=>{button.setAttribute('aria-selected',String(button.dataset.entity===entity));
 			button.classList.toggle('active',button.dataset.entity===entity);
+			button.tabIndex=button.dataset.entity===entity ? 0 : -1;
 			});
 		const configDialog=app.node('resources-config-dialog'),panel=app.node('resources-primary-panel');
 		panel.hidden=false;
+		panel.setAttribute('aria-labelledby','resources-tab-'+entity);
 		if(configuration.includes(entity)){configDialog.append(panel);if(!configDialog.open)configDialog.showModal();}
 		else{app.primaryEntity=entity;app.node('resources-primary-anchor').after(panel);if(configDialog.open)configDialog.close();}
 		app.node('resources-new').hidden=!app.enabled || !app.definition.write || !(app.entity==='movimientos' ? ['inventario.entradas','inventario.salidas','inventario.ajustar'].some(permission=>app.can(permission)) : app.can(app.definition.write));
-		app.node('resources-new').textContent=({gastos:'Nuevo gasto',presupuestos:'Nuevo presupuesto',anticipos:'Solicitar anticipo',reembolsos:'Solicitar reembolso',ingresos:'Registrar ingreso',movimientos:'Registrar movimiento'})[entity] || 'Nuevo registro';
+		const newLabel=({gastos:'Nuevo gasto',presupuestos:'Nuevo presupuesto',anticipos:'Solicitar anticipo',reembolsos:'Solicitar reembolso',ingresos:'Registrar ingreso',movimientos:'Registrar movimiento'})[entity] || 'Nuevo registro';
+		window.SicratUI.labeledAction(app.node('resources-new'),newLabel,'plus');
 		app.node('resources-export').hidden=!app.can('exportaciones.generar') || ['resumen','categorias','cuentas','metodos','politicas','transferencias','categorias_inventario','origenes'].includes(entity);
 		app.node('resources-filters').hidden=['resumen','flujo'].includes(entity);app.node('resources-filter-panel').hidden=['resumen','flujo'].includes(entity);
 		const states=app.node('resources-filters').elements.estado;
@@ -72,7 +93,10 @@ function InitializeValues(url) {
 		if(['gastos','presupuestos','ingresos','reembolsos','articulos'].includes(entity))selectors.push(['Categoría',entity==='articulos' ? 'categorias_inventario' : 'categorias','categoria']);
 		if(entity==='movimientos')selectors.push(['Artículo','articulos','articulo'],['Almacén','almacenes','almacen']);
 		const pickers=[];
-		for(const [label,type,key] of selectors)pickers.push([key,await app.optionPicker(filterDetails,label,type,app.definition.read)]);
+		const stagedFilters=document.createElement('div');
+		for(const [label,type,key] of selectors)pickers.push([key,await app.optionPicker(stagedFilters,label,type,definitions[entity].read)]);
+		if(version!==navigationVersion)return;
+		filterDetails.replaceChildren(...stagedFilters.children);
 		filterDetails.hidden=!selectors.length;
 		app.filterDto=()=>Object.fromEntries(pickers.map(([key,picker])=>[key,picker.values()]));
 		filterForm.elements.bajo_minimo.parentElement.hidden=entity!=='existencias';
@@ -80,25 +104,30 @@ function InitializeValues(url) {
 		app.node('resources-help').textContent=entity==='gastos' ? 'Registrar, comprometer, autorizar y pagar son pasos distintos. Un gasto compartido conserva un solo monto total.' : entity==='anticipos' ? 'La entrega afecta caja. Los gastos autorizados comprueban el anticipo sin otra salida de dinero.' : entity==='movimientos' ? 'Las existencias se calculan desde movimientos. Las salidas requieren disponibilidad.' : entity==='politicas' ? 'La configuración vigente se guarda como instantánea al solicitar autorización; no cambia solicitudes anteriores.' : 'Información según tus permisos y responsabilidades.';
 		if(entity==='resumen' || entity==='flujo') {
 			const summary=entity==='resumen' ? await app.api('resources/summary?module='+app.module) : await app.api('resources/cash-flow');
-			const cards=entity==='resumen' ? summary.cards : Object.entries(summary).filter(([key])=>key!=='moneda').map(([key,value])=>({label:app.label(key),value:app.moneyText(value)}));
-			const grid=app.text('div','','ux-module-grid');
-			cards.forEach(item=>{const card=app.text('div','','card p-5 ux-summary-card');const body=app.text('div');card.append(window.SicratUI.icon(app.module==='finanzas' ? 'coins' : 'package'),body);
-				body.append(app.text('h6',item.label),app.text('p',item.monetary ? app.moneyText(item.value) : item.value,'text-xl font-semibold mt-3'));
-				grid.append(card);
-				});
+			if(version!==navigationVersion)return;
+			const cards=entity==='resumen' ? summary.cards : Object.entries(summary).filter(([key])=>key!=='moneda').map(([key,value])=>({label:app.label(key),value,monetary:true}));
+			const grid=app.text('div','','ux-metric-grid');
+			for(const item of cards) {
+				const [icon,tone]=metricIcons[item.label] || ['coins'];
+				grid.append(window.SicratUI.metric(item.label,item.monetary ? app.moneyText(item.value) : item.value,icon,tone));
+			}
 			app.node('resources-content').append(grid);
 		}else{app.list=app.pager(app.node('resources-content'),()=> 'resources/'+(entity==='existencias' ? 'stocks' : entity)+'?'+new URLSearchParams(app.filters),app.definition.columns,entity==='existencias' ? null : (cell,row)=>cell.append(app.button('Ver detalle',()=>app.open(row.uuid))));
 			await app.list.load();
 			}
+		if(version!==navigationVersion)return;
 		if(entity==='movimientos' && app.enabled && app.can('inventario.transferir'))app.node('resources-content').append(app.button('Transferir entre almacenes',()=>window.SicratResourceForms.transferStock(app)));
 		if(entity==='existencias' && app.enabled && app.can('inventario.articulos'))app.node('resources-content').append(app.button('Configurar mínimo por almacén',()=>window.SicratResourceForms.minimum(app)));
 	};
 	app.navigate=navigate;
+	window.SicratUI.labeledAction(app.node('resources-export'),'Exportar','download');
+	window.SicratUI.labeledAction(app.node('resources-refresh'),'Actualizar','refresh-cw');
+	window.SicratUI.labeledAction(app.node('resources-filters').querySelector('[type=submit]'),'Buscar','search');
 	app.node('resources-configuration').addEventListener('click',app.guard(()=>navigate(app.node('resources-config-tabs').querySelector('button')?.dataset.entity)));
 	app.node('resources-config-dialog').addEventListener('close',()=>{if(configuration.includes(app.entity)){if(app.primaryEntity)app.guard(()=>navigate(app.primaryEntity))();else{const panel=app.node('resources-primary-panel');app.node('resources-primary-anchor').after(panel);panel.hidden=true;}}});
 	app.node('resources-new').addEventListener('click',app.guard(()=>window.SicratResourceForms.create(app)));
 	app.node('resources-export').addEventListener('click',app.guard(()=>app.exportDialog()));
-	app.node('resources-filters').addEventListener('submit',app.guard(async event=>{app.filters={...app.values(event.currentTarget),...(app.filterDto ? app.filterDto() : {})};
+	app.node('resources-filters').addEventListener('submit',app.guard(async event=>{if(!app.list)return;app.filters={...app.values(event.currentTarget),...(app.filterDto?.() || {})};
 		await app.list.reset();
 		}));
 	app.node('resources-refresh').addEventListener('click',app.guard(()=>app.list ? app.list.load() : navigate(app.entity)));
@@ -122,21 +151,22 @@ function InitializeValues(url) {
 			app.initialized=true;
 			return;
 			}
-		allowed.forEach(entity=>{const button=app.button(definitions[entity].title,()=>navigate(entity));
+		for(const entity of allowed) {
+			const button=app.text('button',definitions[entity].title);
+			button.type='button';
+			button.id='resources-tab-'+entity;
 			button.dataset.entity=entity;
 			button.setAttribute('role','tab');
+			button.setAttribute('aria-controls','resources-primary-panel');
 			button.setAttribute('aria-selected','false');
+			button.tabIndex=-1;
 			app.node(configuration.includes(entity) ? 'resources-config-tabs' : 'resources-tabs').append(button);
-			});
+		}
 		app.node('resources-configuration').hidden=app.node('resources-config-tabs').children.length===0;
-		[app.node('resources-tabs'),app.node('resources-config-tabs')].forEach(nav=>nav.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
-			event.preventDefault();
-			const buttons=Array.from(nav.children);
-			let i=buttons.indexOf(document.activeElement);
-			i=event.key==='Home' ? 0 : event.key==='End' ? buttons.length-1 : (i+(event.key==='ArrowRight' ? 1 : -1)+buttons.length)%buttons.length;
-			buttons[i].focus();
-			buttons[i].click();
-			}));
+		for(const id of ['resources-tabs','resources-config-tabs']) {
+			window.SicratUI.tabs(app.node(id),button=>app.guard(()=>navigate(button.dataset.entity))());
+		}
+		app.primaryEntity=allowed.find(entity=>!configuration.includes(entity));
 		const requested=new URLSearchParams(location.search).get('tab');
 		await navigate(allowed.includes(requested) ? requested : allowed[0]);
 		const record=new URLSearchParams(location.search).get('record');

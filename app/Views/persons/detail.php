@@ -11,6 +11,10 @@ $personCapabilities ??= [
         <span id="person-structure-action"></span>
         <?php if ($personCapabilities['edit']): ?><button type="button" class="btn ux-secondary-action" id="person-edit"><i data-lucide="pencil" class="size-4" aria-hidden="true"></i>Editar</button><?php endif; ?>
     </div>
+    <details id="person-related-actions" data-accordion-icon="plus" hidden>
+        <summary>Acciones relacionadas</summary>
+        <div id="person-related-buttons" class="ux-actions"></div>
+    </details>
     <div id="person-consult"></div>
     <form id="person-edit-form" hidden>
         <div id="person-edit-fields" class="ux-full"></div>
@@ -33,3 +37,10 @@ $personCapabilities ??= [
 <script src="<?= escape_html(asset('js/persons/structure-assignment.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/identity.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/persons/activity.js')); ?>"></script>
+<?php
+$operationDialogPrefix = 'person-operation';
+$operationRecordForm = true;
+require __DIR__.'/../operations/form-dialogs.php';
+require_once __DIR__.'/../operations/form-assets.php';
+?>
+<script src="<?= escape_html(asset('js/persons/quick-actions.js')); ?>"></script>

@@ -21,13 +21,14 @@ module.exports=async function({call,evaluate,waitFor,navigate,fixtures,bounds,ca
             await waitFor('document.querySelector("#operation-list tbody tr, #operation-list [data-open-chat]")');
             const theme=await evaluate(`(()=>{
                 const header=document.querySelector('#operation-list th');
+                document.documentElement.dataset.theme='light';
                 const light=header && getComputedStyle(header).backgroundColor;
                 document.documentElement.dataset.theme='dark';
                 const dark=header && getComputedStyle(header).backgroundColor;
                 const ink=header && getComputedStyle(header).color;
                 return {light,dark,ink,title:!!document.querySelector('.operation-title-icon')};
             })()`);
-            verify(theme.title && (!theme.light || theme.light==='rgb(2, 34, 73)' && theme.dark!==theme.light && theme.ink===theme.light),entity+' '+width+': icono de módulo y acento de marca en ambos temas');
+            verify(theme.title && (!theme.light || theme.light==='rgb(2, 34, 73)' && theme.dark!==theme.light && theme.ink===theme.light),entity+' '+width+': icono de módulo y acento de marca en ambos temas '+JSON.stringify(theme));
             await bounds(entity+' '+width+' oscuro');
             if(entity==='conversaciones') {
                 await click('#operation-list [data-open-chat]');
@@ -50,8 +51,14 @@ module.exports=async function({call,evaluate,waitFor,navigate,fixtures,bounds,ca
         verify(await evaluate('document.querySelector("#transport-map .leaflet-popup").textContent.includes("Ana Operación") && document.querySelector("#transport-map .leaflet-popup").textContent.includes("Elena Operación")'),'Grupo comparte ficha descriptiva con proveedor');
         await bounds('Transporte popup '+width+' oscuro');
         await evaluate('document.getElementById("transport-map").scrollIntoView({block:"center"})');
-        await waitFor('Number(getComputedStyle(document.querySelector("#transport-map .leaflet-popup")).opacity)===1');
-        verify(await evaluate('(()=>{const popup=document.querySelector("#transport-map .leaflet-popup-content-wrapper").getBoundingClientRect();const controls=document.querySelector("#transport-map .leaflet-control-zoom").getBoundingClientRect();return popup.top>=controls.bottom || popup.left>=controls.right || popup.right<=controls.left;})()'),'Controles sin cubrir el popup');
+        await waitFor(`(()=>{
+            const dialog=document.querySelector('#transport-map .leaflet-popup');
+            if (!dialog || Number(getComputedStyle(dialog).opacity)!==1) return false;
+            const popup=dialog.querySelector('.leaflet-popup-content-wrapper').getBoundingClientRect();
+            const controls=document.querySelector('#transport-map .leaflet-control-zoom').getBoundingClientRect();
+            return popup.top>=controls.bottom || popup.left>=controls.right || popup.right<=controls.left;
+        })()`);
+        verify(true,'Controles sin cubrir el popup');
         await capture('transport-map-dark-'+width);
         await evaluate('Array.from(document.querySelectorAll("#transport-map .transport-popup-actions button")).find(button=>button.textContent==="Coordinar").click()');
         await waitFor('document.getElementById("operation-detail-dialog").open && document.querySelector(".transport-edit") && !document.getElementById("operation-panel-actions").hidden');

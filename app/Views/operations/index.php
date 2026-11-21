@@ -57,9 +57,10 @@
 			</section>
 		<?php } ?>
 	</div>
-	<dialog id="operation-create-dialog" class="card p-5 w-full max-w-3xl<?= in_array($operationEntity, ['interacciones','peticiones','incidencias'], true) ? ' operation-record-form' : ''; ?>" aria-labelledby="operation-create-title">
-		<header class="ux-modal-header"><h6 id="operation-create-title"></h6><button type="button" class="btn" data-close>Cerrar</button></header><form id="operation-create-form" class="ux-form-grid"><div id="operation-create-fields" class="op-form-fields ux-full"></div><div class="ux-modal-footer"><button class="btn bg-primary text-white ux-labeled-action"><i data-lucide="save" class="size-4" aria-hidden="true"></i>Guardar</button></div></form>
-	</dialog>
+	<?php
+    $operationRecordForm = in_array($operationEntity,['interacciones','peticiones','incidencias'],true);
+    require __DIR__.'/form-dialogs.php';
+    ?>
 	<dialog id="operation-detail-dialog" class="card p-5 w-full max-w-3xl<?= $isTransport ? ' transport-detail-dialog' : ''; ?>" aria-labelledby="operation-detail-title">
 		<div class="ux-actions mb-4"><h6 id="operation-detail-title"></h6><button type="button" class="btn" data-close>Cerrar</button></div>
 		<nav id="operation-detail-tabs" class="ux-tabs" role="tablist" aria-label="Ficha operativa">
@@ -68,14 +69,11 @@
 		<?php } ?></nav>
 		<?php foreach (['summary','actions','history','evidence'] as $key) { ?><section id="operation-panel-<?= $key; ?>" role="tabpanel" aria-labelledby="operation-tab-<?= $key; ?>" hidden></section><?php } ?>
 	</dialog>
-	<dialog id="operation-settings-dialog" class="card p-5 w-full max-w-2xl" aria-labelledby="operation-settings-title"><h6 id="operation-settings-title" class="mb-4">Configuración</h6><div id="operation-settings-content"></div><button type="button" data-close class="btn mt-4">Cerrar</button></dialog>
 	<dialog id="operation-approval-dialog" class="card p-5 w-full max-w-xl" aria-labelledby="operation-approval-title"><h6 id="operation-approval-title">Validación</h6><div id="operation-approval-content"></div><button type="button" data-close class="btn mt-4">Cerrar</button></dialog>
 	<?php } ?>
 </div>
 <script src="<?= escape_html(asset('js/phase3.js')); ?>"></script>
-<script src="<?= escape_html(asset('js/operations/core.js')); ?>"></script>
-<script src="<?= escape_html(asset('js/operations/forms.js')); ?>"></script>
-<script src="<?= escape_html(asset('js/operations/details.js')); ?>"></script>
+<?php require_once __DIR__.'/form-assets.php'; ?>
 <script src="<?= escape_html(asset('js/messaging-poll.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/messaging-media.js')); ?>"></script>
 <script src="<?= escape_html(asset('js/messaging-history.js')); ?>"></script>

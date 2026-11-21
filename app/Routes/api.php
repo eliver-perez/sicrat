@@ -214,6 +214,7 @@ $router->get('/api/operations/message-policy',[$operations,'policy'],'operations
 $router->put('/api/operations/message-policy',[$operations,'policy'],'operations.access');
 $router->post('/api/operations/outgoing',[$operations,'outgoing'],'operations.access');
 $router->get('/api/persons/{id}/activity',[$operations,'timeline'],'persons.read');
+$router->get('/api/persons/{id}/operation-actions',[$operations,'personActions'],'persons.read');
 $router->get('/api/operations/{entity}/people',[$operations,'people'],'operations.access');
 $router->get('/api/operations/{entity}/approvers',[$operations,'approvers'],'operations.access');
 $router->get('/api/operations/encuestas/{id}/responses/{response}',[$operations,'surveyResponse'],'operations.access');

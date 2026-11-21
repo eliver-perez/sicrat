@@ -37,14 +37,12 @@
 .structure-panels tr[data-member]{cursor:pointer}
 .structure-panels tr[data-member]:focus-visible{outline:2px solid var(--color-primary,#3b82f6);outline-offset:-2px}
 #structure-members tr.structure-selected{background:var(--color-primary-50,#eff6ff);box-shadow:inset 3px 0 var(--color-primary,#3b82f6)}
-#structure-preview-members td:last-child .ux-actions{flex-wrap:nowrap}
 @media(max-width:1100px){.structure-panels{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:480px){.structure-panels:not(.structure-flat) th:nth-child(3),.structure-panels:not(.structure-flat) td:nth-child(3){display:none}}
 @media(max-width:480px){
     .structure-panels:not(.structure-flat) th{white-space:normal;padding:.5rem;font-size:.75rem}
     .structure-panels:not(.structure-flat) td{padding:.5rem!important}
     .structure-panels:not(.structure-flat) th:nth-child(5){width:4.5rem}
-    .structure-panels:not(.structure-flat) th:nth-child(7){width:5.25rem}
     .structure-panels:not(.structure-flat) td .ux-actions{gap:.25rem}
 }
 .structure-crumb-link{padding:0;border:0;background:none;color:var(--color-primary,#3b82f6);cursor:pointer;text-align:left;overflow-wrap:anywhere}
@@ -76,7 +74,7 @@
 #structure-member-summary { margin-bottom:.75rem; color:var(--color-default-700); }
 #structure-member-dialog :is(#structure-line,#structure-team) { margin-block:.75rem; }
 @media(max-width:480px) {
-    #structure-panels:not(.structure-flat) td:last-child .ux-actions { flex-wrap:wrap }
+    #structure-panels:not(.structure-flat) td:last-child .ux-actions { display:inline-flex; flex-wrap:wrap; max-width:5.5rem; }
     .structure-team-actions { flex-direction:column }
 }
 

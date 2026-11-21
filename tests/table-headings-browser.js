@@ -19,6 +19,26 @@ async function review({call,evaluate,waitFor,directory},name,selector) {
                 if (table.classList.contains('ux-selection-table')) table.parentElement.scrollTop=0;
                 await new Promise(resolve=>setTimeout(resolve,250));
                 const cells=[...head.rows[0].cells].filter(cell=>cell.offsetWidth);
+                const actionHeader=cells.find(cell=>cell.classList.contains('ux-table-actions'));
+                const padding=cell=>parseFloat(getComputedStyle(cell).paddingLeft)+parseFloat(getComputedStyle(cell).paddingRight);
+                let actionWidth=0, expectedWidth=0;
+                if(actionHeader) {
+                    const title=document.createRange();
+                    title.selectNodeContents(actionHeader);
+                    actionWidth=actionHeader.offsetWidth;
+                    expectedWidth=title.getBoundingClientRect().width+padding(actionHeader);
+                    for (const row of table.tBodies[0].rows) {
+                        const cell=row.cells[row.cells.length-1];
+                        if (!cell || cell.hasAttribute('colspan')) continue;
+                        const controls=[...cell.querySelectorAll('button, a, input')].filter(control=>control.offsetWidth);
+                        const range=document.createRange();
+                        range.selectNodeContents(cell);
+                        const boxes=controls.length ? controls.map(control=>control.getBoundingClientRect()) : [...range.getClientRects()];
+                        if (!boxes.length) continue;
+                        const span=Math.max(...boxes.map(box=>box.right))-Math.min(...boxes.map(box=>box.left));
+                        expectedWidth=Math.max(expectedWidth,span+padding(cell));
+                    }
+                }
                 const color=node=>getComputedStyle(node).backgroundColor;
                 const colors=cells.map(cell=>[color(cell),getComputedStyle(cell).color]);
                 const sample=document.createElement('span');
@@ -44,7 +64,7 @@ async function review({call,evaluate,waitFor,directory},name,selector) {
                         parent.scrollTo({left:start,behavior:'instant'});
                     }
                 }
-                return {colors,expected,body,controls,scrollable,pageWidth:document.documentElement.scrollWidth,
+                return {colors,expected,body,controls,scrollable,actionWidth,expectedWidth,pageWidth:document.documentElement.scrollWidth,
                     clip:{x:left+scrollX,y:rect.top+scrollY,width:right-left,height:Math.min(rect.height+row.offsetHeight,160),scale:1}};
             })()`);
             const [background,foreground]=result.expected;
@@ -53,7 +73,8 @@ async function review({call,evaluate,waitFor,directory},name,selector) {
             assert.ok(![...result.body,...result.controls].includes(background),context+' filas y acciones');
             assert.ok(result.scrollable,context+' desplazamiento de contenedores');
             assert.ok(result.pageWidth<=width+1,context+' ancho de página '+result.pageWidth);
-            checks+=4;
+            assert.ok(result.actionWidth<=result.expectedWidth+12,context+' columna de acciones ajustada al contenido ('+result.actionWidth+' px, contenido '+result.expectedWidth+' px)');
+            checks+=5;
             const shot=await call('Page.captureScreenshot',{format:'png',clip:result.clip});
             fs.writeFileSync(path.join(directory,'table-'+name+'-'+width+'-'+theme+'.png'),Buffer.from(shot.data,'base64'),{mode:0o600});
         }

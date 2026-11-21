@@ -114,6 +114,10 @@ class OperationsController extends Controller
 	public function elections(Request $request,Response $response): void { $response->success((new OptionsService($this->repository))->elections($request->query())); }
 	public function approvers(Request $request,Response $response): void { $response->success((new OptionsService($this->repository))->approvers($request->route('entity'),$request->query())); }
 	public function timeline(Request $request,Response $response): void { $response->success((new TimelineService($this->repository))->activity($request->route('id'),$request->query())); }
+	public function personActions(Request $request,Response $response): void
+	{
+		$response->success((new OptionsService($this->repository))->personActions($request->route('id')));
+	}
 	public function types(Request $request,Response $response): void { $response->success((new EventService($this->repository))->types($request->query(),$request->method()==='POST' ? $request->input() : null)); }
 	public function categories(Request $request,Response $response): void {
 		$service=new \App\Services\Operations\CaseCategories($this->repository);$kind=$request->route('kind');

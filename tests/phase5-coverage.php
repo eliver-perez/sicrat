@@ -19,6 +19,12 @@ function phase5Race(array $requests): array {
     $results=[];foreach ($writers as [$writer,$pipes]) { $out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);verify(proc_close($writer)===0,'Conexión concurrente sin errores: '.$err);$results[]=json_decode($out,true,512,JSON_THROW_ON_ERROR); }return $results;
 }
 $accountNumbers=[];foreach ($phase5Accounts as $uuid) $accountNumbers[]=(int) $phase5Repository->one('SELECT id FROM usuarios WHERE uuid=?',[Values::binary($uuid)])['id'];
+$personActions='/api/persons/'.$phase5People[0].'/operation-actions';
+$availableActions=phase5Api($personActions);
+verify($availableActions['actions']===['interacciones','peticiones','incidencias','tareas','metas','encuestas'] && $availableActions['person']['uuid']===$phase5People[0],'Los accesos autorizados identifican a la persona de la elección.');
+verify(request('phase5-anonymous','GET',$personActions)['status']===401,'Los accesos rápidos requieren autenticación.');
+$inactivePerson=phase5Api('/api/persons','POST',['organization'=>$organizationIds[0],'name'=>'Persona sin participación para acciones'])['id'];
+verify(phase5Api('/api/persons/'.$inactivePerson.'/operation-actions')['actions']===[],'Una persona sin participación activa no recibe accesos rápidos.');
 // Validación de contratos y aislamiento de cada módulo, incluyendo API manipulada y UUID ajeno.
 foreach (['interacciones','encuestas','tareas','metas','eventos','peticiones','incidencias','transporte','conversaciones'] as $entity) {
     $denied=phase3Api('/api/operations/'.$entity.'?process=2','GET',null,'phase5-0');verify(in_array($denied['status'],[403,404],true),'Aislamiento de organización: '.$entity);
@@ -28,6 +34,8 @@ foreach ($phase5Modules as $module) {
     phase5Api('/api/organizations/'.$organizationIds[0].'/modules/'.$module,'PUT',['authorized'=>1,'selected'=>0]);
     $entity=['interacciones'=>'interacciones','encuestas'=>'encuestas','tareas_metas'=>'tareas','eventos'=>'eventos','peticiones_incidencias'=>'peticiones','transporte'=>'transporte','mensajeria'=>'conversaciones','estructura'=>null][$module];
     if ($entity) { phase5Api($entity,'GET',null,'phase5-0',403);verify(!str_contains(request('phase5-0','GET','/')['body'],'/operations/?module='.$entity),'Módulo apagado no aparece en navegación: '.$entity); }
+    $moduleActions=['interacciones'=>['interacciones'],'encuestas'=>['encuestas'],'tareas_metas'=>['tareas','metas'],'peticiones_incidencias'=>['peticiones','incidencias']][$module] ?? [];
+    if ($moduleActions) verify(array_intersect($moduleActions,phase5Api($personActions)['actions'])===[],'La ficha oculta accesos del módulo deshabilitado: '.$module);
     phase5Api('/api/organizations/'.$organizationIds[0].'/modules/'.$module,'PUT',['authorized'=>1,'selected'=>1]);
 }
 phase5Api('interacciones','POST',['person'=>$phase5People[0],'type'=>'VISITA','result'=>'Fecha futura','date'=>date('Y-m-d H:i:s',strtotime('+1 day'))],'admin',422);
@@ -35,6 +43,11 @@ phase5Api('interacciones','POST',['person'=>$phase5People[0],'type'=>'VISITA','r
 foreach (['interacciones.ver','interacciones.crear','tareas.ver','tareas.editar','tareas.completar','transporte.ver','transporte.editar','eventos.ver','eventos.asistencia'] as $permission) phase3Grant($phase5Accounts[3],$permission,$phase5ElectionUuid,'propio');
 verify(phase5Api('interacciones','GET',null,'phase5-3')['rows']===[],'Interacciones fuera de alcance propio no aparecen.');
 phase5Api('interacciones','POST',['person'=>$phase5People[0],'type'=>'VISITA','result'=>'Fuera de alcance'],'phase5-3',404);
+verify(!in_array('interacciones',phase5Api($personActions,'GET',null,'phase5-3')['actions'],true),'El alcance propio oculta registrar para otra persona aunque se pueda consultar su ficha.');
+phase3Grant($phase5Accounts[3],'peticiones.crear',$phase5ElectionUuid,'eleccion',0);
+verify(!in_array('peticiones',phase5Api($personActions,'GET',null,'phase5-3')['actions'],true),'El acceso desaparece al revocar el permiso de alta.');
+phase5Api('peticiones','POST',['person'=>$phase5People[0]],'phase5-3',403);
+phase3Grant($phase5Accounts[3],'peticiones.crear',$phase5ElectionUuid,'eleccion',1);
 phase5Api('tareas/'.$phase5Task,'GET',null,'phase5-3',404);
 phase5Api('transporte/'.$phase5People[0],'GET',null,'phase5-3',404);
 $sharedTask=phase5Api('tareas','POST',['title'=>'Edición conjunta','assignees'=>[$phase5People[0],$phase5People[3]]])['uuid'];

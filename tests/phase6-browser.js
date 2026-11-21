@@ -7,7 +7,65 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
 	await navigate('/');await waitFor('document.querySelector("meta[name=csrf-token]")');
 	assert.equal(await evaluate(`(async()=>{const token=document.querySelector('meta[name="csrf-token"]').content;return (await fetch('/api/auth/election',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({process:${JSON.stringify(fixtures.election)}})})).status;})()`),200);checks++;
 	const tabs={finanzas:['resumen','presupuestos','gastos','anticipos','reembolsos','ingresos','aportaciones','pagos','flujo','categorias','cuentas','metodos','politicas','transferencias'],inventario:['resumen','articulos','existencias','movimientos','almacenes','categorias_inventario','origenes']};
-	for(const [profile,width,height] of [['desktop',1440,1000],['tablet',820,1024],['mobile',390,844]]){
+	const {captureLayouts}=require('./interface-consolidation-browser.js');
+	for (const module of Object.keys(tabs)) {
+		await navigate('/resources/?module='+module);
+		await waitFor('window.SicratResources?.initialized && document.querySelector(".ux-metric-value")');
+		assert.equal(await evaluate(`(async()=>{
+			const app=SicratResources;
+			const {cards}=await app.api('resources/summary?module='+app.module);
+			const values=[...document.querySelectorAll('.ux-metric')].map(card=>[
+				card.querySelector('.ux-metric-heading span').textContent,
+				card.querySelector('.ux-metric-value').textContent
+			]);
+			return JSON.stringify(values)===JSON.stringify(cards.map(card=>[card.label,card.monetary ? app.moneyText(card.value) : String(card.value)]));
+		})()`),true);
+		checks++;
+		checks+=await captureLayouts({call,evaluate,directory},module+'-resumen','#resources-tabs');
+		const contrast=await evaluate(`(()=>{
+			const root=document.documentElement, original=root.dataset.theme;
+			const canvas=document.createElement('canvas');
+			const pixel=canvas.getContext('2d',{willReadFrequently:true});
+			const rgba=value=>{
+				pixel.clearRect(0,0,1,1);
+				pixel.fillStyle=value;
+				pixel.fillRect(0,0,1,1);
+				const [r,g,b,a]=pixel.getImageData(0,0,1,1).data;
+				return [r,g,b,a/255];
+			};
+			function background(node){
+				const [r,g,b,alpha=1]=rgba(getComputedStyle(node).backgroundColor);
+				if(alpha===1)return [r,g,b];
+				const below=node.parentElement ? background(node.parentElement) : [255,255,255];
+				return [r,g,b].map((value,index)=>value*alpha+below[index]*(1-alpha));
+			}
+			function luminance(color){
+				const [r,g,b]=color.slice(0,3).map(value=>{
+					const channel=value/255;
+					return channel<=.04045 ? channel/12.92 : ((channel+.055)/1.055)**2.4;
+				});
+				return .2126*r+.7152*g+.0722*b;
+			}
+			const result=['light','dark'].map(theme=>{
+				root.dataset.theme=theme;
+				const controls=document.querySelectorAll('#resources-tabs button,.ux-metric-heading > span:first-child,.ux-metric-value');
+				return [theme,Math.min(...[...controls].map(node=>{
+					const foreground=luminance(rgba(getComputedStyle(node).color)), behind=luminance(background(node));
+					return (Math.max(foreground,behind)+.05)/(Math.min(foreground,behind)+.05);
+				}))];
+			});
+			root.dataset.theme=original;
+			return result;
+		})()`);
+		for(const [theme,ratio] of contrast){assert.ok(ratio>=4.5,module+' '+theme+' contraste de texto '+ratio.toFixed(2));checks++;}
+		await evaluate('document.getElementById("resources-tab-resumen").focus()');
+		for(const type of ['keyDown','keyUp']) await call('Input.dispatchKeyEvent',{type,key:'ArrowRight',code:'ArrowRight',windowsVirtualKeyCode:39});
+		await waitFor('SicratResources.entity==='+JSON.stringify(tabs[module][1])+' && document.activeElement.getAttribute("aria-selected")==="true"');
+		assert.equal(await evaluate('document.activeElement.matches(":focus-visible") && getComputedStyle(document.activeElement).outlineStyle!=="none"'),true);
+		assert.equal(await evaluate('[...document.querySelectorAll("#resources-tabs button")].filter(button=>button.tabIndex===0).length'),1);
+		checks+=2;
+	}
+	for(const [profile,width,height] of [['desktop',1440,1000],['tablet',768,1024],['mobile',390,844],['compacto',320,900]]){
 		await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
 		for(const [module,entities] of Object.entries(tabs)){
 			await navigate('/resources/?module='+module);await waitFor(`window.SicratResources?.module===${JSON.stringify(module)} && window.SicratResources.initialized`);await pause(100);

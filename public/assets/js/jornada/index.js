@@ -65,15 +65,8 @@ function InitializeValues(url) {
             ['porcentaje_validacion','Avance validado','check-check','green']
         ];
         for (const [key,title,icon,tone] of cards) {
-            const card=app.text('div','','card ux-metric');
-            if (tone) card.style.setProperty('--metric-accent',tone==='green' ? 'var(--color-green-600)' : 'var(--color-amber-700,#a16207)');
-            const heading=app.text('p',title,'ux-metric-heading');
-            const badge=app.text('span','','ux-metric-icon');
-            badge.append(window.SicratUI.icon(icon));
-            heading.append(badge);
             const value=result.progreso[key]+(key.startsWith('porcentaje_') ? '%' : '');
-            card.append(heading,app.text('strong',value,'ux-metric-value'));
-            progress.append(card);
+            progress.append(window.SicratUI.metric(title,value,icon,tone));
         }
         progress.append(app.text('p','Última captura UTC: '+(result.progreso.ultima_actualizacion || 'Sin capturas'),'ux-help ux-full'));
         app.table(app.node('jornada-candidate-table'),[['Candidatura','nombre'],['Cargo','cargo'],['Votos derivados','votos'],['Porcentaje','porcentaje']],result.candidaturas);

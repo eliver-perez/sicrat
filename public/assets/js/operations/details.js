@@ -142,11 +142,13 @@
 			if(correct)await app.api('operations/encuestas/'+row.uuid+'/responses/'+response,'PUT',{answers:values,reason:data.reason,revision:saved.revision});
 			else await app.api('operations/encuestas/'+row.uuid+'/answer','POST',{...data,answers:values,person:person.values(),response:response || '',draft:draft.checked ? 1 : 0});
 			app.node('operation-settings-dialog').close();app.notice(correct ? 'Corrección registrada con historial.' : draft.checked ? 'Borrador guardado.' : 'Respuesta enviada.');
+			await app.afterSurveySaved?.();
 		},correct ? 'Guardar corrección' : 'Guardar respuesta');
-		if(!correct)person=await app.personPicker(form,'Persona encuestada','aplicar',false,saved?.person ? [{uuid:saved.person,label:saved.person_name}] : [],true,'encuestas');
+		if(!correct)person=await app.personPicker(form,'Persona encuestada','aplicar',false,saved?.person ? [{uuid:saved.person,label:saved.person_name}] : (app.initialPerson || []),true,'encuestas');
 		function conditions() { row.questions.forEach(question=>{const item=answers[question.key];const when=question.config.when;if(!when)return;const previous=answers[when.question]?.control;const values=previous?.multiple ? Array.from(previous.selectedOptions).map(option=>option.value) : [previous?.value];const expected=typeof when.equals==='boolean' ? when.equals ? '1' : '0' : String(when.equals);const visible=values.includes(expected);item.control.disabled=!visible;item.holder.hidden=!visible;item.holder.querySelectorAll('[data-scale-option]').forEach(input=>input.disabled=!visible);}); }
 		form.addEventListener('change',conditions);conditions();if(draft)draft.addEventListener('change',()=>Object.values(answers).forEach(item=>{item.control.required=!draft.checked && !!Number(item.question.required);item.holder.querySelectorAll('[data-scale-option]').forEach(input=>input.required=item.control.required);}));app.node('operation-settings-dialog').showModal();
 	}
+	window.SicratOperations.answerSurvey = answer;
 	definitions.conversaciones.detail=async(app,row,summary,actions)=> {
 		const header=app.text('div','','ux-chat-title'),heading=app.text('div','','ux-chat-title-text');heading.append(app.text('h6',row.title),app.text('p',(row.announcements ? 'Anuncios · ' : '')+(row.automatic ? 'Grupo de estructura' : 'Conversación')+' · '+app.label(row.state),'ux-help'));header.append(heading);summary.append(header);
 		const messages=app.text('div','','ux-section');summary.append(messages);const filters=app.text('form','','ux-inline-form');const search=app.field(filters,'search','Buscar mensajes','search');app.chatSearch=search;const searchButton=app.text('button','Buscar','btn');filters.append(searchButton);messages.before(filters);

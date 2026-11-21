@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Operations;
 
+use App\Core\Auth;
 use App\Core\HttpError;
 use App\Repositories\ScopeRepository;
 use App\Services\Common\Values;
@@ -11,6 +12,36 @@ use App\Services\Common\Values;
 class OptionsService extends BaseService
 {
 	protected function entity(): string { return 'interacciones'; }
+
+	public function personActions(string $uuid): array
+	{
+		$actor = $this->context->actor();
+		$process = Auth::processId();
+		if ($process === null) return ['actions'=>[]];
+
+		$person = $this->context->person($uuid,'personas.ver',$process,false,$actor);
+		$actions = [];
+		if ($person['participation'] !== null) {
+			foreach (['interacciones','peticiones','incidencias','tareas','metas','encuestas'] as $entity) {
+				$permission = $entity.($entity==='encuestas' ? '.aplicar' : '.crear');
+				try {
+					$this->context->require($entity,$process,$permission,$actor);
+					$this->context->person((int) $person['id'],$permission,$process,true,$actor);
+					$actions[] = $entity;
+				} catch (HttpError $error) {
+					if (!in_array($error->statusCode,[403,404,422],true)) throw $error;
+				}
+			}
+		}
+		return [
+			'actions'=>$actions,
+			'person'=>[
+				'uuid'=>Values::uuidText($person['uuid']),
+				'codigo_persona'=>$person['codigo_persona'],
+				'nombre'=>trim(implode(' ',array_filter([$person['nombre'],$person['paterno'],$person['materno']]))),
+			],
+		];
+	}
 	public function people(string $entity,array $filters): array
 	{
 		$definition=Catalog::entity($entity); $process=$this->context->process($filters['process'] ?? null);

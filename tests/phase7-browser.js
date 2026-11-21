@@ -73,6 +73,13 @@ module.exports=async function({base,directory,call,evaluate,waitFor,navigate,pau
     await login('administrador',' nueva contraseña ',fixtures.election_b);await size(390,844);
     await evaluate('document.getElementById("jornada-tab-booths").click()');await waitFor('document.querySelector("#jornada-booth-list table button")');await evaluate('document.querySelector("#jornada-booth-list table button").click()');await waitFor('document.querySelector("#jornada-booth-content table button")');await evaluate('document.querySelector("#jornada-booth-content table button").click()');await waitFor('document.querySelector("#jornada-version-content img")?.naturalWidth>0');verify(true,'Fotografía obligatoria visible con acceso autorizado');await screenshot('private-acta-mobile');
     checks += await require('./jornada-interface-browser.js')({ directory, call, evaluate, waitFor, navigate, pause });
+    await login('administrador',' nueva contraseña ');
+    const review=require('./table-headings-browser.js').review;
+    for (const [route,name,table] of [['/sections/','secciones','#table-sections'],['/polling-booth/','casillas','#booths-list table']]) {
+        await navigate(route);
+        await waitFor('document.querySelector('+JSON.stringify(table+' th.ux-table-actions')+')');
+        checks+=await review({call,evaluate,waitFor,directory},name,table);
+    }
 
     console.log(`Fase 7 Chrome: ${checks} comprobaciones correctas.`);return checks;
 };
